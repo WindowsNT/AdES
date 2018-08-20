@@ -1,0 +1,321 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AdministrationDomainName.c" />
+    <ClCompile Include="AlgorithmIdentifier.c" />
+    <ClCompile Include="AttributeType.c" />
+    <ClCompile Include="AttributeTypeAndValue.c" />
+    <ClCompile Include="AttributeValue.c" />
+    <ClCompile Include="BuiltInDomainDefinedAttribute.c" />
+    <ClCompile Include="BuiltInDomainDefinedAttributes.c" />
+    <ClCompile Include="BuiltInStandardAttributes.c" />
+    <ClCompile Include="CertificateSerialNumber.c" />
+    <ClCompile Include="CertPolicyId.c" />
+    <ClCompile Include="CountryName.c" />
+    <ClCompile Include="DirectoryString.c" />
+    <ClCompile Include="EDIPartyName.c" />
+    <ClCompile Include="ESSCertIDv2.c" />
+    <ClCompile Include="ExtensionAttribute.c" />
+    <ClCompile Include="ExtensionAttributes.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ANY.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\asn_codecs_prim.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\asn_SEQUENCE_OF.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\asn_SET_OF.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ber_decoder.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ber_tlv_length.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ber_tlv_tag.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\BIT_STRING.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\BMPString.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\BOOLEAN.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constraints.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_CHOICE.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_SEQUENCE.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_SEQUENCE_OF.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_SET.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_SET_OF.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_TYPE.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\der_encoder.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ENUMERATED.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\GeneralizedTime.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\GeneralString.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\GraphicString.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\IA5String.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\INTEGER.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ISO646String.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\NativeEnumerated.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\NativeInteger.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\NativeReal.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\NULL.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\NumericString.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ObjectDescriptor.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\OBJECT_IDENTIFIER.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\OCTET_STRING.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\per_decoder.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\per_encoder.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\per_support.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\PrintableString.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\REAL.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\RELATIVE-OID.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\T61String.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\TeletexString.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\UniversalString.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\UTCTime.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\UTF8String.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\VideotexString.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\VisibleString.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\xer_decoder.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\xer_encoder.c" />
+    <ClCompile Include="G:\PROGS\asn1\skeletons\xer_support.c" />
+    <ClCompile Include="GeneralName.c" />
+    <ClCompile Include="GeneralNames.c" />
+    <ClCompile Include="Hash.c" />
+    <ClCompile Include="IssuerSerial.c" />
+    <ClCompile Include="library.cpp" />
+    <ClCompile Include="Name.c" />
+    <ClCompile Include="NetworkAddress.c" />
+    <ClCompile Include="NumericUserIdentifier.c" />
+    <ClCompile Include="ORAddress.c" />
+    <ClCompile Include="OrganizationalUnitName.c" />
+    <ClCompile Include="OrganizationalUnitNames.c" />
+    <ClCompile Include="OrganizationName.c" />
+    <ClCompile Include="OtherHashAlgAndValue.c" />
+    <ClCompile Include="OtherHashValue.c" />
+    <ClCompile Include="OtherName.c" />
+    <ClCompile Include="PersonalName.c" />
+    <ClCompile Include="PolicyInformation.c" />
+    <ClCompile Include="PolicyQualifierId.c" />
+    <ClCompile Include="PolicyQualifierInfo.c" />
+    <ClCompile Include="PrivateDomainName.c" />
+    <ClCompile Include="RDNSequence.c" />
+    <ClCompile Include="RelativeDistinguishedName.c" />
+    <ClCompile Include="SignaturePolicy.c" />
+    <ClCompile Include="SignaturePolicyId.c" />
+    <ClCompile Include="SignaturePolicyImplied.c" />
+    <ClCompile Include="SigningCertificateV2.c" />
+    <ClCompile Include="SigPolicyHash.c" />
+    <ClCompile Include="SigPolicyId.c" />
+    <ClCompile Include="SigPolicyQualifierId.c" />
+    <ClCompile Include="SigPolicyQualifierInfo.c" />
+    <ClCompile Include="TerminalIdentifier.c" />
+    <ClCompile Include="X121Address.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="cades.asn1">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">.\asn1\asn1c.exe cades.asn1</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">.\asn1\asn1c.exe cades.asn1</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.\asn1\asn1c.exe cades.asn1</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.\asn1\asn1c.exe cades.asn1</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">SigningCertificateV2.c</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">SigningCertificateV2.c</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">SigningCertificateV2.c</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">SigningCertificateV2.c</Outputs>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AdES.hpp" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{0092d93a-dcd2-440d-90fb-5320f717d7e0}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>AdES</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>.\</OutDir>
+    <IntDir>.\</IntDir>
+    <ExtensionsToDeleteOnClean>*.cdf;*.cache;*.obj;*.ilk;*.resources;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;*.meta;*.tlog;*.res;*.pch;*.exp;*.idb;*.rep;*.xdc;*.pdb;*_manifest.rc;*.bsc;*.sbr;*.metagen;*.bi</ExtensionsToDeleteOnClean>
+    <GenerateManifest>true</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>.\</OutDir>
+    <IntDir>.\</IntDir>
+    <ExtensionsToDeleteOnClean>*.cdf;*.cache;*.obj;*.ilk;*.resources;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;*.meta;*.tlog;*.res;*.pch;*.exp;*.idb;*.rep;*.xdc;*.pdb;*_manifest.rc;*.bsc;*.sbr;*.metagen;*.bi</ExtensionsToDeleteOnClean>
+    <GenerateManifest>true</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>.\</OutDir>
+    <IntDir>.\</IntDir>
+    <ExtensionsToDeleteOnClean>*.cdf;*.cache;*.obj;*.ilk;*.resources;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;*.meta;*.tlog;*.res;*.pch;*.exp;*.idb;*.rep;*.xdc;*.pdb;*_manifest.rc;*.bsc;*.sbr;*.metagen;*.bi</ExtensionsToDeleteOnClean>
+    <GenerateManifest>true</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>.\</OutDir>
+    <IntDir>.\</IntDir>
+    <ExtensionsToDeleteOnClean>*.cdf;*.cache;*.obj;*.ilk;*.resources;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;*.meta;*.tlog;*.res;*.pch;*.exp;*.idb;*.rep;*.xdc;*.pdb;*_manifest.rc;*.bsc;*.sbr;*.metagen;*.bi</ExtensionsToDeleteOnClean>
+    <GenerateManifest>true</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ExceptionHandling>Async</ExceptionHandling>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>.\asn1\skeletons</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <LargeAddressAware>true</LargeAddressAware>
+    </Link>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_X86_;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ExceptionHandling>Async</ExceptionHandling>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>.\asn1\skeletons</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <LargeAddressAware>true</LargeAddressAware>
+    </Link>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_X64_;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ExceptionHandling>Async</ExceptionHandling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>.\asn1\skeletons</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <LargeAddressAware>true</LargeAddressAware>
+    </Link>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_X86_;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ExceptionHandling>Async</ExceptionHandling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>.\asn1\skeletons</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <LargeAddressAware>true</LargeAddressAware>
+    </Link>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_X64_;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

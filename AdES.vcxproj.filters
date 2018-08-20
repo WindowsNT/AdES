@@ -1,0 +1,308 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="library.cpp" />
+    <ClCompile Include="AdministrationDomainName.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="AlgorithmIdentifier.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="AttributeType.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="AttributeTypeAndValue.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="AttributeValue.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="BuiltInDomainDefinedAttribute.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="BuiltInDomainDefinedAttributes.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="BuiltInStandardAttributes.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CertificateSerialNumber.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CertPolicyId.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CountryName.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="DirectoryString.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="EDIPartyName.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="ESSCertIDv2.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="ExtensionAttribute.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="ExtensionAttributes.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneralName.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneralNames.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="Hash.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="IssuerSerial.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="Name.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="NetworkAddress.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="NumericUserIdentifier.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="ORAddress.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OrganizationalUnitName.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OrganizationalUnitNames.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OrganizationName.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OtherName.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="PersonalName.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="PolicyInformation.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="PolicyQualifierId.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="PolicyQualifierInfo.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="PrivateDomainName.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="RDNSequence.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="RelativeDistinguishedName.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SigningCertificateV2.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="TerminalIdentifier.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="X121Address.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ANY.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\asn_codecs_prim.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\asn_SEQUENCE_OF.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\asn_SET_OF.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ber_decoder.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ber_tlv_length.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ber_tlv_tag.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\BIT_STRING.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\BMPString.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\BOOLEAN.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_CHOICE.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_SEQUENCE.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_SEQUENCE_OF.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_SET.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_SET_OF.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constr_TYPE.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\constraints.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\der_encoder.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ENUMERATED.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\GeneralizedTime.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\GeneralString.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\GraphicString.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\IA5String.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\INTEGER.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ISO646String.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\NativeEnumerated.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\NativeInteger.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\NativeReal.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\NULL.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\NumericString.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\OBJECT_IDENTIFIER.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\ObjectDescriptor.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\OCTET_STRING.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\per_decoder.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\per_encoder.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\per_support.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\PrintableString.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\REAL.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\RELATIVE-OID.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\T61String.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\TeletexString.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\UniversalString.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\UTCTime.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\UTF8String.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\VideotexString.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\VisibleString.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\xer_decoder.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\xer_encoder.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="G:\PROGS\asn1\skeletons\xer_support.c">
+      <Filter>Skeleton</Filter>
+    </ClCompile>
+    <ClCompile Include="OtherHashAlgAndValue.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OtherHashValue.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SignaturePolicy.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SignaturePolicyId.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SignaturePolicyImplied.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SigPolicyHash.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SigPolicyId.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SigPolicyQualifierId.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SigPolicyQualifierInfo.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="cades.asn1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="ASNC">
+      <UniqueIdentifier>{ea3eb388-5376-42b3-9387-f1333fc502c6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Skeleton">
+      <UniqueIdentifier>{85dfd83b-28fa-4870-8d72-4dd7a2c54868}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AdES.hpp" />
+  </ItemGroup>
+</Project>

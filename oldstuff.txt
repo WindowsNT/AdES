@@ -1,0 +1,477 @@
+ce XML3;
+
+/*
+
+	// Crypto
+#ifdef _WIN32
+
+	inline HRESULT XMLElement::Verify()
+	{
+		string ser = Serialize(false,0,false,true);
+		CRYPT_XML_BLOB   Encoded = { CRYPT_XML_CHARSET_UTF8, 0, NULL };
+		Encoded.pbData = (BYTE*)ser.c_str();
+		Encoded.cbData = ser.length();
+		HCRYPTXML hDoc = 0;
+		const CRYPT_XML_DOC_CTXT  *pDoc = NULL;
+		auto hr = CryptXmlOpenToDecode(0, 0, 0, 0, &Encoded, &hDoc);
+		if (FAILED(hr))
+			return hr;
+
+		hr = CryptXmlGetDocContext(hDoc,&pDoc);
+		if (FAILED(hr))
+		{
+			CryptXmlClose(hDoc);
+			return hr;
+		}
+
+		if (pDoc->cSignature < 1)
+		{
+			hr = S_FALSE;
+			CryptXmlClose(hDoc);
+			return hr;
+		}
+
+		BCRYPT_KEY_HANDLE   hKeyAlloc = NULL;   // BCryptDestroyKey
+		PCCERT_CONTEXT      pCert = NULL;
+		BCRYPT_KEY_HANDLE   hKey = NULL;
+		for (ULONG i = 0; i < pDoc->cSignature; i++)
+		{
+			hKey = NULL;
+			if (NULL != hKeyAlloc)
+			{
+				BCryptDestroyKey(hKeyAlloc);
+				hKeyAlloc = NULL;
+			}
+
+			//
+			// Find Signer's certificate
+			//
+
+			for (ULONG ki = 0; ki < pDoc->rgpSignature[i]->pKeyInfo->cKeyInfo && NULL == hKey; ki++)
+			{
+				if (CRYPT_XML_KEYINFO_TYPE_X509DATA == pDoc->rgpSignature[i]->pKeyInfo->rgKeyInfo[ki].dwType)
+				{
+					for (ULONG x = 0; x < pDoc->rgpSignature[i]->pKeyInfo->rgKeyInfo[ki].X509Data.cX509Data; x++)
+					{
+						CRYPT_XML_X509DATA_ITEM *pX = &pDoc->rgpSignature[i]->pKeyInfo->rgKeyInfo[ki].X509Data.rgX509Data[x];
+						if (CRYPT_XML_X509DATA_TYPE_CERTIFICATE == pX->dwType)
+						{
+							pCert = CertCreateCertificateContext(X509_ASN_ENCODING, pX->Certificate.pbData, pX->Certificate.cbData);
+							if (NULL != pCert)
+							{
+								if (CryptImportPublicKeyInfoEx2(X509_ASN_ENCODING, &pCert->pCertInfo->SubjectPublicKeyInfo, CRYPT_OID_INFO_PUBKEY_SIGN_KEY_FLAG, NULL, &hKeyAlloc))
+								{
+									hKey = hKeyAlloc;
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (NULL == hKey)
+			{
+				hr = CRYPT_XML_E_SIGNER;
+				if (NULL != hKeyAlloc)
+				{
+					BCryptDestroyKey(hKeyAlloc);
+					hKeyAlloc = NULL;
+				}
+				CryptXmlClose(hDoc);
+				return hr;
+			}
+
+			hr = CryptXmlVerifySignature(
+				pDoc->rgpSignature[i]->hSignature,
+				hKey,
+				0
+			);
+
+			if (NULL != hKeyAlloc)
+				BCryptDestroyKey(hKeyAlloc);
+			if (FAILED(hr))
+				break;
+		}
+		CryptXmlClose(hDoc);
+		return hr;
+	}
+
+	inline HRESULT XMLElement::Sign(vector<PCCERT_CONTEXT> certs,const wchar_t* algo, const LPCWSTR sl)
+	{
+		if (certs.empty())
+			return E_INVALIDARG;
+
+		// Location
+		CRYPT_XML_ALGORITHM xmlAlg_SignatureMethod = {	sizeof(CRYPT_XML_ALGORITHM),(LPWSTR)wszURI_XMLNS_DIGSIG_RSA_SHA256,	CRYPT_XML_CHARSET_AUTO,	0,NULL};
+		CRYPT_XML_ALGORITHM xmlAlg_CanonicalizationMethod = {sizeof(CRYPT_XML_ALGORITHM),(LPWSTR)wszURI_CANONICALIZATION_EXSLUSIVE_C14N,CRYPT_XML_CHARSET_AUTO,0,NULL};
+		
+		auto pAlgInfo = CryptXmlFindAlgorithmInfo(	CRYPT_XML_ALGORITHM_INFO_FIND_BY_CNG_ALGID,	algo,CRYPT_XML_GROUP_ID_HASH,0);
+		if (NULL == pAlgInfo)
+			return E_INVALIDARG;
+		CRYPT_XML_ALGORITHM xmlAlg_DigestMethod = {	sizeof(CRYPT_XML_ALGORITHM),NULL,CRYPT_XML_CHARSET_AUTO,0,NULL};
+
+		xmlAlg_DigestMethod.wszAlgorithm = pAlgInfo->wszAlgorithmURI;
+		
+		// OID info
+		PCCRYPT_OID_INFO pOIDInfo = CryptFindOIDInfo(CRYPT_OID_INFO_OID_KEY,certs[0]->pCertInfo->SubjectPublicKeyInfo.Algorithm.pszObjId,CRYPT_PUBKEY_ALG_OID_GROUP_ID);
+		if (NULL == pOIDInfo || NULL == pOIDInfo->pwszCNGAlgid)
+			return CRYPT_XML_E_ALGORITHM;
+
+		// Algo info
+		LPCWSTR pwszCNGAlgid[2] = { 0 };
+		pwszCNGAlgid[0] = algo;
+		pwszCNGAlgid[1] = pOIDInfo->pwszCNGAlgid;
+
+		pAlgInfo = CryptXmlFindAlgorithmInfo(	CRYPT_XML_ALGORITHM_INFO_FIND_BY_CNG_SIGN_ALGID,pwszCNGAlgid,CRYPT_XML_GROUP_ID_SIGN,0);
+		if (NULL == pAlgInfo)
+			return CRYPT_XML_E_ALGORITHM;
+
+
+		CRYPT_XML_PROPERTY  Properties[] = {{CRYPT_XML_PROPERTY_SIGNATURE_LOCATION,NULL,	sizeof(LPCWSTR)},};
+		ULONG   cProperties = 0;
+
+		if (sl)
+		{
+			// The <Signature> element will be added into this location
+			Properties[0].pvValue = &sl;
+			cProperties++;
+		}
+
+		// Open
+		string ser = Serialize(false, 0, false, true);
+		CRYPT_XML_BLOB   Encoded = { CRYPT_XML_CHARSET_UTF8, 0, NULL };
+		Encoded.pbData = (BYTE*)ser.c_str();
+		Encoded.cbData = ser.length();
+		HCRYPTXML hSig = 0;
+		auto hr = CryptXmlOpenToEncode(0,0,0,Properties,cProperties,&Encoded,&hSig);
+		if (FAILED(hr))
+			return hr;
+
+
+		CRYPT_XML_ALGORITHM xmlAlg_Enveloped = {sizeof(CRYPT_XML_ALGORITHM),wszURI_XMLNS_TRANSFORM_ENVELOPED,CRYPT_XML_CHARSET_AUTO,0,NULL};
+		auto cTransform = 1;
+		auto pTransform = &xmlAlg_Enveloped;
+		HCRYPTXML hRef = 0;
+		hr = CryptXmlCreateReference(hSig,0,0,L"",NULL,&xmlAlg_DigestMethod,cTransform,pTransform,&hRef);
+		if (FAILED(hr))
+		{
+			CryptXmlClose(hSig);
+			return hr;
+		}
+
+		CRYPT_XML_STATUS Status;
+		hr = CryptXmlGetStatus(hRef, &Status);
+		if (FAILED(hr))
+		{
+			CryptXmlClose(hRef);
+			CryptXmlClose(hSig);
+			return hr;
+		}
+
+		// Sign
+		//
+		DWORD   dwSignFlags = 0;
+		CRYPT_XML_KEYINFO_PARAM KeyInfoParam = { 0 };
+		KeyInfoParam.cCertificate = certs.size();
+
+		vector<CERT_BLOB>  rgCertificate(certs.size());
+		for (size_t i = 0 ; i < certs.size() ; i++)
+		{
+			auto& cc = certs[i];
+			rgCertificate[i].pbData = cc->pbCertEncoded;
+			rgCertificate[i].cbData = cc->cbCertEncoded;
+		}
+
+		KeyInfoParam.cCertificate = certs.size();
+		KeyInfoParam.rgCertificate = rgCertificate.data();
+
+		// dwSignFlags |= CRYPT_XML_SIGN_ADD_KEYVALUE;
+
+		HCRYPTPROV_OR_NCRYPT_KEY_HANDLE hCryptProvOrNCryptKey;
+		DWORD dwKeySpec;
+		BOOL fCallerFreeProvOrNCryptKey = FALSE;
+
+		if (!CryptAcquireCertificatePrivateKey(certs[0],CRYPT_ACQUIRE_CACHE_FLAG,NULL,&hCryptProvOrNCryptKey,&dwKeySpec,&fCallerFreeProvOrNCryptKey))
+		{
+			CryptXmlClose(hRef);
+			CryptXmlClose(hSig);
+			return E_FAIL;
+		}
+
+
+		hr = CryptXmlSign(hSig,hCryptProvOrNCryptKey,dwKeySpec,dwSignFlags,CRYPT_XML_KEYINFO_SPEC_PARAM,&KeyInfoParam,&xmlAlg_SignatureMethod,&xmlAlg_CanonicalizationMethod);
+		if (FAILED(hr))
+		{
+			CryptXmlClose(hRef);
+			CryptXmlClose(hSig);
+			if (fCallerFreeProvOrNCryptKey)
+			{
+				if (dwKeySpec == CERT_NCRYPT_KEY_SPEC)
+					NCryptFreeObject(hCryptProvOrNCryptKey);
+				else
+					CryptReleaseContext(hCryptProvOrNCryptKey,0);
+			}
+			return hr;
+		}
+
+		static BOOL fTRUE = TRUE;
+		CRYPT_XML_PROPERTY rgEncodeProperty[] = {{CRYPT_XML_PROPERTY_DOC_DECLARATION,&fTRUE,sizeof(fTRUE)},};
+
+		string zs;
+		hr = CryptXmlEncode(hSig,CRYPT_XML_CHARSET_UTF8,rgEncodeProperty,ARRAYSIZE(rgEncodeProperty),(void*)&zs,
+			[](void* pvCallbackState,const BYTE* pbData,ULONG cbData) -> HRESULT
+			{
+				string* d = (string*)pvCallbackState;
+				if (pbData && cbData)
+				{
+					d->append((const char*)pbData, cbData);
+				}
+			return S_OK;
+			});
+		
+		CryptXmlClose(hRef);
+		CryptXmlClose(hSig);
+		if (fCallerFreeProvOrNCryptKey)
+		{
+			if (dwKeySpec == CERT_NCRYPT_KEY_SPEC)
+				NCryptFreeObject(hCryptProvOrNCryptKey);
+			else
+				CryptReleaseContext(hCryptProvOrNCryptKey, 0);
+		}
+
+		if (SUCCEEDED(hr))
+			operator =(zs.c_str());
+
+		return hr;
+	}
+
+
+#pragma comment(lib,"cryptxml.lib")
+#pragma comment(lib,"bcrypt.lib")
+#pragma comment(lib,"ncrypt.lib")
+	inline string XMLElement::Encrypt(const char* d, ULONG l)
+		{
+		BCRYPT_ALG_HANDLE h = 0;
+		auto r = BCryptOpenAlgorithmProvider(&h, BCRYPT_AES_ALGORITHM, MS_PRIMITIVE_PROVIDER, 0);
+		if (h)
+			{
+			BCRYPT_KEY_HANDLE k = 0;
+			r = BCryptGenerateSymmetricKey(h, &k,0,0,(PUCHAR)d,l,0 );
+			if (k)
+				{
+				//STATUS_BUFFER_TOO_SMALL;
+				BCryptDestroyKey(k);
+				}
+
+
+			BCryptCloseAlgorithmProvider(h,0);
+			}
+		return "";
+		}
+#endif
+
+*/
+
+	HRESULT Sign(XLEVEL lev, const char* xmldata, PCCERT_CONTEXT Cert, const std::vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params, std::vector<char>& Signature,LPWSTR alg = wszURI_XMLNS_DIGSIG_RSA_SHA256,LPWSTR alg2 = L"sha256");
+
+	
+	
+HRESULT AdES::Sign(XLEVEL lev, const char* xmldata, PCCERT_CONTEXT Cert, const std::vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params, std::vector<char>& Signature, LPWSTR alg,LPWSTR cngalg)
+{
+	HRESULT hr = E_FAIL;
+	if (Cert && xmldata)
+	{
+		XML3::XMLElement x = xmldata;
+
+		// Location
+		CRYPT_XML_ALGORITHM xmlAlg_SignatureMethod = { sizeof(CRYPT_XML_ALGORITHM),alg,	CRYPT_XML_CHARSET_AUTO,	0,NULL };
+		CRYPT_XML_ALGORITHM xmlAlg_CanonicalizationMethod = { sizeof(CRYPT_XML_ALGORITHM),(LPWSTR)wszURI_CANONICALIZATION_C14N,CRYPT_XML_CHARSET_AUTO,0,NULL };
+
+		auto pAlgInfo = CryptXmlFindAlgorithmInfo(CRYPT_XML_ALGORITHM_INFO_FIND_BY_NAME, cngalg, CRYPT_XML_GROUP_ID_HASH, 0);
+		if (pAlgInfo)
+		{
+			CRYPT_XML_ALGORITHM xmlAlg_DigestMethod = { sizeof(CRYPT_XML_ALGORITHM),NULL,CRYPT_XML_CHARSET_AUTO,0,NULL };
+			xmlAlg_DigestMethod.wszAlgorithm = pAlgInfo->wszAlgorithmURI;
+
+			// OID info
+			PCCRYPT_OID_INFO pOIDInfo = CryptFindOIDInfo(CRYPT_OID_INFO_OID_KEY, Cert->pCertInfo->SubjectPublicKeyInfo.Algorithm.pszObjId, CRYPT_PUBKEY_ALG_OID_GROUP_ID);
+			if (pOIDInfo && pOIDInfo->pwszCNGAlgid)
+			{
+				// Algo info
+				LPCWSTR pwszCNGAlgid[2] = { 0 };
+				pwszCNGAlgid[0] = cngalg;
+				pwszCNGAlgid[1] = pOIDInfo->pwszCNGAlgid;
+
+				/*	pAlgInfo = CryptXmlFindAlgorithmInfo(CRYPT_XML_ALGORITHM_INFO_FIND_BY_CNG_SIGN_ALGID, pwszCNGAlgid, CRYPT_XML_GROUP_ID_SIGN, 0);
+					if (NULL == pAlgInfo)
+						return CRYPT_XML_E_ALGORITHM;
+				*/
+				// Open
+				CRYPT_XML_PROPERTY  Properties[] = { { CRYPT_XML_PROPERTY_SIGNATURE_LOCATION,NULL,	sizeof(LPCWSTR) }, };
+				ULONG   cProperties = 1;
+				XML3::XMLU u(x.GetElementName().c_str());
+				wstring lwx = L"/";
+				lwx += u.wc();
+				LPCWSTR lww = lwx.c_str();
+				Properties[0].pvValue = &lww;
+
+				string ser = xmldata;
+				CRYPT_XML_BLOB   Encoded = { CRYPT_XML_CHARSET_UTF8, 0, NULL };
+				Encoded.pbData = (BYTE*)ser.c_str();
+				Encoded.cbData = (DWORD)ser.length();
+				HCRYPTXML hSig = 0;
+				hr = CryptXmlOpenToEncode(0, 0, 0, Properties, cProperties, &Encoded, &hSig);
+				if (SUCCEEDED(hr))
+				{
+					CRYPT_XML_ALGORITHM xmlAlg_Enveloped = { sizeof(CRYPT_XML_ALGORITHM),wszURI_XMLNS_TRANSFORM_ENVELOPED,CRYPT_XML_CHARSET_AUTO,0,NULL };
+					auto cTransform = 1;
+					auto pTransform = &xmlAlg_Enveloped;
+					HCRYPTXML hRef = 0;
+					hr = CryptXmlCreateReference(hSig, 0, 0, L"", NULL, &xmlAlg_DigestMethod, cTransform, pTransform, &hRef);
+					if (SUCCEEDED(hr))
+					{
+/*
+						CRYPT_XML_STATUS Status;
+						hr = CryptXmlGetStatus(hRef, &Status);
+						if (FAILED(hr))
+						{
+							CryptXmlClose(hRef);
+							CryptXmlClose(hSig);
+							return hr;
+						}
+*/
+						// Sign
+						//
+						DWORD   dwSignFlags = 0;
+						CRYPT_XML_KEYINFO_PARAM KeyInfoParam = { 0 };
+						KeyInfoParam.cCertificate = 1;
+
+						CERT_BLOB  rgCertificate;
+						rgCertificate.pbData = Cert->pbCertEncoded;
+						rgCertificate.cbData = Cert->cbCertEncoded;
+
+
+						KeyInfoParam.cCertificate = 1;
+						KeyInfoParam.rgCertificate = &rgCertificate;
+
+						// dwSignFlags |= CRYPT_XML_SIGN_ADD_KEYVALUE;
+
+						HCRYPTPROV_OR_NCRYPT_KEY_HANDLE hCryptProvOrNCryptKey = 0;
+						DWORD dwKeySpec = 0;
+						BOOL fCallerFreeProvOrNCryptKey = FALSE;
+						hr = E_FAIL;
+						if (CryptAcquireCertificatePrivateKey(Cert, 0, NULL, &hCryptProvOrNCryptKey, &dwKeySpec, &fCallerFreeProvOrNCryptKey))
+						{
+							hr = CryptXmlSign(hSig, hCryptProvOrNCryptKey, dwKeySpec, dwSignFlags, CRYPT_XML_KEYINFO_SPEC_PARAM, &KeyInfoParam, &xmlAlg_SignatureMethod, &xmlAlg_CanonicalizationMethod);
+							if (SUCCEEDED(hr))
+							{
+								static BOOL fTRUE = TRUE;
+								CRYPT_XML_PROPERTY rgEncodeProperty[] = { { CRYPT_XML_PROPERTY_DOC_DECLARATION,&fTRUE,sizeof(fTRUE) }, };
+								string zs;
+								hr = CryptXmlEncode(hSig, CRYPT_XML_CHARSET_UTF8, rgEncodeProperty, ARRAYSIZE(rgEncodeProperty), (void*)&zs,
+									[](void* pvCallbackState, const BYTE* pbData, ULONG cbData) -> HRESULT
+								{
+									string* d = (string*)pvCallbackState;
+									if (pbData && cbData)
+									{
+										d->append((const char*)pbData, cbData);
+									}
+									return S_OK;
+								});
+								if (SUCCEEDED(hr))
+								{
+									Signature.resize(zs.length());
+									memcpy(Signature.data(), zs.c_str(), zs.length());
+								}
+							}
+							if (fCallerFreeProvOrNCryptKey)
+							{
+								if (dwKeySpec == CERT_NCRYPT_KEY_SPEC)
+									NCryptFreeObject(hCryptProvOrNCryptKey);
+								else
+									CryptReleaseContext(hCryptProvOrNCryptKey, 0);
+							}
+						}
+						CryptXmlClose(hRef);
+					}
+					CryptXmlClose(hSig);
+				}
+			}
+		}
+	}
+	return hr;
+}
+
+
+
+// XML
+	vector<char> xx;
+	LoadFile(L"f:\\tools\\ades\\1.xml", xx);
+	xx.resize(xx.size() + 1);
+	XML3::XMLElement e = xx.data();
+	Sig.clear();
+
+	PutFile(L"f:\\tools\\AdES\\3.xml", Sig);
+	
+
+		else
+	{
+		for (int i = 1;; i++)
+		{
+			wstring fil = L"..\\";
+			fil += 0x30 + i;
+			fil += L".pfx";
+			vector<char> pfx;
+			LoadFile(fil.c_str(), pfx);
+			if (pfx.size() == 0)
+				break;
+			CRYPT_DATA_BLOB  cdb;
+			cdb.pbData = (BYTE*)pfx.data();
+			cdb.cbData = pfx.size();
+			auto hStore = PFXImportCertStore(&cdb, L"12345678", CRYPT_EXPORTABLE | PKCS12_ALLOW_OVERWRITE_KEY);
+			if (!hStore)
+				return 0;
+			auto cert = CertEnumCertificatesInStore(hStore, 0);
+			Certs.push_back(cert);
+			// Ánd all the chain
+			PCCERT_CHAIN_CONTEXT CC = 0;
+			CERT_CHAIN_PARA CCP = { 0 };
+			CCP.cbSize = sizeof(CCP);
+			CCP.RequestedUsage.dwType = USAGE_MATCH_TYPE_AND;
+			CERT_ENHKEY_USAGE        EnhkeyUsage = { 0 };
+			CCP.RequestedUsage.Usage = EnhkeyUsage;
+			CertGetCertificateChain(0, cert, 0, 0, &CCP, 0, 0, &CC);
+			if (CC)
+			{
+				for (DWORD i = 0; i < CC->cChain; i++)
+				{
+					PCERT_SIMPLE_CHAIN ccc = CC->rgpChain[i];
+					for (DWORD ii = 0; ii < ccc->cElement; ii++)
+					{
+						PCERT_CHAIN_ELEMENT el = ccc->rgpElement[ii];
+
+						// Dup check
+						bool D = false;
+						for (auto& ec : Certs)
+						{
+							if (CertCompareCertificate(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, ec->pCertInfo, el->pCertContext->pCertInfo))
+							{
+								D = true;
+							}
+						}
+						for (auto& ec : More)
+						{
+							if (CertCompareCertificate(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, ec->pCertInfo, el->pCertContext->pCertInfo))
+							{
+								D = true;
+							}
+						}
+						if (!D)
+							More.push_back(el->pCertContext);
+					}
+				}
+			}
+		}
+	}
+
