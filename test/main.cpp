@@ -132,7 +132,6 @@ int main()
 	AdES::CLEVEL lev;
 	vector<PCCERT_CONTEXT> CV;
 	vector<char> dmsg;
-	MessageBox(0, 0, 0, 0);
 	vector<string> polx;
 	auto hr2 = a.Verify(Sig.data(),(DWORD)Sig.size(), lev,0,0,&dmsg,&CV,&polx);
 	// Free Certificates in Production Code...
