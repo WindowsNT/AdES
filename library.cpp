@@ -40,6 +40,68 @@ public:
 		}
 	}
 
+	std::string dec(char* d, int nBinary)
+	{
+		std::string s;
+		char fOut[100] = { 0 };
+		auto pb = d;
+		int nn = 0;
+		int ll = 0;
+		int fOK = 0;
+		while (nn < nBinary)
+		{
+			if (nn == 0)
+			{
+				unsigned char cl = ((*pb & 0xC0) >> 6) & 0x03;
+				switch (cl)
+				{
+				}
+			}
+			else if (nn == 1)
+			{
+				if (nBinary - 2 != *pb)
+				{
+					return "";
+				}
+			}
+			else if (nn == 2)
+			{
+				sprintf_s(fOut,100,".%d.%d", *pb / 40, *pb % 40);
+				s += fOut;
+				fOK = 1;
+				ll = 0;
+			}
+			else if ((*pb & 0x80) != 0)
+			{
+				ll *= 128;
+				ll += (*pb & 0x7F);
+				fOK = 0;
+			}
+			else
+			{
+				ll *= 128;
+				ll += *pb;
+				fOK = 1;
+
+				sprintf_s(fOut,100, ".%lu", ll);
+				s += fOut;
+				ll = 0;
+			}
+
+			pb++;
+			nn++;
+		}
+
+		if (!fOK)
+		{
+			return "";
+		}
+		else
+		{
+			return s;
+		}
+	}
+
 	std::vector<unsigned char> enc( char* oid)
 	{
 		bool isRelative = false;
@@ -207,11 +269,16 @@ AdES::AdES()
 
 }
 
-HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx,bool Attached)
+HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx,bool Attached,PCCERT_CONTEXT c)
 {
 	HRESULT hr = E_FAIL;
 	bool CTFound = false;
 	bool MDFound = false;
+	bool TSFound = false;
+	bool CHFound = false;
+
+	if (!c || !data || !sz)
+		return E_FAIL;
 
 	auto hMsg = CryptMsgOpenToDecode(
 		MY_ENCODING_TYPE,   // Encoding type
@@ -247,9 +314,39 @@ HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx,bool Attached)
 						{
 							MDFound = true;
 						}
-						// 
+						if (strcmp(attr.pszObjId, "1.2.840.113549.1.9.5") == 0 && attr.cValue == 1) // Timestamp
+						{
+							vector<char> bu(10000);
+							DWORD xd = 10000;
+							if (CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, szOID_RSA_signingTime, attr.rgValue[0].pbData, attr.rgValue[0].cbData, 0, 0, (void*)bu.data(), &xd))
+							{
+								TSFound = true;
+							}
+						}
+						if (strcmp(attr.pszObjId, "1.2.840.113549.1.9.16.2.47") == 0 && attr.cValue == 1) // ESSCertificateV2
+						{
+							SigningCertificateV2* v = 0;
+							auto rval = asn_DEF_SigningCertificateV2.ber_decoder(0,
+								&asn_DEF_SigningCertificateV2,
+								(void **)&v,
+								attr.rgValue[0].pbData, attr.rgValue[0].cbData,0);
+							if (v)
+							{
+								// Check the certificate hash
+								vector<BYTE> dhash;
+								HASH hash(BCRYPT_SHA256_ALGORITHM);
+								hash.hash(c->pbCertEncoded, c->cbCertEncoded);
+								hash.get(dhash);
+								if (v->certs.list.count == 1 && v->certs.list.array[0]->certHash.size == dhash.size())
+								{
+									if (memcmp(v->certs.list.array[0]->certHash.buf, dhash.data(), dhash.size()) == 0)
+										CHFound = true;
+								}
+								asn_DEF_SigningCertificateV2.free_struct(&asn_DEF_SigningCertificateV2, v, 0);
+								v = 0;
+							}
+						}
 					}
-					__noop();
 				}
 			}
 		}
@@ -261,7 +358,7 @@ HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx,bool Attached)
 		hMsg = 0;
 	}
 
-	if (CTFound && MDFound)
+	if (CTFound && MDFound && TSFound && CHFound)
 		hr = S_OK;
 
 	return hr;
@@ -365,7 +462,7 @@ HRESULT AdES :: TimeStamp(CRYPT_TIMESTAMP_PARA params,const char* data, DWORD sz
 	return S_OK;
 }
 
-HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, DWORD len,std::vector<char>* msg,std::vector<PCCERT_CONTEXT>* Certs)
+HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, DWORD len,std::vector<char>* msg,std::vector<PCCERT_CONTEXT>* Certs, std::vector<std::string>* Policies)
 {
 	auto hr = E_FAIL;
 
@@ -406,7 +503,7 @@ HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, D
 			lev = CLEVEL::CMS;
 
 			// Check now BES
-			auto hr1 = VerifyB(data, sz, i, omsg ? false : true);
+			auto hr1 = VerifyB(data, sz, i, omsg ? false : true,c);
 			if (SUCCEEDED(hr1))
 			{
 				lev = CLEVEL::CADES_B;
@@ -418,6 +515,68 @@ HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, D
 			}
 		}
 	}
+
+	if (SUCCEEDED(hr) && Policies)
+	{
+		// Return also the policy
+		auto hMsg = CryptMsgOpenToDecode(
+			MY_ENCODING_TYPE,
+			(omsg == 0) ? 0 : CMSG_DETACHED_FLAG,
+			0,
+			0,
+			NULL,
+			NULL);
+		if (hMsg)
+		{
+			if (CryptMsgUpdate(
+				hMsg,
+				(BYTE*)data,
+				(DWORD)sz,
+				TRUE))
+			{
+				DWORD da = 0;
+				for (DWORD sidx = 0; ; sidx++)
+				{
+					if (CryptMsgGetParam(hMsg, CMSG_SIGNER_AUTH_ATTR_PARAM, sidx, 0, &da))
+					{
+						vector<char> ca;
+						ca.resize(da);
+						if (CryptMsgGetParam(hMsg, CMSG_SIGNER_AUTH_ATTR_PARAM, sidx, ca.data(), &da))
+						{
+							CRYPT_ATTRIBUTES* si = (CRYPT_ATTRIBUTES*)ca.data();
+							for (DWORD g = 0; g < si->cAttr; g++)
+							{
+								CRYPT_ATTRIBUTE& attr = si->rgAttr[g];
+								if (strcmp(attr.pszObjId, "1.2.840.113549.1.9.16.2.15") == 0 && attr.cValue == 1) // SignaturePolicyId
+								{
+									SignaturePolicyId* v = 0;
+									auto rval = asn_DEF_SignaturePolicyId.ber_decoder(0,
+										&asn_DEF_SignaturePolicyId,
+										(void **)&v,
+										attr.rgValue[0].pbData, attr.rgValue[0].cbData, 0);
+									if (v)
+									{
+										vector<char> sp(v->sigPolicyId.size + 1);
+										memcpy_s(sp.data(),v->sigPolicyId.size + 1, v->sigPolicyId.buf, v->sigPolicyId.size);
+										OID oid;
+										string sdec = oid.dec(sp.data(), v->sigPolicyId.size);
+										Policies->push_back(sdec);
+										asn_DEF_SignaturePolicyId.free_struct(&asn_DEF_SignaturePolicyId, v, 0);
+										v = 0;
+									}
+								}
+							}
+						}
+					}
+					else
+						break;
+				}
+			}
+		CryptMsgClose(hMsg);
+		hMsg = 0;
+		}
+	}
+
 	return hr;
 }
 
