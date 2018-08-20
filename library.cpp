@@ -487,7 +487,7 @@ HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, D
 			rgpbToBeSigned[0] = (BYTE*)omsg;
 			DWORD bb[1];
 			bb[0] = len;
-			ZRS = omsg ? CryptVerifyDetachedMessageSignature(&VerifyParams, i, (BYTE*)data, (DWORD)sz, 1, rgpbToBeSigned, bb, Certs ? &c : 0) : CryptVerifyMessageSignature(&VerifyParams, i, (BYTE*)data, (DWORD)sz, (BYTE*)zud.data(), &pzud, Certs ? &c : 0);
+			ZRS = omsg ? CryptVerifyDetachedMessageSignature(&VerifyParams, i, (BYTE*)data, (DWORD)sz, 1, rgpbToBeSigned, bb, &c) : CryptVerifyMessageSignature(&VerifyParams, i, (BYTE*)data, (DWORD)sz, (BYTE*)zud.data(), &pzud, &c);
 		}
 		if (ZRS == 0)
 			break;
@@ -513,6 +513,10 @@ HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, D
 				if (SUCCEEDED(hr2))
 					lev = CLEVEL::CADES_T;
 			}
+
+			if (!Certs && c)
+				CertFreeCertificateContext(c);
+			c = 0;
 		}
 	}
 

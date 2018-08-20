@@ -1,3 +1,3 @@
 del *.c
 del *.h
-del *.lnk
+del /f *.lnk
