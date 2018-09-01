@@ -290,6 +290,69 @@
     <ClCompile Include="SigPolicyQualifierInfo.c">
       <Filter>ASNC</Filter>
     </ClCompile>
+    <ClCompile Include="CommitmentTypeIdentifier.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CommitmentTypeIndication.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CommitmentTypeQualifier.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="PostalAddress.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SignerLocation.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CompleteCertificateRefs.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OtherCertID.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OtherHash.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OtherSigningCertificate.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CompleteRevocationRefs.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CrlIdentifier.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CRLListID.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CrlOcspRef.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="CrlValidatedID.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="KeyHash.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OcspIdentifier.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OcspListID.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OcspResponsesID.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OtherRevRefs.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="OtherRevRefType.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="ResponderID.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="cades.asn1" />

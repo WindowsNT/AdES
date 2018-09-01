@@ -43,6 +43,12 @@ public:
 		const wchar_t* TSServer = L"http://timestamp.comodoca.com/";
 		std::string Policy;
 		CRYPT_TIMESTAMP_PARA tparams = { 0,TRUE,{},0,0 };
+		const char* commitmentTypeOid = 0;
+		/*
+		1.2.840.113549.1.9.16.6.1 - 6
+
+
+		*/
 	};
 
 	AdES();

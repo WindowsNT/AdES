@@ -284,4 +284,140 @@ PolicyQualifierId ::= OBJECT IDENTIFIER ( id-qt-cps | id-qt-unotice )
    SigPolicyQualifierId ::=   OBJECT IDENTIFIER
 
 
+
+    id-aa-ets-commitmentType OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+    us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) id-aa(2) 16}
+
+
+
+CommitmentTypeIndication ::= SEQUENCE {
+  commitmentTypeId CommitmentTypeIdentifier,
+  commitmentTypeQualifier SEQUENCE SIZE (1..MAX) OF
+                 CommitmentTypeQualifier OPTIONAL}
+
+CommitmentTypeIdentifier ::= OBJECT IDENTIFIER
+
+
+CommitmentTypeQualifier ::= SEQUENCE {
+   commitmentTypeIdentifier   CommitmentTypeIdentifier,
+   qualifier                  ANY DEFINED BY commitmentTypeIdentifier }
+
+
+
+id-cti-ets-proofOfOrigin OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) cti(6) 1}
+
+id-cti-ets-proofOfReceipt OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) cti(6) 2}
+
+id-cti-ets-proofOfDelivery OBJECT IDENTIFIER ::= { iso(1)
+member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16)
+cti(6) 3}
+
+id-cti-ets-proofOfSender OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) cti(6) 4}
+
+id-cti-ets-proofOfApproval OBJECT IDENTIFIER ::= { iso(1)
+member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16)
+cti(6) 5}
+
+id-cti-ets-proofOfCreation OBJECT IDENTIFIER ::= { iso(1)
+member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16)
+cti(6) 6}
+
+id-aa-ets-signerLocation OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+    us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) id-aa(2) 17}
+
+SignerLocation ::= SEQUENCE {
+   -- at least one of the following shall be present:
+      countryName    [0]    DirectoryString OPTIONAL,
+                            -- As used to name a Country in X.500
+      localityName   [1]    DirectoryString OPTIONAL,
+                            -- As used to name a locality in X.500
+      postalAdddress [2]    PostalAddress OPTIONAL }
+
+PostalAddress ::= SEQUENCE SIZE(1..6) OF DirectoryString
+
+d-aa-ets-certificateRefs OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) id-aa(2) 21}
+
+CompleteCertificateRefs ::=  SEQUENCE OF OtherCertID
+ id-aa-ets-otherSigCert OBJECT IDENTIFIER ::= { iso(1)
+       member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs9(9)
+       smime(16) id-aa(2) 19 }
+
+   OtherSigningCertificate ::=  SEQUENCE {
+       certs        SEQUENCE OF OtherCertID,
+       policies     SEQUENCE OF PolicyInformation OPTIONAL
+                    -- NOT USED IN THE PRESENT DOCUMENT
+					}
+
+   OtherCertID ::= SEQUENCE {
+       otherCertHash            OtherHash,
+       issuerSerial             IssuerSerial OPTIONAL }
+
+   OtherHash ::= CHOICE {
+       sha1Hash OtherHashValue,  -- This contains a SHA-1 hash
+       otherHash OtherHashAlgAndValue}
+
+
+
+
+	   
+id-aa-ets-revocationRefs OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) id-aa(2) 22}
+
+
+
+   CompleteRevocationRefs ::=  SEQUENCE OF CrlOcspRef
+
+   CrlOcspRef ::= SEQUENCE {
+      crlids      [0]   CRLListID    OPTIONAL,
+      ocspids     [1]   OcspListID   OPTIONAL,
+      otherRev    [2]   OtherRevRefs OPTIONAL
+   }
+
+
+CRLListID ::=  SEQUENCE {
+    crls        SEQUENCE OF CrlValidatedID }
+
+CrlValidatedID ::=  SEQUENCE {
+     crlHash                   OtherHash,
+     crlIdentifier             CrlIdentifier OPTIONAL }
+
+CrlIdentifier ::= SEQUENCE {
+    crlissuer                 Name,
+    crlIssuedTime             UTCTime,
+    crlNumber                 INTEGER OPTIONAL }
+
+OcspListID ::=  SEQUENCE {
+    ocspResponses        SEQUENCE OF OcspResponsesID }
+
+OcspResponsesID ::=  SEQUENCE {
+    ocspIdentifier              OcspIdentifier,
+    ocspRepHash                 OtherHash    OPTIONAL
+}
+
+OcspIdentifier ::= SEQUENCE {
+   ocspResponderID    ResponderID,
+      -- As in OCSP response data
+   producedAt         GeneralizedTime
+   -- As in OCSP response data
+}
+
+OtherRevRefs ::= SEQUENCE {
+       otherRevRefType   OtherRevRefType,
+       otherRevRefs      ANY DEFINED BY otherRevRefType
+    }
+
+   OtherRevRefType ::= OBJECT IDENTIFIER
+
+ResponderID ::= CHOICE {
+      byName               [1] Name,
+      byKey                [2] KeyHash
+	  }
+
+	  KeyHash ::= OCTET STRING -- SHA-1 hash of responder's public key
+   
+
 END

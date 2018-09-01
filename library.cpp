@@ -14,6 +14,8 @@
 #include "AdES.hpp"
 #include "SigningCertificateV2.h"
 #include "SignaturePolicyId.h"
+#include "CommitmentTypeIndication.h"
+
 using namespace std;
 
 
@@ -621,7 +623,7 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 		if (AuthAttr)
 		{
 			// Build also the CaDES-
-			CRYPT_ATTRIBUTE* ca = AddMem<CRYPT_ATTRIBUTE>(mem, sizeof(CRYPT_ATTRIBUTE) * 3);
+			CRYPT_ATTRIBUTE* ca = AddMem<CRYPT_ATTRIBUTE>(mem, sizeof(CRYPT_ATTRIBUTE) * 10);
 			// Add the timestamp
 			FILETIME ft = { 0 };
 			SYSTEMTIME sT = { 0 };
@@ -717,11 +719,43 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 				::CRYPT_ATTR_BLOB b1 = { 0 };
 				b1.cbData = (DWORD)ooo.size();
 				b1.pbData = (BYTE*)ooob;
-				ca[2].pszObjId = "1.2.840.113549.1.9.16.2.15";
-				ca[2].cValue = 1;
-				ca[2].rgValue = &b1;
+				ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.2.840.113549.1.9.16.2.15";
+				ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
+				ca[SignerEncodeInfo.cAuthAttr].rgValue = &b1;
 
-				SignerEncodeInfo.cAuthAttr = 3;
+				SignerEncodeInfo.cAuthAttr++;
+			}
+
+			if (Params.commitmentTypeOid)
+			{
+				vector<char> ctt(strlen(Params.commitmentTypeOid) + 1);
+				memcpy(ctt.data(), Params.commitmentTypeOid, strlen(Params.commitmentTypeOid));
+				OID oid;
+				vector<unsigned char> cttbin = oid.enc(ctt.data());
+				CommitmentTypeIndication* ct = AddMem<CommitmentTypeIndication>(mem, sizeof(CommitmentTypeIndication));
+				ct->commitmentTypeId.buf = (uint8_t*)cttbin.data();
+				ct->commitmentTypeId.size = (DWORD)cttbin.size();
+
+				vector<char> ooo;
+				auto ec = der_encode(&asn_DEF_CommitmentTypeIndication,
+					ct, [](const void *buffer, size_t size, void *app_key) ->int
+				{
+					vector<char>* x = (vector<char>*)app_key;
+					auto es = x->size();
+					x->resize(x->size() + size);
+					memcpy(x->data() + es, buffer, size);
+					return 0;
+				}, (void*)&ooo);
+				char* ooob = AddMem<char>(mem, ooo.size());
+				memcpy(ooob, ooo.data(), ooo.size());
+				::CRYPT_ATTR_BLOB b1 = { 0 };
+				b1.cbData = (DWORD)ooo.size();
+				b1.pbData = (BYTE*)ooob;
+				ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.2.840.113549.1.9.16.2.16";
+				ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
+				ca[SignerEncodeInfo.cAuthAttr].rgValue = &b1;
+
+				SignerEncodeInfo.cAuthAttr++;
 			}
 
 		}
