@@ -464,7 +464,7 @@ HRESULT AdES :: TimeStamp(CRYPT_TIMESTAMP_PARA params,const char* data, DWORD sz
 	return S_OK;
 }
 
-HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, DWORD len,std::vector<char>* msg,std::vector<PCCERT_CONTEXT>* Certs, std::vector<std::string>* Policies)
+HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, DWORD len,std::vector<char>* msg,std::vector<PCCERT_CONTEXT>* Certs, VERIFYRESULTS* vr)
 {
 	auto hr = E_FAIL;
 
@@ -522,9 +522,9 @@ HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, D
 		}
 	}
 
-	if (SUCCEEDED(hr) && Policies)
+	if (SUCCEEDED(hr) && vr)
 	{
-		// Return also the policy
+		// Return also the policy and other stuff
 		auto hMsg = CryptMsgOpenToDecode(
 			MY_ENCODING_TYPE,
 			(omsg == 0) ? 0 : CMSG_DETACHED_FLAG,
@@ -543,6 +543,7 @@ HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, D
 				DWORD da = 0;
 				for (DWORD sidx = 0; ; sidx++)
 				{
+					VERIFYRESULT vrs;
 					if (CryptMsgGetParam(hMsg, CMSG_SIGNER_AUTH_ATTR_PARAM, sidx, 0, &da))
 					{
 						vector<char> ca;
@@ -566,13 +567,32 @@ HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, D
 										memcpy_s(sp.data(),v->sigPolicyId.size + 1, v->sigPolicyId.buf, v->sigPolicyId.size);
 										OID oid;
 										string sdec = oid.dec(sp.data(), v->sigPolicyId.size);
-										Policies->push_back(sdec);
+										vrs.Policy = sdec;
 										asn_DEF_SignaturePolicyId.free_struct(&asn_DEF_SignaturePolicyId, v, 0);
+										v = 0;
+									}
+								}
+								if (strcmp(attr.pszObjId, "1.2.840.113549.1.9.16.2.16") == 0 && attr.cValue == 1) // CommitmentTypeIndication
+								{
+									CommitmentTypeIndication* v = 0;
+									auto rval = asn_DEF_CommitmentTypeIndication.ber_decoder(0,
+										&asn_DEF_CommitmentTypeIndication,
+										(void **)&v,
+										attr.rgValue[0].pbData, attr.rgValue[0].cbData, 0);
+									if (v)
+									{
+										vector<char> sp(v->commitmentTypeId.size + 1);
+										memcpy_s(sp.data(), v->commitmentTypeId.size + 1, v->commitmentTypeId.buf, v->commitmentTypeId.size);
+										OID oid;
+										string sdec = oid.dec(sp.data(), v->commitmentTypeId.size);
+										vrs.Commitment = sdec;
+										asn_DEF_CommitmentTypeIndication.free_struct(&asn_DEF_CommitmentTypeIndication, v, 0);
 										v = 0;
 									}
 								}
 							}
 						}
+						vr->Results.push_back(vrs);
 					}
 					else
 						break;

@@ -264,3 +264,4 @@ paket-files/
 __pycache__/
 *.pyc
 /test/test.exe
+/hello2.p7s

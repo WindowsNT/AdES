@@ -127,12 +127,13 @@ int main()
 	std::vector<char> Sig;
 //	Params.Attached = false;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
+	Params.commitmentTypeOid = "1.2.840.113549.1.9.16.6.1";
 	auto hr1 = a.Sign(AdES::CLEVEL::CADES_T, msg, (DWORD)b, Certs, More, Params,Sig);
 	PutFile(L"..\\hello2.p7s", Sig);
 	AdES::CLEVEL lev;
 	vector<PCCERT_CONTEXT> CV;
 	vector<char> dmsg;
-	vector<string> polx;
-	auto hr2 = a.Verify(Sig.data(),(DWORD)Sig.size(), lev,0,0,&dmsg,&CV,&polx);
+	AdES::VERIFYRESULTS v;
+	auto hr2 = a.Verify(Sig.data(),(DWORD)Sig.size(), lev,0,0,&dmsg,&CV,&v);
 	// Free Certificates in Production Code...
 }
