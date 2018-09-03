@@ -128,6 +128,7 @@
     <ClCompile Include="ResponderID.c" />
     <ClCompile Include="SignaturePolicy.c" />
     <ClCompile Include="SignaturePolicyId.c" />
+    <ClCompile Include="SignaturePolicyIdentifier.c" />
     <ClCompile Include="SignaturePolicyImplied.c" />
     <ClCompile Include="SignerLocation.c" />
     <ClCompile Include="SigningCertificateV2.c" />

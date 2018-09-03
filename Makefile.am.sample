@@ -41,6 +41,7 @@ ASN_MODULE_SOURCES=	\
 	SignaturePolicyId.c	\
 	SignaturePolicyImplied.c	\
 	SigPolicyId.c	\
+	SignaturePolicyIdentifier.c	\
 	SigPolicyHash.c	\
 	OtherHashAlgAndValue.c	\
 	OtherHashValue.c	\
@@ -111,6 +112,7 @@ ASN_MODULE_HEADERS=	\
 	SignaturePolicyId.h	\
 	SignaturePolicyImplied.h	\
 	SigPolicyId.h	\
+	SignaturePolicyIdentifier.h	\
 	SigPolicyHash.h	\
 	OtherHashAlgAndValue.h	\
 	OtherHashValue.h	\

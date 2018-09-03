@@ -13,7 +13,7 @@
 
 #include "AdES.hpp"
 #include "SigningCertificateV2.h"
-#include "SignaturePolicyId.h"
+#include "SignaturePolicyIdentifier.h"
 #include "CommitmentTypeIndication.h"
 
 using namespace std;
@@ -556,19 +556,19 @@ HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, D
 								CRYPT_ATTRIBUTE& attr = si->rgAttr[g];
 								if (strcmp(attr.pszObjId, "1.2.840.113549.1.9.16.2.15") == 0 && attr.cValue == 1) // SignaturePolicyId
 								{
-									SignaturePolicyId* v = 0;
-									auto rval = asn_DEF_SignaturePolicyId.ber_decoder(0,
-										&asn_DEF_SignaturePolicyId,
+									SignaturePolicyIdentifier* v = 0;
+									auto rval = asn_DEF_SignaturePolicyIdentifier.ber_decoder(0,
+										&asn_DEF_SignaturePolicyIdentifier,
 										(void **)&v,
 										attr.rgValue[0].pbData, attr.rgValue[0].cbData, 0);
 									if (v)
 									{
-										vector<char> sp(v->sigPolicyId.size + 1);
-										memcpy_s(sp.data(),v->sigPolicyId.size + 1, v->sigPolicyId.buf, v->sigPolicyId.size);
+										vector<char> sp(v->choice.signaturePolicyId.sigPolicyId.size + 1);
+										memcpy_s(sp.data(),v->choice.signaturePolicyId.sigPolicyId.size + 1, v->choice.signaturePolicyId.sigPolicyId.buf, v->choice.signaturePolicyId.sigPolicyId.size);
 										OID oid;
-										string sdec = oid.dec(sp.data(), v->sigPolicyId.size);
+										string sdec = oid.dec(sp.data(), v->choice.signaturePolicyId.sigPolicyId.size);
 										vrs.Policy = sdec;
-										asn_DEF_SignaturePolicyId.free_struct(&asn_DEF_SignaturePolicyId, v, 0);
+										asn_DEF_SignaturePolicyIdentifier.free_struct(&asn_DEF_SignaturePolicyIdentifier, v, 0);
 										v = 0;
 									}
 								}
@@ -702,50 +702,6 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 			SignerEncodeInfo.cAuthAttr = 2;
 			SignerEncodeInfo.rgAuthAttr = ca;
 
-			if (Params.Policy.length() > 0)
-			{
-				vector<char> Polx(Params.Policy.size() + 1);
-				memcpy(Polx.data(), Params.Policy.c_str(), Params.Policy.size());
-				OID oid;
-				vector<unsigned char> PolBinary = oid.enc(Polx.data());
-				SignaturePolicyId* v2 = AddMem<SignaturePolicyId>(mem, sizeof(SignaturePolicyId));
-				v2->sigPolicyId.buf = (uint8_t*)PolBinary.data();
-				v2->sigPolicyId.size = (DWORD)PolBinary.size();
-				
-				// SHA-1 forced
-				v2->sigPolicyHash.hashAlgorithm.algorithm.buf = (uint8_t*)"\x06\x05\x2B\x0E\x03\x02\x1A";
-				v2->sigPolicyHash.hashAlgorithm.algorithm.size = 7; 
-
-				HASH hb(BCRYPT_SHA1_ALGORITHM);
-				hb.hash(v2->sigPolicyId.buf, v2->sigPolicyId.size);
-				vector<BYTE> hbb;
-				hb.get(hbb);
-				v2->sigPolicyHash.hashValue.buf = hbb.data();
-				v2->sigPolicyHash.hashValue.size = (DWORD)hbb.size();
-
-
-				vector<char> ooo;
-				auto ec = der_encode(&asn_DEF_SignaturePolicyId,
-					v2, [](const void *buffer, size_t size, void *app_key) ->int
-				{
-					vector<char>* x = (vector<char>*)app_key;
-					auto es = x->size();
-					x->resize(x->size() + size);
-					memcpy(x->data() + es, buffer, size);
-					return 0;
-				}, (void*)&ooo);
-				char* ooob = AddMem<char>(mem, ooo.size());
-				memcpy(ooob, ooo.data(), ooo.size());
-				::CRYPT_ATTR_BLOB b1 = { 0 };
-				b1.cbData = (DWORD)ooo.size();
-				b1.pbData = (BYTE*)ooob;
-				ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.2.840.113549.1.9.16.2.15";
-				ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
-				ca[SignerEncodeInfo.cAuthAttr].rgValue = &b1;
-
-				SignerEncodeInfo.cAuthAttr++;
-			}
-
 			if (Params.commitmentTypeOid)
 			{
 				vector<char> ctt(strlen(Params.commitmentTypeOid) + 1);
@@ -777,6 +733,53 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 
 				SignerEncodeInfo.cAuthAttr++;
 			}
+
+			if (Params.Policy.length() > 0)
+			{
+				vector<char> Polx(Params.Policy.size() + 1);
+				memcpy(Polx.data(), Params.Policy.c_str(), Params.Policy.size());
+				OID oid;
+				vector<unsigned char> PolBinary = oid.enc(Polx.data());
+				SignaturePolicyIdentifier* v2 = AddMem<SignaturePolicyIdentifier>(mem, sizeof(SignaturePolicyIdentifier));
+				v2->present = SignaturePolicyIdentifier_PR_signaturePolicyId;
+				v2->choice.signaturePolicyId.sigPolicyId.buf = (uint8_t*)PolBinary.data();
+				v2->choice.signaturePolicyId.sigPolicyId.size = (DWORD)PolBinary.size();
+				
+				// SHA-1 forced
+				v2->choice.signaturePolicyId.sigPolicyHash.hashAlgorithm.algorithm.buf = (uint8_t*)"\x06\x05\x2B\x0E\x03\x02\x1A";
+				v2->choice.signaturePolicyId.sigPolicyHash.hashAlgorithm.algorithm.size = 7; 
+
+				HASH hb(BCRYPT_SHA1_ALGORITHM);
+				hb.hash(v2->choice.signaturePolicyId.sigPolicyId.buf, v2->choice.signaturePolicyId.sigPolicyId.size);
+				vector<BYTE> hbb;
+				hb.get(hbb);
+				v2->choice.signaturePolicyId.sigPolicyHash.hashValue.buf = hbb.data();
+				v2->choice.signaturePolicyId.sigPolicyHash.hashValue.size = (DWORD)hbb.size();
+
+
+				vector<char> ooo;
+				auto ec = der_encode(&asn_DEF_SignaturePolicyIdentifier,
+					v2, [](const void *buffer, size_t size, void *app_key) ->int
+				{
+					vector<char>* x = (vector<char>*)app_key;
+					auto es = x->size();
+					x->resize(x->size() + size);
+					memcpy(x->data() + es, buffer, size);
+					return 0;
+				}, (void*)&ooo);
+				char* ooob = AddMem<char>(mem, ooo.size());
+				memcpy(ooob, ooo.data(), ooo.size());
+				::CRYPT_ATTR_BLOB b1 = { 0 };
+				b1.cbData = (DWORD)ooo.size();
+				b1.pbData = (BYTE*)ooob;
+				ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.2.840.113549.1.9.16.2.15";
+				ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
+				ca[SignerEncodeInfo.cAuthAttr].rgValue = &b1;
+
+				SignerEncodeInfo.cAuthAttr++;
+			}
+
+
 
 		}
 

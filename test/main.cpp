@@ -57,6 +57,17 @@ inline bool PutFile(const wchar_t* f, vector<T>& d)
 
 int main()
 {
+	/*{
+		vector<char> ver;
+		AdES a;
+		LoadFile(L"g:\\temp\\Signature-C-EPES-1.p7m", ver);
+		AdES::CLEVEL lev;
+		vector<PCCERT_CONTEXT> CV;
+		vector<char> dmsg;
+		AdES::VERIFYRESULTS v;
+		auto hr2 = a.Verify(ver.data(), (DWORD)ver.size(), lev, 0, 0, &dmsg, &CV, &v);
+	}*/
+
 	// Load the file
 	vector<char> hello;
 	LoadFile(L"..\\hello.txt", hello);

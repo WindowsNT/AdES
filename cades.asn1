@@ -269,6 +269,12 @@ PolicyQualifierId ::= OBJECT IDENTIFIER ( id-qt-cps | id-qt-unotice )
    SignaturePolicyImplied ::= NULL
    SigPolicyId ::= OBJECT IDENTIFIER
 
+   SignaturePolicyIdentifier ::= CHOICE {
+           signaturePolicyId          SignaturePolicyId,
+           signaturePolicyImplied     SignaturePolicyImplied
+                                      -- not used in this version
+   }
+
    SigPolicyHash ::= OtherHashAlgAndValue
 
    OtherHashAlgAndValue ::= SEQUENCE {
