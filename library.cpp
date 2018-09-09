@@ -1468,7 +1468,7 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 }
 
 
-#include "zipall.h"
+#include "zipall.hpp"
 
 inline wstring TempFile(wchar_t* x, const wchar_t* prf)
 {
