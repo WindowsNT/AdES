@@ -52,6 +52,63 @@ inline bool PutFile(const wchar_t* f, vector<T>& d)
 	return true;
 }
 
+static
+PCCERT_CONTEXT
+HrGetSigner(
+	LPCWSTR                 wszSubject = 0)
+{
+	HCERTSTORE      hStore = NULL;
+	PCCERT_CONTEXT  pCert = NULL;
+
+	//
+	// Open the local user store to search for certificates
+	//
+
+	hStore = CertOpenStore(
+		CERT_STORE_PROV_SYSTEM_W,
+		X509_ASN_ENCODING,
+		NULL,
+		CERT_SYSTEM_STORE_CURRENT_USER | CERT_STORE_DEFER_CLOSE_UNTIL_LAST_FREE_FLAG,
+		L"MY"
+	);
+
+
+	if (NULL != wszSubject && 0 != *wszSubject)
+	{
+		//
+		// Search by Name
+		//
+
+		while (NULL != (pCert = CertFindCertificateInStore(
+			hStore,
+			X509_ASN_ENCODING,
+			0,
+			CERT_FIND_SUBJECT_STR,
+			wszSubject,
+			pCert
+		)))
+		{
+			CertCloseStore(hStore,0);
+			return pCert;
+		}
+	}
+	else
+	{
+		//
+		// Get the first available certificate in the store
+		//
+
+		while (NULL != (pCert = CertEnumCertificatesInStore(
+			hStore,
+			pCert
+		)))
+		{
+			CertCloseStore(hStore, 0);
+			return pCert;
+		}
+	}
+}
+
 
 int main()
 {
@@ -68,7 +125,7 @@ int main()
 	AdES::SIGNPARAMETERS Params;
 	vector<PCCERT_CONTEXT> More;
 	
-	for(;;)
+/*	for(;;)
 	{
 
 		PCCERT_CONTEXT cert = 0;
@@ -122,7 +179,9 @@ int main()
 		if (MessageBox(0, L"Add more signatures?", L"", MB_YESNO) == IDNO)
 			break;
 	}
-	
+	*/
+	Certs.push_back(HrGetSigner(L"ch.michael@cyta.gr"));
+
 
 	if (Certs.empty())
 		return 0;
@@ -147,6 +206,14 @@ int main()
 	//auto hr2 = a.XMLSign(AdES::XLEVEL::XMLDSIG, AdES::XTYPE::ENVELOPED, 0,hellox.data(), Certs, More, Params, Sig);
 	auto hr2 = a.XMLSign(AdES::XLEVEL::XADES_T,AdES::XTYPE::ENVELOPED, 0, hellox.data(), Certs, More, Params, Sig);
 	PutFile(L"..\\hello2.xml", Sig);
+
+	tuple<const BYTE*, DWORD, const char*> t1 = std::make_tuple<const BYTE*, DWORD, const char*>(
+		std::forward<const BYTE*>((BYTE*)hellox.data()), 
+		hellox.size() - 1, 
+		std::forward<const char*>((const char*)"hello.xml"));
+	vector<tuple<const BYTE*, DWORD, const char*>> tx = { t1 };
+	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::XADES, tx, Certs, More, Params, Sig);
+	PutFile(L"..\\hello2.asics", Sig);
 
 /*
 	LoadFile(L"..\\hello2.xml", hellox);

@@ -1,8 +1,10 @@
 #define CRYPT_OID_INFO_HAS_EXTRA_FIELDS
 #define CMSG_SIGNER_ENCODE_INFO_HAS_CMS_FIELDS
 #include <string>
+#include <tuple>
 #include <sstream>
 #include <windows.h>
+#include <shlobj.h>
 #include <wincrypt.h>
 #include <bcrypt.h>
 #include <vector>
@@ -962,12 +964,12 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 
 
 		// Commitment
-		if (Params.commitmentTypeOid)
+		if (Params.commitmentTypeOid.length())
 		{
 			auto& xcti = xsdop.AddElement("xades:CommitmentTypeIndication");
 			auto& xctid = xcti.AddElement("xades:CommitmentTypeId");
 			auto& xiid = xctid.AddElement("xades:Identifier");
-			string cmt = Params.commitmentTypeOid;
+			const string& cmt = Params.commitmentTypeOid;
 			if (cmt == "1.2.840.113549.1.9.16.6.1")
 			{
 				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfOrigin");
@@ -1213,10 +1215,10 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 			SignerEncodeInfo.cAuthAttr = 2;
 			SignerEncodeInfo.rgAuthAttr = ca;
 
-			if (Params.commitmentTypeOid)
+			if (Params.commitmentTypeOid.length())
 			{
-				vector<char> ctt(strlen(Params.commitmentTypeOid) + 1);
-				memcpy(ctt.data(), Params.commitmentTypeOid, strlen(Params.commitmentTypeOid));
+				vector<char> ctt(strlen(Params.commitmentTypeOid.c_str()) + 1);
+				memcpy(ctt.data(), Params.commitmentTypeOid.c_str(), strlen(Params.commitmentTypeOid.c_str()));
 				OID oid;
 				vector<unsigned char> cttbin = oid.enc(ctt.data());
 				CommitmentTypeIndication* ct = AddMem<CommitmentTypeIndication>(mem, sizeof(CommitmentTypeIndication));
@@ -1465,3 +1467,82 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 	return hr;
 }
 
+
+#include "zipall.h"
+
+inline wstring TempFile(wchar_t* x, const wchar_t* prf)
+{
+	vector<wchar_t> td(1000);
+	GetTempPathW(1000, td.data());
+	GetTempFileNameW(td.data(), prf, 0, x);
+	return x;
+}
+
+
+template <typename T = char>
+inline bool PutFile(const wchar_t* f, vector<T>& d)
+{
+	HANDLE hX = CreateFile(f, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+	if (hX == INVALID_HANDLE_VALUE)
+		return false;
+	DWORD A = 0;
+	WriteFile(hX, d.data(), (DWORD)d.size(), &A, 0);
+	CloseHandle(hX);
+	if (A != d.size())
+		return false;
+	return true;
+}
+
+template <typename T = char>
+inline bool LoadFile(const wchar_t* f, vector<T>& d)
+{
+	HANDLE hX = CreateFile(f, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+	if (hX == INVALID_HANDLE_VALUE)
+		return false;
+	LARGE_INTEGER sz = { 0 };
+	GetFileSizeEx(hX, &sz);
+	d.resize((size_t)(sz.QuadPart / sizeof(T)));
+	DWORD A = 0;
+	ReadFile(hX, d.data(), (DWORD)sz.QuadPart, &A, 0);
+	CloseHandle(hX);
+	if (A != sz.QuadPart)
+		return false;
+	return true;
+}
+
+
+HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data, std::vector<PCCERT_CONTEXT>& Certificates, const std::vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params, std::vector<char>& fndata)
+{
+	HRESULT hr = E_FAIL;
+	fndata.clear();
+
+	if (lev == ALEVEL::S)
+	{
+		if (data.size() != 1)
+			return E_INVALIDARG;
+		auto& t = data[0];
+
+		wchar_t x[1000] = { 0 };
+		wstring wtempf = TempFile(x, L"asic");
+		string tempf = XML3::XMLU(wtempf.c_str());
+		DeleteFileA(tempf.c_str());
+		ZIPUTILS::ZIP z(tempf.c_str());
+		
+		string mt = "application/vnd.etsi.asic-s+zip";
+		z.PutFile("mimetype", mt.c_str(), mt.length());
+		z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
+//		z.PutDirectory("META-INF");
+
+		if (typ == ATYPE::CADES)
+		{
+			vector<char> S;
+			hr = Sign(CLEVEL::CADES_T, (const char*)std::get<0>(t), std::get<1>(t), Certificates, AddCertificates, Params, S);
+			z.PutFile("META-INF/signature.p7s", S.data(), S.size());
+			LoadFile(wtempf.c_str(), fndata);
+			DeleteFile(wtempf.c_str());
+		}
+
+	}
+
+	return hr;
+}
