@@ -20,6 +20,8 @@ private:
 		return d;
 	}
 
+	HRESULT GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx,CRYPT_ALGORITHM_IDENTIFIER hash,std::vector<char> &rs);
+
 public:
 
 	enum class CLEVEL
@@ -34,6 +36,12 @@ public:
 		XMLDSIG = 0,
 		XADES_B = 1,
 		XADES_T = 2
+	};
+
+	enum class XTYPE
+	{
+		DETACHED = 0,
+		ENVELOPED = 2,
 	};
 
 	struct SIGNPARAMETERS
@@ -67,6 +75,7 @@ public:
 	HRESULT Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg = 0,DWORD len = 0,std::vector<char>* msg = 0,std::vector<PCCERT_CONTEXT>* Certs = 0,VERIFYRESULTS* vr = 0);
 	HRESULT VerifyB(const char* data, DWORD sz, int sidx = 0,bool Attached = true,PCCERT_CONTEXT c = 0);
 	HRESULT VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX = 0, bool Attached = true, int TSServerSignIndex = 0, FILETIME* ft = 0);
+	HRESULT XMLSign(XLEVEL lev, XTYPE typ,const char* URIRef,const char* data, const std::vector<PCCERT_CONTEXT>& Certificates, const std::vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params, std::vector<char>& Signature);
 
 
 };

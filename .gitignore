@@ -265,3 +265,8 @@ __pycache__/
 *.pyc
 /test/test.exe
 /hello2.p7s
+/hello2.p7m
+/hello2.xml
+/2.xml
+/3.xml
+/old.cpp

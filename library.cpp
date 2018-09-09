@@ -1,5 +1,7 @@
 #define CRYPT_OID_INFO_HAS_EXTRA_FIELDS
+#define CMSG_SIGNER_ENCODE_INFO_HAS_CMS_FIELDS
 #include <string>
+#include <sstream>
 #include <windows.h>
 #include <wincrypt.h>
 #include <bcrypt.h>
@@ -18,6 +20,7 @@
 
 using namespace std;
 
+#include "xml\\xml3all.h"
 
 class OID
 {
@@ -54,10 +57,10 @@ public:
 		{
 			if (nn == 0)
 			{
-				unsigned char cl = ((*pb & 0xC0) >> 6) & 0x03;
-				switch (cl)
+//				unsigned char cl = ((*pb & 0xC0) >> 6) & 0x03;
+/*				switch (cl)
 				{
-				}
+				}*/
 			}
 			else if (nn == 1)
 			{
@@ -603,6 +606,514 @@ HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, D
 		}
 	}
 
+	return hr;
+}
+
+
+HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT_ALGORITHM_IDENTIFIER hash, vector<char>& rs)
+{
+
+	/*
+	_CRYPT_SIGN_MESSAGE_PARA spar = { 0 };
+	spar.cbSize = sizeof(spar);
+	spar.dwMsgEncodingType = X509_ASN_ENCODING | PKCS_7_ASN_ENCODING;
+	spar.pSigningCert = Certificates[0];
+	spar.HashAlgorithm = Params.HashAlgorithm;
+	BYTE* bs = (BYTE*)s.data();
+	DWORD rbs[1] = { 0 };
+	rbs[0] = s.size();
+	DWORD blb = 0;
+
+	const BYTE* MessageArray[] = { (BYTE*)s.data() };
+	CryptSignMessage(&spar, true, 1, MessageArray, rbs, 0, &blb);
+	vector<char> Sig(blb);
+	CryptSignMessage(&spar, true, 1, MessageArray, rbs, (BYTE*)Sig.data(), &blb);
+	Sig.resize(blb);
+	string dss = XML3::Char2Base64((const char*)Sig.data(), Sig.size(), false);
+	sv.SetContent(dss.c_str());
+*/
+	HRESULT hr = E_FAIL;
+	vector<HCRYPTPROV_OR_NCRYPT_KEY_HANDLE> PrivateKeys;
+	CMSG_SIGNER_ENCODE_INFO Signer = { 0 };
+	HCRYPTPROV_OR_NCRYPT_KEY_HANDLE a = 0;
+	DWORD ks = 0;
+	BOOL bfr = false;
+	CryptAcquireCertificatePrivateKey(ctx, 0, 0, &a, &ks, &bfr);
+	if (a)
+		Signer.hCryptProv = a;
+	if (bfr)
+		PrivateKeys.push_back(a);
+	Signer.cbSize = sizeof(CMSG_SIGNER_ENCODE_INFO);
+	Signer.pCertInfo = ctx->pCertInfo;
+	Signer.dwKeySpec = ks;
+	Signer.HashAlgorithm = hash;
+	Signer.pvHashAuxInfo = NULL;
+
+
+	CMSG_SIGNED_ENCODE_INFO SignedMsgEncodeInfo = { 0 };
+
+	SignedMsgEncodeInfo.cbSize = sizeof(CMSG_SIGNED_ENCODE_INFO);
+	SignedMsgEncodeInfo.cSigners = 1;
+	SignedMsgEncodeInfo.rgSigners = &Signer;
+	SignedMsgEncodeInfo.cCertEncoded = 0;
+	SignedMsgEncodeInfo.rgCertEncoded = 0;
+	SignedMsgEncodeInfo.rgCrlEncoded = NULL;
+
+
+	auto cbEncodedBlob = CryptMsgCalculateEncodedLength(
+		MY_ENCODING_TYPE,     // Message encoding type
+		CMSG_DETACHED_FLAG,
+		CMSG_SIGNED,          // Message type
+		&SignedMsgEncodeInfo, // Pointer to structure
+		NULL,                 // Inner content OID
+		(DWORD)sz);
+	if (cbEncodedBlob)
+	{
+		auto hMsg = CryptMsgOpenToEncode(
+			MY_ENCODING_TYPE,        // encoding type
+			CMSG_DETACHED_FLAG,
+			CMSG_SIGNED,             // message type
+			&SignedMsgEncodeInfo,    // pointer to structure
+			NULL,                    // inner content OID
+			NULL);
+		if (hMsg)
+		{
+			// Add the signature
+			vector<char> Sig2(cbEncodedBlob);
+			if (CryptMsgUpdate(hMsg, (BYTE*)d, (DWORD)sz, true))
+			{
+				if (CryptMsgGetParam(
+					hMsg,               // Handle to the message
+					CMSG_CONTENT_PARAM, // Parameter type
+					0,                  // Index
+					(BYTE*)Sig2.data(),      // Pointer to the BLOB
+					&cbEncodedBlob))    // Size of the BLOB
+				{
+					Sig2.resize(cbEncodedBlob);
+
+					CryptMsgClose(hMsg);
+					hMsg = 0;
+
+
+					hMsg = CryptMsgOpenToDecode(
+						MY_ENCODING_TYPE,   // Encoding type
+						CMSG_DETACHED_FLAG,
+						0,                  // Message type (get from message)
+						0,         // Cryptographic provider
+						NULL,               // Recipient information
+						NULL);
+					if (hMsg)
+					{
+						if (CryptMsgUpdate(
+							hMsg,            // Handle to the message
+							(BYTE*)Sig2.data(),   // Pointer to the encoded BLOB
+							(DWORD)Sig2.size(),   // Size of the encoded BLOB
+							TRUE))           // Last call
+						{
+
+							if (CryptMsgGetParam(hMsg, CMSG_ENCRYPTED_DIGEST, 0, NULL, &cbEncodedBlob))
+							{
+								rs.resize(cbEncodedBlob);
+								if (CryptMsgGetParam(hMsg, CMSG_ENCRYPTED_DIGEST, 0, (BYTE*)rs.data(), &cbEncodedBlob))
+								{
+									rs.resize(cbEncodedBlob);
+									hr = S_OK;
+								}
+							}
+
+						}
+					}
+
+
+				}
+			}
+			if (hMsg)
+				CryptMsgClose(hMsg);
+			hMsg = 0;
+		}
+	}
+
+	for (auto& pk : PrivateKeys)
+	{
+		if (NCryptIsKeyHandle(pk))
+			NCryptFreeObject(pk);
+		else
+			CryptReleaseContext(pk, 0);
+	}
+
+	return hr;
+}
+
+HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data, const std::vector<PCCERT_CONTEXT>& Certificates, const std::vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
+{
+	auto guidcr = []() -> string
+	{
+		GUID g;
+		CoCreateGuid(&g);
+		wchar_t s[100] = { 0 };
+		StringFromGUID2(g, s, 100);
+		s[wcslen(s) - 1] = 0;
+		return (string)XML3::XMLU(s + 1);
+	};
+
+	auto certsrl = [](PCCERT_CONTEXT c) -> unsigned long long
+	{
+		BYTE *pbName = c->pCertInfo->SerialNumber.pbData;
+		string theString;
+		for (int i = c->pCertInfo->SerialNumber.cbData - 1; i >= 0; i--)
+		{
+			char hex[10];
+			sprintf_s(hex,10,"%02x", pbName[i]);
+			theString += hex;
+		}
+		unsigned long long x = 0;
+		std::stringstream ss;
+		ss << std::hex << theString;
+		ss >> x;
+		return x;
+	};
+
+	auto algfrom = [&]() -> string
+	{
+		if (strcmp(Params.HashAlgorithm.pszObjId,szOID_OIWSEC_sha1) == 0)
+			return "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha256) == 0)
+			return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+		return "";
+	};
+	auto alg2from = [&]() -> string
+	{
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_OIWSEC_sha1) == 0)
+			return "http://www.w3.org/2000/09/xmldsig#sha1";
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha256) == 0)
+			return "http://www.w3.org/2001/04/xmlenc#sha256";
+		return "";
+	};
+	auto alg3from = [&]() -> LPWSTR
+	{
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_OIWSEC_sha1) == 0)
+			return BCRYPT_SHA1_ALGORITHM;
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha256) == 0)
+			return BCRYPT_SHA256_ALGORITHM;
+		return L"";
+	};
+
+	auto remprefix = [](XML3::XMLElement& r)
+	{
+		vector<shared_ptr<XML3::XMLElement>> allc;
+		r.GetAllChildren(allc);
+		for (auto a : allc)
+		{
+			if (strncmp(a->GetElementName().c_str(), "ds:", 3) == 0)
+			{
+				string n = a->GetElementName().c_str() + 3;
+				a->SetElementName(n.c_str());
+			}
+		}
+
+	};
+
+
+
+	auto hr = E_FAIL;
+	if (!data)
+		return E_INVALIDARG;
+	if (Certificates.empty())
+		return E_INVALIDARG;
+	if (Certificates.size() != 1)
+		return E_NOTIMPL;
+
+	XML3::XML x;
+	auto xp = x.Parse(data,strlen(data));
+	if (xp != XML3::XML_PARSE::OK)
+		return E_UNEXPECTED;
+
+	char d[1000] = { 0 };
+	XML3::XMLSerialization ser;
+	ser.Canonical = true;
+	string s = x.GetRootElement().Serialize(&ser);
+
+	// ds:Signature
+	string id1 = guidcr();
+
+	XML3::XMLElement ds_Signature;
+	ds_Signature.SetElementName("ds:Signature");
+	ds_Signature.vv(lev == XLEVEL::XMLDSIG ? "xmlns" : "xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+	if (lev != XLEVEL::XMLDSIG)
+		ds_Signature.vv("Id") = "xmldsig-" + id1;
+
+	XML3::XMLElement ds_SignedInfo;
+	ds_SignedInfo.SetElementName("ds:SignedInfo");
+	if (lev == XLEVEL::XMLDSIG)
+		ds_SignedInfo.vv("xmlns") = "http://www.w3.org/2000/09/xmldsig#";
+	else
+		ds_SignedInfo.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+	ds_SignedInfo["ds:CanonicalizationMethod"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+	ds_SignedInfo["ds:SignatureMethod"].vv("Algorithm") = algfrom();
+
+	auto& ref1 = ds_SignedInfo.AddElement("ds:Reference");
+
+	ref1.vv("URI") = "";
+	if (URIRef && typ == XTYPE::DETACHED)
+		ref1.vv("URI") = URIRef;
+	 
+	ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
+	ref1["ds:DigestMethod"].vv("Algorithm") = alg2from();
+
+	// Hash
+	vector<BYTE> dhash;
+	LPWSTR alg = alg3from();
+	HASH hash(alg);
+	hash.hash((BYTE*)s.c_str(), (DWORD)s.length());
+	hash.get(dhash);
+	string d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(),false);
+	ref1["ds:DigestValue"].SetContent(d2.c_str());
+
+
+	// Key Info
+	string _ds_KeyInfo = R"(<ds:KeyInfo>
+	<ds:X509Data>
+		<ds:X509Certificate>
+		</ds:X509Certificate>
+	</ds:X509Data>
+</ds:KeyInfo>
+	)";
+	XML3::XMLElement ki = _ds_KeyInfo.c_str();
+	if (lev != XLEVEL::XMLDSIG)
+	{
+		ki.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+		sprintf_s(d, 1000, "xmldsig-%s-keyinfo", id1.c_str());
+		ki.vv("Id") = d;
+	}
+
+	auto& kiel = ki["ds:X509Data"]["ds:X509Certificate"];
+	string d3 = XML3::Char2Base64((const char*)Certificates[0]->pbCertEncoded, Certificates[0]->cbCertEncoded, false);
+	kiel.SetContent(d3.c_str());
+
+	// Objects
+	XML3::XMLElement o2 = "<ds:Object/>";
+	shared_ptr<XML3::XMLElement> tscontent;
+	if (lev != XLEVEL::XMLDSIG)
+	{
+		auto& xqp = o2.AddElement("xades:QualifyingProperties");
+		xqp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+		xqp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+		xqp.vv("Target") = "#xmldsig-" + id1;
+
+		auto& xsp = xqp.AddElement("xades:SignedProperties");
+
+		// Up stuff xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" xmlns:xades141="http://uri.etsi.org/01903/v1.4.1#" 
+		xsp.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+		xsp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+		xsp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+
+		sprintf_s(d, 1000, "xmldsig-%s-sigprops", id1.c_str());
+		xsp.vv("Id") = d;
+
+		auto& xssp = xsp.AddElement("xades:SignedSignatureProperties");
+		auto& xst = xssp.AddElement("xades:SigningTime");
+
+		// Find the time (UTC)
+		SYSTEMTIME sT;
+		GetSystemTime(&sT);
+		// 2018-09-04T10:35:44.602-04:00
+		sprintf_s(d, 1000, "%04u-%02u-%02uT%02u:%02u:%02uZ",sT.wYear,sT.wMonth,sT.wDay,sT.wHour,sT.wMinute,sT.wSecond);
+		xst.SetContent(d);
+
+		auto& xsc = xssp.AddElement("xades:SigningCertificateV2");
+		auto& xce = xsc.AddElement("xades:Cert");
+		auto& xced = xce.AddElement("xades:CertDigest");
+		auto& xces = xce.AddElement("xades:IssuerSerialV2");
+
+		xced["ds:DigestMethod"].vv("Algorithm") = alg2from();
+
+		auto srl = certsrl(Certificates[0]);
+		sprintf_s(d, 1000, "%llu", srl);
+		xces["ds:X509SerialNumber"].SetContent(d);
+
+		vector<BYTE> dhash3;
+		LPWSTR alg3 = alg3from();
+		HASH hash33(alg3);
+		hash33.hash(Certificates[0]->pbCertEncoded, Certificates[0]->cbCertEncoded);
+		hash33.get(dhash3);
+		string dx = XML3::Char2Base64((char*)dhash3.data(), dhash3.size(), false);
+		xced["ds:DigestValue"].SetContent(dx.c_str());
+
+		auto& xsdop = xsp.AddElement("xades:SignedDataObjectProperties");
+
+		
+		// Policy
+		if (Params.Policy.length())
+		{
+			auto& xspol = xssp.AddElement("xades:SignaturePolicyIdentifier");
+			auto& xspolid = xspol.AddElement("xades:SignaturePolicyId");
+			auto& xspolid2 = xspolid.AddElement("xades:SigPolicyId");
+			auto& xi2id = xspolid2.AddElement("xades:Identifier");
+			xi2id.SetContent(Params.Policy.c_str());
+			auto& xspolid3 = xspolid.AddElement("xades:SigPolicyHash");
+			xspolid3["ds:DigestMethod"].vv("Algorithm") = alg2from();
+			HASH hb(alg3from());
+			hb.hash((BYTE*)Params.Policy.data(), (DWORD)Params.Policy.size());
+			vector<BYTE> hbb;
+			hb.get(hbb);
+			string dd2 = XML3::Char2Base64((char*)hbb.data(), hbb.size(), false);
+			xspolid3["ds:DigestValue"].SetContent(dd2.c_str());
+		}
+
+
+		// Commitment
+		if (Params.commitmentTypeOid)
+		{
+			auto& xcti = xsdop.AddElement("xades:CommitmentTypeIndication");
+			auto& xctid = xcti.AddElement("xades:CommitmentTypeId");
+			auto& xiid = xctid.AddElement("xades:Identifier");
+			string cmt = Params.commitmentTypeOid;
+			if (cmt == "1.2.840.113549.1.9.16.6.1")
+			{
+				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfOrigin");
+				xctid.AddElement("xades:Description").SetContent("Indicates that the signer recognizes to have created, approved and sent the signed data object");
+			}
+			if (cmt == "1.2.840.113549.1.9.16.6.2")
+			{
+				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfReceipt");
+				xctid.AddElement("xades:Description").SetContent("Indicates that signer recognizes to have received the content of the signed data object");
+			}
+			if (cmt == "1.2.840.113549.1.9.16.6.3")
+			{
+				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfDelivery");
+				xctid.AddElement("xades:Description").SetContent("Indicates that the TSP providing that indication has delivered a signed data object in a local store accessible to the recipient of the signed data object");
+			}
+			if (cmt == "1.2.840.113549.1.9.16.6.4")
+			{
+				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfSender");
+				xctid.AddElement("xades:Description").SetContent("Indicates that the entity providing that indication has sent the signed data object (but not necessarily created it)");
+			}
+			if (cmt == "1.2.840.113549.1.9.16.6.5")
+			{
+				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfApproval");
+				xctid.AddElement("xades:Description").SetContent("Indicates that the signer has approved the content of the signed data object");
+			}
+			if (cmt == "1.2.840.113549.1.9.16.6.6")
+			{
+				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfCreation");
+				xctid.AddElement("xades:Description").SetContent("Indicates that the signer has created the signed data object (but not necessarily approved, nor sent it)");
+			}
+			/*auto& xasdo = */xcti.AddElement("xades:AllSignedDataObjects");
+		}
+
+
+		string sps = xsp.Serialize(&ser);
+		string spk = ki.Serialize(&ser);
+
+		auto& ref2 = ds_SignedInfo.AddElement("ds:Reference");
+		sprintf_s(d, 1000, "#xmldsig-%s-sigprops", id1.c_str());
+		ref2.vv("URI") = d;
+		ref2.vv("Type") = "http://uri.etsi.org/01903#SignedProperties";
+
+		ref2["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+
+		// Hash
+		dhash.clear();
+		HASH hash2(alg);
+		hash2.hash((BYTE*)sps.c_str(),(DWORD) sps.length());
+		hash2.get(dhash);
+		d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
+		ref2["ds:DigestMethod"].vv("Algorithm") = alg2from();
+		ref2["ds:DigestValue"].SetContent(d2.c_str());
+
+
+		auto& ref3 = ds_SignedInfo.AddElement("ds:Reference");
+		sprintf_s(d, 1000, "#xmldsig-%s-keyinfo", id1.c_str());
+		ref3.vv("URI") = d;
+		//ref2.vv("Type") = "http://uri.etsi.org/01903#SignedProperties";
+
+		ref3["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+
+		// Hash
+		dhash.clear();
+		HASH hash3(alg);
+		hash3.hash((BYTE*)spk.c_str(), (DWORD)spk.length());
+		hash3.get(dhash);
+		d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
+		ref3["ds:DigestMethod"].vv("Algorithm") = alg2from();
+		ref3["ds:DigestValue"].SetContent(d2.c_str());
+
+		// Unsigned 
+		if (lev >= XLEVEL::XADES_T)
+		{
+			auto& xup = xqp.AddElement("xades:UnsignedProperties");
+			/*<xades:UnsignedSignatureProperties>
+							<xades:SignatureTimeStamp>
+								<ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+								<xades:EncapsulatedTimeStamp>*/
+			auto& xusp = xup.AddElement("xades:UnsignedSignatureProperties");
+			auto& xstt = xusp.AddElement("xades:SignatureTimeStamp");
+			xstt["ds:CanonicalizationMethod"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+
+			XML3::XMLElement c = "xades:EncapsulatedTimeStamp";
+			tscontent = xstt.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c));
+		}
+	}
+	
+	ds_Signature.AddElement(ds_SignedInfo);
+
+	// Value
+	string _ds_sv = R"(<ds:SignatureValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#"></ds:SignatureValue>)";
+	XML3::XMLElement sv = _ds_sv.c_str();
+	sprintf_s(d, 1000, "xmldsig-%s-sigvalue", id1.c_str());
+	if (lev != XLEVEL::XMLDSIG)
+		sv.vv("Id") = d;
+
+	// Remove prefix if necessary 
+	if (lev == XLEVEL::XMLDSIG)
+	{
+		remprefix(ds_SignedInfo);
+		ds_SignedInfo.SetElementName("SignedInfo");
+	}
+	s = ds_SignedInfo.Serialize(&ser);
+
+
+	vector<char> Sig;
+	hr = GetEncryptedHash(s.data(), (DWORD)s.size(), Certificates[0], Params.HashAlgorithm, Sig);
+	string dss = XML3::Char2Base64((const char*)Sig.data(), Sig.size(), false);
+	sv.SetContent(dss.c_str());
+
+	if (lev >= XLEVEL::XADES_T)
+	{
+		string svs = sv.Serialize(&ser);
+		vector<char> tsr;
+		TimeStamp(Params.tparams,(char*) svs.data(), (DWORD)svs.size(), tsr, Params.TSServer);
+		string b = XML3::Char2Base64(tsr.data(), tsr.size(), false);
+		tscontent->SetContent(b.c_str());
+	}
+
+
+
+	ds_Signature.AddElement(sv);
+	ds_Signature.AddElement(ki);
+	if (lev != XLEVEL::XMLDSIG)
+	{
+		ds_Signature.AddElement(o2);
+	}
+
+
+
+	x.GetRootElement().AddElement(ds_Signature);
+	ser.Canonical = true;
+
+	// Prefix, out
+	if (lev == XLEVEL::XMLDSIG)
+	{
+		remprefix(x.GetRootElement());
+	}
+
+	string res;
+	if (typ == XTYPE::DETACHED)
+		res = ds_Signature.Serialize(&ser);
+	else
+		res = x.Serialize(&ser);
+	Signature.resize(res.length());
+	memcpy(Signature.data(), res.c_str(), res.length());
 	return hr;
 }
 

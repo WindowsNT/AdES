@@ -18,6 +18,7 @@
 #pragma comment(lib,"..\\AdES.lib")
 #include "..\\AdES.hpp"
 
+#include "..\\xml\\xml3all.h"
 
 using namespace std;
 template <typename T = char>
@@ -52,21 +53,10 @@ inline bool PutFile(const wchar_t* f, vector<T>& d)
 }
 
 
-// makecert.exe -n "CN=CARoot" -r -pe -a sha256 -len 2048 -cy authority -sv 1.key 1.cer
-// pvk2pfx.exe -pvk 1.key -spc 1.cer -pfx 1.pfx -po 12345678
-
 int main()
 {
-	/*{
-		vector<char> ver;
-		AdES a;
-		LoadFile(L"g:\\temp\\Signature-C-EPES-1.p7m", ver);
-		AdES::CLEVEL lev;
-		vector<PCCERT_CONTEXT> CV;
-		vector<char> dmsg;
-		AdES::VERIFYRESULTS v;
-		auto hr2 = a.Verify(ver.data(), (DWORD)ver.size(), lev, 0, 0, &dmsg, &CV, &v);
-	}*/
+	vector<char> hellox;
+
 
 	// Load the file
 	vector<char> hello;
@@ -77,7 +67,7 @@ int main()
 	std::vector<PCCERT_CONTEXT> Certs;
 	AdES::SIGNPARAMETERS Params;
 	vector<PCCERT_CONTEXT> More;
-
+	
 	for(;;)
 	{
 
@@ -132,6 +122,8 @@ int main()
 		if (MessageBox(0, L"Add more signatures?", L"", MB_YESNO) == IDNO)
 			break;
 	}
+	
+
 	if (Certs.empty())
 		return 0;
 
@@ -140,11 +132,28 @@ int main()
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
 	Params.commitmentTypeOid = "1.2.840.113549.1.9.16.6.1";
 	auto hr1 = a.Sign(AdES::CLEVEL::CADES_T, msg, (DWORD)b, Certs, More, Params,Sig);
-	PutFile(L"..\\hello2.p7s", Sig);
+	PutFile(L"..\\hello2.p7m", Sig);
 	AdES::CLEVEL lev;
 	vector<PCCERT_CONTEXT> CV;
 	vector<char> dmsg;
 	AdES::VERIFYRESULTS v;
-	auto hr2 = a.Verify(Sig.data(),(DWORD)Sig.size(), lev,0,0,&dmsg,&CV,&v);
+	auto hr3 = a.Verify(Sig.data(), (DWORD)Sig.size(), lev, 0, 0, &dmsg, &CV, &v);
+
+	Sig.clear();
+	LoadFile(L"..\\hello.xml", hellox);
+	hellox.resize(hellox.size() + 1);
+	//Params.HashAlgorithm.pszObjId = szOID_OIWSEC_sha1;
+
+	auto hr2 = a.XMLSign(AdES::XLEVEL::XMLDSIG, AdES::XTYPE::ENVELOPED, 0,hellox.data(), Certs, More, Params, Sig);
+//	auto hr2 = a.XMLSign(AdES::XLEVEL::XADES_T,AdES::XTYPE::ENVELOPED, 0, hellox.data(), Certs, More, Params, Sig);
+	PutFile(L"..\\hello2.xml", Sig);
+
+/*
+	LoadFile(L"..\\hello2.xml", hellox);
+	hellox.resize(hellox.size() + 1);
+	hr2 = a.XMLSign(AdES::XLEVEL::XADES_B, AdES::XTYPE::ENVELOPED, hellox.data(), Certs, More, Params, Sig);
+	PutFile(L"..\\hello2.xml", Sig);
+*/
+
 	// Free Certificates in Production Code...
 }
