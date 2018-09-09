@@ -144,8 +144,8 @@ int main()
 	hellox.resize(hellox.size() + 1);
 	//Params.HashAlgorithm.pszObjId = szOID_OIWSEC_sha1;
 
-	auto hr2 = a.XMLSign(AdES::XLEVEL::XMLDSIG, AdES::XTYPE::ENVELOPED, 0,hellox.data(), Certs, More, Params, Sig);
-//	auto hr2 = a.XMLSign(AdES::XLEVEL::XADES_T,AdES::XTYPE::ENVELOPED, 0, hellox.data(), Certs, More, Params, Sig);
+	//auto hr2 = a.XMLSign(AdES::XLEVEL::XMLDSIG, AdES::XTYPE::ENVELOPED, 0,hellox.data(), Certs, More, Params, Sig);
+	auto hr2 = a.XMLSign(AdES::XLEVEL::XADES_T,AdES::XTYPE::ENVELOPED, 0, hellox.data(), Certs, More, Params, Sig);
 	PutFile(L"..\\hello2.xml", Sig);
 
 /*
