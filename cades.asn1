@@ -426,4 +426,10 @@ ResponderID ::= CHOICE {
 	  KeyHash ::= OCTET STRING -- SHA-1 hash of responder's public key
    
 
+   -- C form
+
+
+
+
+
 END

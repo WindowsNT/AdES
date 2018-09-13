@@ -109,6 +109,70 @@ HrGetSigner(
 	}
 }
 
+vector<PCCRL_CONTEXT> GetCRLs(PCCERT_CONTEXT p)
+{
+	vector<PCCRL_CONTEXT> d;
+	if (!p)
+		return d;
+
+	auto hStore = CertOpenSystemStore(
+		0,
+		L"CA");
+	PCCRL_CONTEXT crl = 0;
+	for (;;)
+		{
+		crl = CertEnumCRLsInStore(hStore, crl);
+		if (!crl)
+			break;
+
+		d.push_back(CertDuplicateCRLContext(crl));
+		}
+		CertCloseStore(hStore, 0);
+	return d;
+}
+
+vector<PCCERT_CONTEXT> GetChain(PCCERT_CONTEXT cert)
+{
+	vector<PCCERT_CONTEXT> d;
+	if (!cert)
+		return d;
+
+	PCCERT_CHAIN_CONTEXT CC = 0;
+	CERT_CHAIN_PARA CCP = { 0 };
+	CCP.cbSize = sizeof(CCP);
+	CCP.RequestedUsage.dwType = USAGE_MATCH_TYPE_AND;
+	CERT_ENHKEY_USAGE        EnhkeyUsage = { 0 };
+	CCP.RequestedUsage.Usage = EnhkeyUsage;
+	CertGetCertificateChain(0, cert, 0, 0, &CCP, 0, 0, &CC);
+	if (CC)
+	{
+		for (DWORD i = 0; i < CC->cChain; i++)
+		{
+			PCERT_SIMPLE_CHAIN ccc = CC->rgpChain[i];
+			for (DWORD ii = 0; ii < ccc->cElement; ii++)
+			{
+				PCERT_CHAIN_ELEMENT el = ccc->rgpElement[ii];
+				// Dup check
+				bool D = false;
+				for (auto& ec : d)
+				{
+					if (CertCompareCertificate(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, ec->pCertInfo, el->pCertContext->pCertInfo))
+					{
+						D = true;
+					}
+					if (CertCompareCertificate(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, ec->pCertInfo, cert->pCertInfo))
+					{
+						D = true;
+					}
+				}
+				if (!D)
+					d.push_back(el->pCertContext);
+			}
+		}
+	}
+	return d;
+}
+
 
 int main()
 {
@@ -121,11 +185,30 @@ int main()
 	char* msg = hello.data();
 	size_t b = hello.size();
 	AdES a;
-	std::vector<PCCERT_CONTEXT> Certs;
+	std::vector<AdES::CERT> Certs;
 	AdES::SIGNPARAMETERS Params;
-	vector<PCCERT_CONTEXT> More;
-	
-/*	for(;;)
+
+	auto putin = [&](PCCERT_CONTEXT cert)
+	{
+		AdES::CERT ce;
+		ce.cert.cert = cert;
+		ce.cert.Crls = GetCRLs(ce.cert.cert);
+
+		// Also the chain
+		auto ch = GetChain(cert);
+		for (auto& c : ch)
+		{
+			AdES::CERTANDCRL ce2;
+			ce2.cert = c;
+			ce2.Crls = GetCRLs(ce2.cert);
+			ce.More.push_back(ce2);
+		}
+		Certs.push_back(ce);
+	};
+
+
+	// Picker by store
+	for(;;)
 	{
 
 		PCCERT_CONTEXT cert = 0;
@@ -137,60 +220,38 @@ int main()
 			L"MY");
 		cert = CryptUIDlgSelectCertificateFromStore(hStore, 0, 0, 0, 0, 0, 0);
 		if (!cert)
-			break;
-		Certs.push_back(cert);
-		// Ánd all the chain
-		PCCERT_CHAIN_CONTEXT CC = 0;
-		CERT_CHAIN_PARA CCP = { 0 };
-		CCP.cbSize = sizeof(CCP);
-		CCP.RequestedUsage.dwType = USAGE_MATCH_TYPE_AND;
-		CERT_ENHKEY_USAGE        EnhkeyUsage = { 0 };
-		CCP.RequestedUsage.Usage = EnhkeyUsage;
-		CertGetCertificateChain(0, cert, 0, 0, &CCP, 0, 0, &CC);
-		if (CC)
 		{
-			for (DWORD i = 0; i < CC->cChain; i++)
-			{
-				PCERT_SIMPLE_CHAIN ccc = CC->rgpChain[i];
-				for (DWORD ii = 0; ii < ccc->cElement; ii++)
-				{
-					PCERT_CHAIN_ELEMENT el = ccc->rgpElement[ii];
-					// Dup check
-					bool D = false;
-					for (auto& ec : Certs)
-					{
-						if (CertCompareCertificate(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, ec->pCertInfo, el->pCertContext->pCertInfo))
-						{
-							D = true;
-						}
-					}
-					for (auto& ec : More)
-					{
-						if (CertCompareCertificate(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, ec->pCertInfo, el->pCertContext->pCertInfo))
-						{
-							D = true;
-						}
-					}
-					if (!D)
-						More.push_back(el->pCertContext);
-				}
-			}
-		}
-		if (MessageBox(0, L"Add more signatures?", L"", MB_YESNO) == IDNO)
+			CertCloseStore(hStore, 0);
 			break;
+		}
+		putin(cert);
+		if (MessageBox(0, L"Add more signatures?", L"", MB_YESNO) == IDNO)
+		{
+			CertCloseStore(hStore, 0);
+			break;
+		}
+	
 	}
-	*/
-	Certs.push_back(HrGetSigner(L"ch.michael@cyta.gr"));
+	
+
+/*
+	// Picker by subject
+	auto cert = HrGetSigner(L"ch.michael@lol.gr"); // Yes I maintain this spam e-mail, send as much as you want :)
+	putin(cert);
+*/
+
+	// ----------------
 
 
 	if (Certs.empty())
 		return 0;
 
+
 	std::vector<char> Sig;
 //	Params.Attached = false;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
 	Params.commitmentTypeOid = "1.2.840.113549.1.9.16.6.1";
-	auto hr1 = a.Sign(AdES::CLEVEL::CADES_T, msg, (DWORD)b, Certs, More, Params,Sig);
+	auto hr1 = a.Sign(AdES::CLEVEL::CADES_C, msg, (DWORD)b, Certs,  Params,Sig);
 	PutFile(L"..\\hello2.p7m", Sig);
 	AdES::CLEVEL lev;
 	vector<PCCERT_CONTEXT> CV;
@@ -203,8 +264,8 @@ int main()
 	hellox.resize(hellox.size() + 1);
 	//Params.HashAlgorithm.pszObjId = szOID_OIWSEC_sha1;
 
-	//auto hr2 = a.XMLSign(AdES::XLEVEL::XMLDSIG, AdES::XTYPE::ENVELOPED, 0,hellox.data(), Certs, More, Params, Sig);
-	auto hr2 = a.XMLSign(AdES::XLEVEL::XADES_T,AdES::XTYPE::ENVELOPED, 0, hellox.data(), Certs, More, Params, Sig);
+	//auto hr2 = a.XMLSign(AdES::XLEVEL::XMLDSIG, AdES::XTYPE::ENVELOPED, 0,hellox.data(), Certs, Params, Sig);
+	auto hr2 = a.XMLSign(AdES::XLEVEL::XADES_T,AdES::XTYPE::ENVELOPED, 0, hellox.data(), Certs, Params, Sig);
 	PutFile(L"..\\hello2.xml", Sig);
 
 	tuple<const BYTE*, DWORD, const char*> t1 = std::make_tuple<const BYTE*, DWORD, const char*>(
@@ -212,7 +273,7 @@ int main()
 		hellox.size() - 1, 
 		std::forward<const char*>((const char*)"hello.xml"));
 	vector<tuple<const BYTE*, DWORD, const char*>> tx = { t1 };
-	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::XADES, tx, Certs, More, Params, Sig);
+	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::XADES, tx, Certs,  Params, Sig);
 	PutFile(L"..\\hello2.asics", Sig);
 
 /*

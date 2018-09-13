@@ -41,7 +41,8 @@ public:
 	{
 		CMS = 0,
 		CADES_B=1,
-		CADES_T=2
+		CADES_T=2,
+		CADES_C=3
 	};
 
 	enum class XLEVEL
@@ -84,15 +85,26 @@ public:
 		std::vector<VERIFYRESULT> Results;
 	};
 
+	struct CERTANDCRL
+	{
+		PCCERT_CONTEXT cert;
+		std::vector<PCCRL_CONTEXT> Crls;
+	};
+	struct CERT
+	{
+		CERTANDCRL cert;
+		std::vector<CERTANDCRL> More;
+	};
+
 	AdES();
 	HRESULT TimeStamp(CRYPT_TIMESTAMP_PARA params,const char* data, DWORD sz, std::vector<char>& CR, const wchar_t* url = L"http://timestamp.comodoca.com/", const char* alg = szOID_NIST_sha256);
-	HRESULT Sign(CLEVEL lev,const char* data,DWORD sz,const std::vector<PCCERT_CONTEXT>& Certificates, const std::vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params,std::vector<char>& Signature);
+	HRESULT Sign(CLEVEL lev,const char* data,DWORD sz,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params,std::vector<char>& Signature);
 	HRESULT Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg = 0,DWORD len = 0,std::vector<char>* msg = 0,std::vector<PCCERT_CONTEXT>* Certs = 0,VERIFYRESULTS* vr = 0);
 	HRESULT VerifyB(const char* data, DWORD sz, int sidx = 0,bool Attached = true,PCCERT_CONTEXT c = 0);
 	HRESULT VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX = 0, bool Attached = true, int TSServerSignIndex = 0, FILETIME* ft = 0);
-	HRESULT XMLSign(XLEVEL lev, XTYPE typ,const char* URIRef,const char* data, const std::vector<PCCERT_CONTEXT>& Certificates, const std::vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params, std::vector<char>& Signature);
+	HRESULT XMLSign(XLEVEL lev, XTYPE typ,const char* URIRef,const char* data, const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
 
-	HRESULT ASiC(ALEVEL lev,ATYPE typ, std::vector<std::tuple<const BYTE*,DWORD,const char*>>& data,std::vector<PCCERT_CONTEXT>& Certificates, const std::vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
+	HRESULT ASiC(ALEVEL lev,ATYPE typ, std::vector<std::tuple<const BYTE*,DWORD,const char*>>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
 
 };
 

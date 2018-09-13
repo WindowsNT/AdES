@@ -19,6 +19,8 @@
 #include "SigningCertificateV2.h"
 #include "SignaturePolicyIdentifier.h"
 #include "CommitmentTypeIndication.h"
+#include "CompleteCertificateRefs.h"
+#include "CompleteRevocationRefs.h"
 
 using namespace std;
 
@@ -746,7 +748,7 @@ HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT
 	return hr;
 }
 
-HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data, const std::vector<PCCERT_CONTEXT>& Certificates, const std::vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
+HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
 	auto guidcr = []() -> string
 	{
@@ -889,7 +891,7 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 	}
 
 	auto& kiel = ki["ds:X509Data"]["ds:X509Certificate"];
-	string d3 = XML3::Char2Base64((const char*)Certificates[0]->pbCertEncoded, Certificates[0]->cbCertEncoded, false);
+	string d3 = XML3::Char2Base64((const char*)Certificates[0].cert.cert->pbCertEncoded, Certificates[0].cert.cert->cbCertEncoded, false);
 	kiel.SetContent(d3.c_str());
 
 	// Objects
@@ -929,14 +931,14 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 
 		xced["ds:DigestMethod"].vv("Algorithm") = alg2from();
 
-		auto srl = certsrl(Certificates[0]);
+		auto srl = certsrl(Certificates[0].cert.cert);
 		sprintf_s(d, 1000, "%llu", srl);
 		xces["ds:X509SerialNumber"].SetContent(d);
 
 		vector<BYTE> dhash3;
 		LPWSTR alg3 = alg3from();
 		HASH hash33(alg3);
-		hash33.hash(Certificates[0]->pbCertEncoded, Certificates[0]->cbCertEncoded);
+		hash33.hash(Certificates[0].cert.cert->pbCertEncoded, Certificates[0].cert.cert->cbCertEncoded);
 		hash33.get(dhash3);
 		string dx = XML3::Char2Base64((char*)dhash3.data(), dhash3.size(), false);
 		xced["ds:DigestValue"].SetContent(dx.c_str());
@@ -1076,7 +1078,7 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 
 
 	vector<char> Sig;
-	hr = GetEncryptedHash(s.data(), (DWORD)s.size(), Certificates[0], Params.HashAlgorithm, Sig);
+	hr = GetEncryptedHash(s.data(), (DWORD)s.size(), Certificates[0].cert.cert, Params.HashAlgorithm, Sig);
 	string dss = XML3::Char2Base64((const char*)Sig.data(), Sig.size(), false);
 	sv.SetContent(dss.c_str());
 
@@ -1118,8 +1120,7 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 	memcpy(Signature.data(), res.c_str(), res.length());
 	return hr;
 }
-
-HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT_CONTEXT>& Certificates, const vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params,vector<char>& Signature)
+HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
 	auto hr = E_FAIL;
 	if (!data || !sz)
@@ -1131,7 +1132,7 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 	vector<CERT_BLOB> CertsIncluded;
 	vector<CMSG_SIGNER_ENCODE_INFO> Signers;
 	int AuthAttr = CMSG_AUTHENTICATED_ATTRIBUTES_FLAG;
-	if (Level == CLEVEL::CMS)
+	if (lev  == CLEVEL::CMS)
 		AuthAttr = 0;
 
 	vector <shared_ptr<vector<char>>> mem;
@@ -1142,14 +1143,14 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 		HCRYPTPROV_OR_NCRYPT_KEY_HANDLE a = 0;
 		DWORD ks = 0;
 		BOOL bfr = false;
-		CryptAcquireCertificatePrivateKey(c, 0, 0, &a, &ks, &bfr);
+		CryptAcquireCertificatePrivateKey(c.cert.cert, 0, 0, &a, &ks, &bfr);
 		if (a)
 			SignerEncodeInfo.hCryptProv = a;
 		if (bfr)
 			PrivateKeys.push_back(a);
 
 		SignerEncodeInfo.cbSize = sizeof(CMSG_SIGNER_ENCODE_INFO);
-		SignerEncodeInfo.pCertInfo = c->pCertInfo;
+		SignerEncodeInfo.pCertInfo = c.cert.cert->pCertInfo;
 		SignerEncodeInfo.dwKeySpec = ks;
 		SignerEncodeInfo.HashAlgorithm = Params.HashAlgorithm;
 		SignerEncodeInfo.pvHashAuxInfo = NULL;
@@ -1178,7 +1179,7 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 			// Hash of the cert
 			vector<BYTE> dhash;
 			HASH hash(BCRYPT_SHA256_ALGORITHM);
-			hash.hash(c->pbCertEncoded, c->cbCertEncoded);
+			hash.hash(c.cert.cert->pbCertEncoded, c.cert.cert->cbCertEncoded);
 			hash.get(dhash);
 			BYTE* hashbytes = AddMem<BYTE>(mem, dhash.size());
 			memcpy(hashbytes, dhash.data(), dhash.size());
@@ -1299,19 +1300,20 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 		Signers.push_back(SignerEncodeInfo);
 
 		CERT_BLOB SignerCertBlob;
-		SignerCertBlob.cbData = c->cbCertEncoded;
-		SignerCertBlob.pbData = c->pbCertEncoded;
+		SignerCertBlob.cbData = c.cert.cert->cbCertEncoded;
+		SignerCertBlob.pbData = c.cert.cert->pbCertEncoded;
 		CertsIncluded.push_back(SignerCertBlob);
+
+		for (auto& cc : c.More)
+		{
+			CERT_BLOB SignerCertBlob;
+			SignerCertBlob.cbData = cc.cert->cbCertEncoded;
+			SignerCertBlob.pbData = cc.cert->pbCertEncoded;
+			CertsIncluded.push_back(SignerCertBlob);
+		}
 
 	}
 
-	for (auto& c : AddCertificates)
-	{
-		CERT_BLOB SignerCertBlob;
-		SignerCertBlob.cbData = c->cbCertEncoded;
-		SignerCertBlob.pbData = c->pbCertEncoded;
-		CertsIncluded.push_back(SignerCertBlob);
-	}
 
 	CMSG_SIGNED_ENCODE_INFO SignedMsgEncodeInfo = { 0 };
 	SignedMsgEncodeInfo.cbSize = sizeof(CMSG_SIGNED_ENCODE_INFO);
@@ -1353,7 +1355,7 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 					Signature.resize(cbEncodedBlob);
 					hr = S_OK;
 
-					if (Level >= CLEVEL::CADES_T)
+					if (lev >= CLEVEL::CADES_T)
 					{
 
 						hr = E_FAIL;
@@ -1386,6 +1388,7 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 								bool S = true;
 								for (DWORD i = 0; i < Certificates.size(); i++)
 								{
+									auto& cert = Certificates[i];
 									if (CryptMsgGetParam(hMsg, CMSG_ENCRYPTED_DIGEST, i, NULL, &cbEncodedBlob))
 									{
 										EH.resize(cbEncodedBlob);
@@ -1444,6 +1447,330 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 										{
 											Signature.resize(cbEncodedBlob);
 											hr = S_OK;
+
+											if (lev >= CLEVEL::CADES_C)
+											{
+
+												vector<char> buff3;
+												vector<char> buff4;
+												hr = E_FAIL;
+												if (hMsg)
+												{
+													CryptMsgClose(hMsg);
+													hMsg = 0;
+												}
+
+
+												hMsg = CryptMsgOpenToDecode(
+													MY_ENCODING_TYPE,   // Encoding type
+													Params.Attached ? 0 : CMSG_DETACHED_FLAG,                    // Flags
+													0,                  // Message type (get from message)
+													0,         // Cryptographic provider
+													NULL,               // Recipient information
+													NULL);
+												if (hMsg)
+												{
+													if (CryptMsgUpdate(
+														hMsg,            // Handle to the message
+														(BYTE*)Signature.data(),   // Pointer to the encoded BLOB
+														cbEncodedBlob,   // Size of the encoded BLOB
+														TRUE))           // Last call
+													{
+														S = true;
+														for (DWORD i = 0; i < Certificates.size(); i++)
+														{
+															auto& cert = Certificates[i];
+
+															// Complete Refs
+															CompleteCertificateRefs* v2 = AddMem<CompleteCertificateRefs>(mem, sizeof(CompleteCertificateRefs));
+															v2->list.size = (DWORD)cert.More.size();
+															v2->list.count = (DWORD)cert.More.size();
+															v2->list.array = AddMem<OtherCertID*>(mem, (int)cert.More.size() * sizeof(OtherCertID*));
+															for (size_t i = 0; i < cert.More.size(); i++)
+															{
+																auto& c = cert.More[i];
+																// Hash of the cert
+																vector<BYTE> dhash;
+																HASH hash(BCRYPT_SHA1_ALGORITHM);
+																hash.hash(c.cert->pbCertEncoded, c.cert->cbCertEncoded);
+																hash.get(dhash);
+																BYTE* hashbytes = AddMem<BYTE>(mem, dhash.size());
+																memcpy(hashbytes, dhash.data(), dhash.size());
+
+																v2->list.array[i] = AddMem<OtherCertID>(mem);
+																v2->list.array[i]->otherCertHash.present = OtherHash_PR_sha1Hash;
+																v2->list.array[i]->otherCertHash.choice.sha1Hash.buf = hashbytes;
+																v2->list.array[i]->otherCertHash.choice.sha1Hash.size = (DWORD)dhash.size();
+															}
+															// Encode it as DER
+															auto ec2 = der_encode(&asn_DEF_CompleteCertificateRefs,
+																v2, [](const void *buffer, size_t size, void *app_key) ->int
+															{
+																vector<char>* x = (vector<char>*)app_key;
+																auto es = x->size();
+																x->resize(x->size() + size);
+																memcpy(x->data() + es, buffer, size);
+																return 0;
+															}, (void*)&buff3);
+
+
+															if (true)
+															{
+																CRYPT_ATTRIBUTE cat = { 0 };
+																cat.cValue = 1;
+																CRYPT_ATTR_BLOB bl;
+																bl.cbData = (DWORD)buff3.size();
+																bl.pbData = (BYTE*)buff3.data();
+																cat.rgValue = &bl;
+
+																cat.pszObjId = "1.2.840.113549.1.9.16.2.21";
+																DWORD aa;
+																CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
+																vector<char> enc(aa);
+																CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
+																enc.resize(aa);
+
+																CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR_PARA  ua = { 0 };
+																ua.cbSize = sizeof(ua);
+																ua.blob.pbData = (BYTE*)enc.data();
+																ua.blob.cbData = (DWORD)enc.size();
+
+																ua.dwSignerIndex = i;
+																if (!CryptMsgControl(hMsg, 0, CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR, &ua))
+																	S = false;
+															}
+
+															auto cmss = cert.More.size() + 1;
+															CompleteRevocationRefs* v3 = AddMem<CompleteRevocationRefs>(mem, sizeof(CompleteRevocationRefs));
+															v3->list.size = (DWORD)cmss; // For more and self
+															v3->list.count = (DWORD)cmss; // For more and self
+															v3->list.array = AddMem<CrlOcspRef*>(mem, (int)(cmss)  * sizeof(CrlOcspRef*));
+															for (size_t i = 0; i < cmss; i++)
+															{
+																auto& c = (i == 0) ? cert.cert.Crls : cert.More[i - 1].Crls;
+																DWORD ccount = (DWORD)c.size();
+																v3->list.array[i] = AddMem<CrlOcspRef>(mem);
+																v3->list.array[i]->crlids = AddMem<CRLListID>(mem);
+																v3->list.array[i]->crlids->crls.list.count = (DWORD)c.size();
+																v3->list.array[i]->crlids->crls.list.size = (DWORD)c.size();
+																v3->list.array[i]->crlids->crls.list.array = AddMem<CrlValidatedID*>(mem, ccount*sizeof(CrlValidatedID*));
+
+																for (size_t iii = 0; iii < ccount; iii++)
+																{
+																	auto& crl = c[iii];
+																	// Hash of the cert
+																	vector<BYTE> dhash;
+																	HASH hash(BCRYPT_SHA1_ALGORITHM);
+																	hash.hash(crl->pbCrlEncoded, crl->cbCrlEncoded);
+																	hash.get(dhash);
+																	BYTE* hashbytes = AddMem<BYTE>(mem, dhash.size());
+																	memcpy(hashbytes, dhash.data(), dhash.size());
+
+																	v3->list.array[i]->crlids->crls.list.array[iii] = AddMem<CrlValidatedID>(mem, sizeof(CrlValidatedID));
+																	v3->list.array[i]->crlids->crls.list.array[iii]->crlHash.present = OtherHash_PR_sha1Hash;
+																	v3->list.array[i]->crlids->crls.list.array[iii]->crlHash.choice.sha1Hash.buf = hashbytes;
+																	v3->list.array[i]->crlids->crls.list.array[iii]->crlHash.choice.sha1Hash.size = (DWORD)dhash.size();
+
+																}
+															}
+															// Encode it as DER
+															vector<char> buff4;
+															auto ec3 = der_encode(&asn_DEF_CompleteRevocationRefs,
+																v3, [](const void *buffer, size_t size, void *app_key) ->int
+															{
+																vector<char>* x = (vector<char>*)app_key;
+																auto es = x->size();
+																x->resize(x->size() + size);
+																memcpy(x->data() + es, buffer, size);
+																return 0;
+															}, (void*)&buff4);
+
+
+															if (true)
+															{
+																CRYPT_ATTRIBUTE cat = { 0 };
+																cat.cValue = 1;
+																CRYPT_ATTR_BLOB bl;
+																bl.cbData = (DWORD)buff4.size();
+																bl.pbData = (BYTE*)buff4.data();
+																cat.rgValue = &bl;
+
+																															
+																cat.pszObjId = "1.2.840.113549.1.9.16.2.22";
+																DWORD aa;
+																CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
+																vector<char> enc(aa);
+																CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
+																enc.resize(aa);
+
+																CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR_PARA  ua = { 0 };
+																ua.cbSize = sizeof(ua);
+																ua.blob.pbData = (BYTE*)enc.data();
+																ua.blob.cbData = (DWORD)enc.size();
+
+																ua.dwSignerIndex = i;
+																if (!CryptMsgControl(hMsg, 0, CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR, &ua))
+																	S = false;
+															}
+
+
+														}
+														if (S)
+														{
+															if (CryptMsgGetParam(hMsg, CMSG_ENCODED_MESSAGE, 0, NULL, &cbEncodedBlob))       // Size of the returned information
+															{
+																Signature.resize(cbEncodedBlob);
+																if (CryptMsgGetParam(hMsg, CMSG_ENCODED_MESSAGE, 0, (BYTE*)Signature.data(), &cbEncodedBlob))       // Size of the returned information
+																{
+																	Signature.resize(cbEncodedBlob);
+																	hr = S_OK;
+																}
+															}
+														}
+													}
+												}
+
+
+
+
+/*
+												CompleteCertificateRefs* v2 = AddMem<CompleteCertificateRefs>(mem, sizeof(CompleteCertificateRefs));
+												v2->list.size = AddCertificates.size();
+												v2->list.count = AddCertificates.size();
+												v2->list.array = AddMem<OtherCertID*>(mem, (int)AddCertificates.size()*sizeof(OtherCertID*));
+												for (size_t i = 0; i < AddCertificates.size(); i++)
+												{
+													auto c = AddCertificates[i];
+													// Hash of the cert
+													vector<BYTE> dhash;
+													HASH hash(BCRYPT_SHA1_ALGORITHM);
+													hash.hash(c->pbCertEncoded, c->cbCertEncoded);
+													hash.get(dhash);
+													BYTE* hashbytes = AddMem<BYTE>(mem, dhash.size());
+													memcpy(hashbytes, dhash.data(), dhash.size());
+
+													v2->list.array[i] = AddMem<OtherCertID>(mem);
+													v2->list.array[i]->otherCertHash.present = OtherHash_PR_sha1Hash;
+													v2->list.array[i]->otherCertHash.choice.sha1Hash.buf = hashbytes;
+													v2->list.array[i]->otherCertHash.choice.sha1Hash.size = dhash.size();
+												}
+												// Encode it as DER
+												auto ec2 = der_encode(&asn_DEF_CompleteCertificateRefs,
+													v2, [](const void *buffer, size_t size, void *app_key) ->int
+												{
+													vector<char>* x = (vector<char>*)app_key;
+													auto es = x->size();
+													x->resize(x->size() + size);
+													memcpy(x->data() + es, buffer, size);
+													return 0;
+												}, (void*)&buff3);
+												// char* ooodb = AddMem<char>(mem, buff3.size());
+												// memcpy(ooodb, buff3.data(), buff3.size());
+*/
+/*
+												CompleteRevocationRefs* v3 = AddMem<CompleteRevocationRefs>(mem, sizeof(CompleteRevocationRefs));
+												v3->list.size = Crls.size();
+												v3->list.count = Crls.size();
+												v3->list.array = AddMem<>(mem, (int)Crls.size() * sizeof(*));
+												for (size_t i = 0; i < Crls.size(); i++)
+												{
+													auto c = Crls[i];
+													// Hash of the cert
+													vector<BYTE> dhash;
+													HASH hash(BCRYPT_SHA1_ALGORITHM);
+													hash.hash(c->pbCrlEncoded, c->cbCrlEncoded);
+													hash.get(dhash);
+													BYTE* hashbytes = AddMem<BYTE>(mem, dhash.size());
+													memcpy(hashbytes, dhash.data(), dhash.size());
+
+													v3->list.array[i] = AddMem<OtherCertID>(mem);
+													v3->list.array[i]->otherCertHash.present = OtherHash_PR_sha1Hash;
+													v3->list.array[i]->otherCertHash.choice.sha1Hash.buf = hashbytes;
+													v3->list.array[i]->otherCertHash.choice.sha1Hash.size = dhash.size();
+												}
+												// Encode it as DER
+												vector<char> buff4;
+												auto ec3 = der_encode(&asn_DEF_CompleteRevocationRefs,
+													v3, [](const void *buffer, size_t size, void *app_key) ->int
+												{
+													vector<char>* x = (vector<char>*)app_key;
+													auto es = x->size();
+													x->resize(x->size() + size);
+													memcpy(x->data() + es, buffer, size);
+													return 0;
+												}, (void*)&buff4);
+
+*/												
+/*
+												vector<char> EH;
+
+												hMsg = CryptMsgOpenToDecode(
+													MY_ENCODING_TYPE,   // Encoding type
+													Params.Attached ? 0 : CMSG_DETACHED_FLAG,                    // Flags
+													0,                  // Message type (get from message)
+													0,         // Cryptographic provider
+													NULL,               // Recipient information
+													NULL);
+												if (hMsg)
+												{
+													if (CryptMsgUpdate(
+														hMsg,            // Handle to the message
+														(BYTE*)Signature.data(),   // Pointer to the encoded BLOB
+														cbEncodedBlob,   // Size of the encoded BLOB
+														TRUE))           // Last call
+													{
+														S = true;
+														i = (DWORD)-1;
+														for (DWORD ii = 0; ii < Certificates.size(); ii++)
+														{
+															auto& cert = Certificates[ii];
+															if (cert.Signer == 0)
+																continue;
+															i++;
+															CRYPT_ATTRIBUTE cat = { 0 };
+															cat.cValue = 1;
+															CRYPT_ATTR_BLOB bl;
+															bl.cbData = (DWORD)buff3.size();
+															bl.pbData = (BYTE*)buff3.data();
+															cat.rgValue = &bl;
+
+															
+														
+															cat.pszObjId = "1.2.840.113549.1.9.16.2.21";
+															DWORD aa;
+															CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
+															vector<char> enc(aa);
+															CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
+															enc.resize(aa);
+
+															CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR_PARA  ua = { 0 };
+															ua.cbSize = sizeof(ua);
+															ua.blob.pbData = (BYTE*)enc.data();
+															ua.blob.cbData = (DWORD)enc.size();
+
+															ua.dwSignerIndex = i;
+															if (!CryptMsgControl(hMsg, 0, CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR, &ua))
+																S = false;
+														}
+													}
+												}
+
+												if (S)
+												{
+													if (CryptMsgGetParam(hMsg, CMSG_ENCODED_MESSAGE, 0, NULL, &cbEncodedBlob))       // Size of the returned information
+													{
+														Signature.resize(cbEncodedBlob);
+														if (CryptMsgGetParam(hMsg, CMSG_ENCODED_MESSAGE, 0, (BYTE*)Signature.data(), &cbEncodedBlob))       // Size of the returned information
+														{
+															Signature.resize(cbEncodedBlob);
+															hr = S_OK;
+														}
+													}
+												}
+
+											//	MessageBox(0, 0, 0, 0);
+*/
+											}
 										}
 									}
 								}
@@ -1452,7 +1779,8 @@ HRESULT AdES::Sign(CLEVEL Level, const char* data, DWORD sz, const vector<PCCERT
 					}
 				}
 			}
-			CryptMsgClose(hMsg);
+			if (hMsg)
+				CryptMsgClose(hMsg);
 			hMsg = 0;
 		}
 	}
@@ -1511,7 +1839,7 @@ inline bool LoadFile(const wchar_t* f, vector<T>& d)
 }
 
 
-HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data, std::vector<PCCERT_CONTEXT>& Certificates, const std::vector<PCCERT_CONTEXT>& AddCertificates, SIGNPARAMETERS& Params, std::vector<char>& fndata)
+HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data, std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata)
 {
 	HRESULT hr = E_FAIL;
 	fndata.clear();
@@ -1529,15 +1857,15 @@ HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DW
 		ZIPUTILS::ZIP z(tempf.c_str());
 		
 		string mt = "application/vnd.etsi.asic-s+zip";
-		z.PutFile("mimetype", mt.c_str(), mt.length());
+		z.PutFile("mimetype", mt.c_str(),(DWORD) mt.length());
 		z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
 //		z.PutDirectory("META-INF");
 
 		if (typ == ATYPE::CADES)
 		{
 			vector<char> S;
-			hr = Sign(CLEVEL::CADES_T, (const char*)std::get<0>(t), std::get<1>(t), Certificates, AddCertificates, Params, S);
-			z.PutFile("META-INF/signature.p7s", S.data(), S.size());
+			hr = Sign(CLEVEL::CADES_T, (const char*)std::get<0>(t), std::get<1>(t), Certificates, Params, S);
+			z.PutFile("META-INF/signature.p7s", S.data(), (DWORD)S.size());
 			LoadFile(wtempf.c_str(), fndata);
 			DeleteFile(wtempf.c_str());
 		}
