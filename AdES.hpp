@@ -9,8 +9,6 @@ class AdES
 {
 private:
 
-	char* TsOid = "1.2.840.113549.1.9.16.2.14";
-
 	template <typename T> T* AddMem(std::vector<std::shared_ptr<std::vector<char>>>& mem, size_t sz = sizeof(T))
 	{
 		shared_ptr<vector<char>> x = make_shared<vector<char>>();
@@ -40,9 +38,12 @@ public:
 	enum class CLEVEL
 	{
 		CMS = 0,
-		CADES_B=1,
-		CADES_T=2,
-		CADES_C=3
+		CADES_B = 1,
+		CADES_T = 2,
+		CADES_C = 3,
+		CADES_X = 4,
+		CADES_XLT = 5,
+		CADES_A = 6,
 	};
 
 	enum class XLEVEL

@@ -206,7 +206,7 @@ int main()
 		Certs.push_back(ce);
 	};
 
-
+/*
 	// Picker by store
 	for(;;)
 	{
@@ -233,12 +233,12 @@ int main()
 	
 	}
 	
-
-/*
-	// Picker by subject
-	auto cert = HrGetSigner(L"ch.michael@lol.gr"); // Yes I maintain this spam e-mail, send as much as you want :)
-	putin(cert);
 */
+
+	// Picker by subject
+	auto cert = HrGetSigner(L"ch.michael@cyta.gr"); // Yes I maintain this spam e-mail, send as much as you want :)
+	putin(cert);
+
 
 	// ----------------
 
@@ -251,7 +251,7 @@ int main()
 //	Params.Attached = false;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
 	Params.commitmentTypeOid = "1.2.840.113549.1.9.16.6.1";
-	auto hr1 = a.Sign(AdES::CLEVEL::CADES_C, msg, (DWORD)b, Certs,  Params,Sig);
+	auto hr1 = a.Sign(AdES::CLEVEL::CADES_X, msg, (DWORD)b, Certs,  Params,Sig);
 	PutFile(L"..\\hello2.p7m", Sig);
 	AdES::CLEVEL lev;
 	vector<PCCERT_CONTEXT> CV;

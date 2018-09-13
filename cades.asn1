@@ -429,7 +429,8 @@ ResponderID ::= CHOICE {
    -- C form
 
 
-
+-- X form
+-- TimestampedCertsCRLs ::= TimeStampToken
 
 
 END
