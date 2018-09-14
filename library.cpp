@@ -539,7 +539,7 @@ HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev,const char* omsg, DW
 
 			NumVer++;
 			hr = S_OK;
-			lev = LEVEL::I;
+			lev = LEVEL::CMS;
 
 			// Check now BES
 			auto hr1 = VerifyB(data, sz, i, omsg ? false : true,c);
@@ -873,13 +873,13 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef,const char* data, const std:
 
 	XML3::XMLElement ds_Signature;
 	ds_Signature.SetElementName("ds:Signature");
-	ds_Signature.vv(lev == LEVEL::I ? "xmlns" : "xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-	if (lev != LEVEL::I)
+	ds_Signature.vv(lev == LEVEL::XMLDSIG ? "xmlns" : "xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+	if (lev != LEVEL::XMLDSIG)
 		ds_Signature.vv("Id") = "xmldsig-" + id1;
 
 	XML3::XMLElement ds_SignedInfo;
 	ds_SignedInfo.SetElementName("ds:SignedInfo");
-	if (lev == LEVEL::I)
+	if (lev == LEVEL::XMLDSIG)
 		ds_SignedInfo.vv("xmlns") = "http://www.w3.org/2000/09/xmldsig#";
 	else
 		ds_SignedInfo.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
@@ -914,7 +914,7 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef,const char* data, const std:
 </ds:KeyInfo>
 	)";
 	XML3::XMLElement ki = _ds_KeyInfo.c_str();
-	if (lev != LEVEL::I)
+	if (lev != LEVEL::XMLDSIG)
 	{
 		ki.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
 		sprintf_s(d, 1000, "xmldsig-%s-keyinfo", id1.c_str());
@@ -928,7 +928,7 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef,const char* data, const std:
 	// Objects
 	XML3::XMLElement o2 = "<ds:Object/>";
 	shared_ptr<XML3::XMLElement> tscontent;
-	if (lev != LEVEL::I)
+	if (lev != LEVEL::XMLDSIG)
 	{
 		auto& xqp = o2.AddElement("xades:QualifyingProperties");
 		xqp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
@@ -1096,11 +1096,11 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef,const char* data, const std:
 	string _ds_sv = R"(<ds:SignatureValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#"></ds:SignatureValue>)";
 	XML3::XMLElement sv = _ds_sv.c_str();
 	sprintf_s(d, 1000, "xmldsig-%s-sigvalue", id1.c_str());
-	if (lev != LEVEL::I)
+	if (lev != LEVEL::XMLDSIG)
 		sv.vv("Id") = d;
 
 	// Remove prefix if necessary 
-	if (lev == LEVEL::I)
+	if (lev == LEVEL::XMLDSIG)
 	{
 		remprefix(ds_SignedInfo);
 		ds_SignedInfo.SetElementName("SignedInfo");
@@ -1126,7 +1126,7 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef,const char* data, const std:
 
 	ds_Signature.AddElement(sv);
 	ds_Signature.AddElement(ki);
-	if (lev != LEVEL::I)
+	if (lev != LEVEL::XMLDSIG)
 	{
 		ds_Signature.AddElement(o2);
 	}
@@ -1137,7 +1137,7 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef,const char* data, const std:
 	ser.Canonical = true;
 
 	// Prefix, out
-	if (lev == LEVEL::I)
+	if (lev == LEVEL::XMLDSIG)
 	{
 		remprefix(x.GetRootElement());
 	}
@@ -1176,7 +1176,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 	vector<CERT_BLOB> CertsIncluded;
 	vector<CMSG_SIGNER_ENCODE_INFO> Signers;
 	int AuthAttr = CMSG_AUTHENTICATED_ATTRIBUTES_FLAG;
-	if (lev  == LEVEL::I)
+	if (lev  == LEVEL::CMS)
 		AuthAttr = 0;
 
 	vector <shared_ptr<vector<char>>> mem;

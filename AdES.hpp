@@ -37,7 +37,8 @@ public:
 
 	enum class LEVEL
 	{
-		I = 0,
+		CMS = 0,
+		XMLDSIG = 0,
 		B = 1,
 		T = 2,
 		C = 3,
