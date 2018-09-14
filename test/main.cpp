@@ -206,7 +206,7 @@ int main()
 		Certs.push_back(ce);
 	};
 
-
+	/*
 	// Picker by store
 	for(;;)
 	{
@@ -232,13 +232,13 @@ int main()
 		}
 	
 	}
-	
+	*/
 
-/*
+
 	// Picker by subject
-	auto cert = HrGetSigner(L"ch.michael@lol.gr"); // Yes I maintain this spam e-mail, send as much as you want :)
+	auto cert = HrGetSigner(L"ch.michael@cyta.gr"); // Yes I maintain this spam e-mail, send as much as you want :)
 	putin(cert);
-*/
+
 
 	// ----------------
 
@@ -251,9 +251,9 @@ int main()
 //	Params.Attached = false;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
 	Params.commitmentTypeOid = "1.2.840.113549.1.9.16.6.1";
-	auto hr1 = a.Sign(AdES::CLEVEL::CADES_X, msg, (DWORD)b, Certs,  Params,Sig);
+	auto hr1 = a.Sign(AdES::LEVEL::X, msg, (DWORD)b, Certs,  Params,Sig);
 	PutFile(L"..\\hello2.p7m", Sig);
-	AdES::CLEVEL lev;
+	AdES::LEVEL lev;
 	vector<PCCERT_CONTEXT> CV;
 	vector<char> dmsg;
 	AdES::VERIFYRESULTS v;
@@ -264,13 +264,14 @@ int main()
 	hellox.resize(hellox.size() + 1);
 	//Params.HashAlgorithm.pszObjId = szOID_OIWSEC_sha1;
 
-	//auto hr2 = a.XMLSign(AdES::XLEVEL::XMLDSIG, AdES::XTYPE::ENVELOPED, 0,hellox.data(), Certs, Params, Sig);
-	auto hr2 = a.XMLSign(AdES::XLEVEL::XADES_T,AdES::XTYPE::ENVELOPED, 0, hellox.data(), Certs, Params, Sig);
+	Params.Attached = AdES::ATTACHTYPE::ENVELOPED;
+	//auto hr2 = a.XMLSign(AdES::LEVEL::I, 0,hellox.data(), Certs, Params, Sig);
+	auto hr2 = a.XMLSign(AdES::LEVEL::T,0, hellox.data(), Certs, Params, Sig);
 	PutFile(L"..\\hello2.xml", Sig);
 
 	tuple<const BYTE*, DWORD, const char*> t1 = std::make_tuple<const BYTE*, DWORD, const char*>(
 		std::forward<const BYTE*>((BYTE*)hellox.data()), 
-		hellox.size() - 1, 
+		(DWORD)(hellox.size() - 1), 
 		std::forward<const char*>((const char*)"hello.xml"));
 	vector<tuple<const BYTE*, DWORD, const char*>> tx = { t1 };
 	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::XADES, tx, Certs,  Params, Sig);

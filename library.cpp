@@ -273,6 +273,36 @@ public:
 	}
 };
 
+inline vector<char> StripASNTagLength(vector<char>& d)
+{
+	vector<char> x = d;
+
+	// Strip Tag
+	x.erase(x.begin());
+	unsigned char d0 = d[0];
+	if (d0 < 127)
+	{
+		x.erase(x.begin());
+		return x;
+	}
+
+	x.erase(x.begin());
+	d0 -= 128;
+	while (d0 > 0)
+	{
+		x.erase(x.begin());
+		d0--;
+	}
+
+	return x;
+}
+
+inline vector<char> EncodeCertList(vector<PCCERT_CONTEXT>& d)
+{
+	vector<char> x;
+	return x;
+}
+
 AdES::AdES()
 {
 
@@ -471,7 +501,7 @@ HRESULT AdES :: TimeStamp(CRYPT_TIMESTAMP_PARA params,const char* data, DWORD sz
 	return S_OK;
 }
 
-HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, DWORD len,std::vector<char>* msg,std::vector<PCCERT_CONTEXT>* Certs, VERIFYRESULTS* vr)
+HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev,const char* omsg, DWORD len,std::vector<char>* msg,std::vector<PCCERT_CONTEXT>* Certs, VERIFYRESULTS* vr)
 {
 	auto hr = E_FAIL;
 
@@ -509,18 +539,18 @@ HRESULT AdES::Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg, D
 
 			NumVer++;
 			hr = S_OK;
-			lev = CLEVEL::CMS;
+			lev = LEVEL::I;
 
 			// Check now BES
 			auto hr1 = VerifyB(data, sz, i, omsg ? false : true,c);
 			if (SUCCEEDED(hr1))
 			{
-				lev = CLEVEL::CADES_B;
+				lev = LEVEL::B;
 				// Check now T
 				FILETIME ft = { 0 };
 				auto hr2 = VerifyT(data, sz, 0, omsg ? false : true, i, &ft);
 				if (SUCCEEDED(hr2))
-					lev = CLEVEL::CADES_T;
+					lev = LEVEL::T;
 			}
 
 			if (!Certs && c)
@@ -748,8 +778,9 @@ HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT
 	return hr;
 }
 
-HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
+HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef,const char* data, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
+
 	auto guidcr = []() -> string
 	{
 		GUID g;
@@ -842,13 +873,13 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 
 	XML3::XMLElement ds_Signature;
 	ds_Signature.SetElementName("ds:Signature");
-	ds_Signature.vv(lev == XLEVEL::XMLDSIG ? "xmlns" : "xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-	if (lev != XLEVEL::XMLDSIG)
+	ds_Signature.vv(lev == LEVEL::I ? "xmlns" : "xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+	if (lev != LEVEL::I)
 		ds_Signature.vv("Id") = "xmldsig-" + id1;
 
 	XML3::XMLElement ds_SignedInfo;
 	ds_SignedInfo.SetElementName("ds:SignedInfo");
-	if (lev == XLEVEL::XMLDSIG)
+	if (lev == LEVEL::I)
 		ds_SignedInfo.vv("xmlns") = "http://www.w3.org/2000/09/xmldsig#";
 	else
 		ds_SignedInfo.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
@@ -858,7 +889,7 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 	auto& ref1 = ds_SignedInfo.AddElement("ds:Reference");
 
 	ref1.vv("URI") = "";
-	if (URIRef && typ == XTYPE::DETACHED)
+	if (URIRef && Params.Attached == ATTACHTYPE::DETACHED)
 		ref1.vv("URI") = URIRef;
 	 
 	ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
@@ -883,7 +914,7 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 </ds:KeyInfo>
 	)";
 	XML3::XMLElement ki = _ds_KeyInfo.c_str();
-	if (lev != XLEVEL::XMLDSIG)
+	if (lev != LEVEL::I)
 	{
 		ki.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
 		sprintf_s(d, 1000, "xmldsig-%s-keyinfo", id1.c_str());
@@ -897,7 +928,7 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 	// Objects
 	XML3::XMLElement o2 = "<ds:Object/>";
 	shared_ptr<XML3::XMLElement> tscontent;
-	if (lev != XLEVEL::XMLDSIG)
+	if (lev != LEVEL::I)
 	{
 		auto& xqp = o2.AddElement("xades:QualifyingProperties");
 		xqp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
@@ -1043,7 +1074,7 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 		ref3["ds:DigestValue"].SetContent(d2.c_str());
 
 		// Unsigned 
-		if (lev >= XLEVEL::XADES_T)
+		if (lev >= LEVEL::T)
 		{
 			auto& xup = xqp.AddElement("xades:UnsignedProperties");
 			/*<xades:UnsignedSignatureProperties>
@@ -1065,11 +1096,11 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 	string _ds_sv = R"(<ds:SignatureValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#"></ds:SignatureValue>)";
 	XML3::XMLElement sv = _ds_sv.c_str();
 	sprintf_s(d, 1000, "xmldsig-%s-sigvalue", id1.c_str());
-	if (lev != XLEVEL::XMLDSIG)
+	if (lev != LEVEL::I)
 		sv.vv("Id") = d;
 
 	// Remove prefix if necessary 
-	if (lev == XLEVEL::XMLDSIG)
+	if (lev == LEVEL::I)
 	{
 		remprefix(ds_SignedInfo);
 		ds_SignedInfo.SetElementName("SignedInfo");
@@ -1082,7 +1113,7 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 	string dss = XML3::Char2Base64((const char*)Sig.data(), Sig.size(), false);
 	sv.SetContent(dss.c_str());
 
-	if (lev >= XLEVEL::XADES_T)
+	if (lev >= LEVEL::T)
 	{
 		string svs = sv.Serialize(&ser);
 		vector<char> tsr;
@@ -1095,7 +1126,7 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 
 	ds_Signature.AddElement(sv);
 	ds_Signature.AddElement(ki);
-	if (lev != XLEVEL::XMLDSIG)
+	if (lev != LEVEL::I)
 	{
 		ds_Signature.AddElement(o2);
 	}
@@ -1106,13 +1137,13 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 	ser.Canonical = true;
 
 	// Prefix, out
-	if (lev == XLEVEL::XMLDSIG)
+	if (lev == LEVEL::I)
 	{
 		remprefix(x.GetRootElement());
 	}
 
 	string res;
-	if (typ == XTYPE::DETACHED)
+	if (Params.Attached == ATTACHTYPE::DETACHED)
 		res = ds_Signature.Serialize(&ser);
 	else
 		res = x.Serialize(&ser);
@@ -1120,7 +1151,20 @@ HRESULT AdES::XMLSign(XLEVEL lev, XTYPE typ, const char* URIRef,const char* data
 	memcpy(Signature.data(), res.c_str(), res.length());
 	return hr;
 }
-HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
+
+void hd(vector<char> d)
+{
+	string e;
+	char ee[10];
+	for (auto c : d)
+	{
+			sprintf_s(ee,10,"%02X", c);
+			e += ee;
+	}
+	MessageBoxA(0, e.c_str(), 0, 0);
+}
+
+HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
 	auto hr = E_FAIL;
 	if (!data || !sz)
@@ -1132,7 +1176,7 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 	vector<CERT_BLOB> CertsIncluded;
 	vector<CMSG_SIGNER_ENCODE_INFO> Signers;
 	int AuthAttr = CMSG_AUTHENTICATED_ATTRIBUTES_FLAG;
-	if (lev  == CLEVEL::CMS)
+	if (lev  == LEVEL::I)
 		AuthAttr = 0;
 
 	vector <shared_ptr<vector<char>>> mem;
@@ -1323,9 +1367,14 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 	SignedMsgEncodeInfo.rgCertEncoded = CertsIncluded.data();
 	SignedMsgEncodeInfo.rgCrlEncoded = NULL;
 
+
+	DWORD dflg = 0;
+	if (Params.Attached == ATTACHTYPE::DETACHED)
+		dflg = CMSG_DETACHED_FLAG;
+
 	auto cbEncodedBlob = CryptMsgCalculateEncodedLength(
 		MY_ENCODING_TYPE,     // Message encoding type
-		(Params.Attached ? 0 : CMSG_DETACHED_FLAG),                    // Flags
+		dflg,
 		CMSG_SIGNED,          // Message type
 		&SignedMsgEncodeInfo, // Pointer to structure
 		NULL,                 // Inner content OID
@@ -1334,7 +1383,7 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 	{
 		auto hMsg = CryptMsgOpenToEncode(
 			MY_ENCODING_TYPE,        // encoding type
-			(Params.Attached ? 0 : CMSG_DETACHED_FLAG) | AuthAttr,                    // Flags
+			dflg | AuthAttr,
 			CMSG_SIGNED,             // message type
 			&SignedMsgEncodeInfo,    // pointer to structure
 			NULL,                    // inner content OID
@@ -1355,7 +1404,7 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 					Signature.resize(cbEncodedBlob);
 					hr = S_OK;
 
-					if (lev >= CLEVEL::CADES_T)
+					if (lev >= LEVEL::T)
 					{
 						hr = E_FAIL;
 						if (hMsg)
@@ -1370,7 +1419,7 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 
 						hMsg = CryptMsgOpenToDecode(
 							MY_ENCODING_TYPE,   // Encoding type
-							Params.Attached ? 0 : CMSG_DETACHED_FLAG,                    // Flags
+							dflg,
 							0,                  // Message type (get from message)
 							0,         // Cryptographic provider
 							NULL,               // Recipient information
@@ -1447,11 +1496,10 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 											Signature.resize(cbEncodedBlob);
 											hr = S_OK;
 
-											if (lev >= CLEVEL::CADES_C)
+											if (lev >= LEVEL::C)
 											{
 
 												vector<char> buff3;
-												vector<char> buff4;
 												vector<char> buff5;
 												vector<char> full1;
 												vector<char> full2;
@@ -1465,7 +1513,7 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 
 												hMsg = CryptMsgOpenToDecode(
 													MY_ENCODING_TYPE,   // Encoding type
-													Params.Attached ? 0 : CMSG_DETACHED_FLAG,                    // Flags
+													dflg,
 													0,                  // Message type (get from message)
 													0,         // Cryptographic provider
 													NULL,               // Recipient information
@@ -1611,6 +1659,7 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 																ua.blob.cbData = (DWORD)enc.size();
 
 																full2 = enc;
+
 																ua.dwSignerIndex = i;
 																if (!CryptMsgControl(hMsg, 0, CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR, &ua))
 																	S = false;
@@ -1628,7 +1677,7 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 																	Signature.resize(cbEncodedBlob);
 																	hr = S_OK;
 
-																	if (lev >= CLEVEL::CADES_X)
+																	if (lev >= LEVEL::X)
 																	{
 																		hr = E_FAIL;
 																		if (hMsg)
@@ -1639,7 +1688,7 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 
 																		hMsg = CryptMsgOpenToDecode(
 																			MY_ENCODING_TYPE,   // Encoding type
-																			Params.Attached ? 0 : CMSG_DETACHED_FLAG,                    // Flags
+																			dflg,
 																			0,                  // Message type (get from message)
 																			0,         // Cryptographic provider
 																			NULL,               // Recipient information
@@ -1655,11 +1704,16 @@ HRESULT AdES::Sign(CLEVEL lev, const char* data, DWORD sz, const std::vector<CER
 																				S = true;
 																				for (DWORD i = 0; i < Certificates.size(); i++)
 																				{
-																					auto& cert = Certificates[i];
-																					// cert + rev
-																					vector<char> EH2 = full1;
-																					EH2.resize(full1.size() + full2.size());
-																					memcpy(EH2.data() + full1.size(), full2.data(), full2.size());
+																					// cert + rev but without tag-length
+																					vector<char> EH2 = StripASNTagLength(full1);
+																					vector<char> EH3 = StripASNTagLength(full2);
+																					EH2.insert(EH2.end(), EH3.begin(), EH3.end());
+
+																					vector<BYTE> dhash;
+																					HASH hash(BCRYPT_SHA256_ALGORITHM);
+																					hash.hash((BYTE*)EH2.data(), (DWORD)EH2.size());
+																					hash.get(dhash);
+
 																					vector<char> CR;
 																					auto hrx = TimeStamp(Params.tparams, EH2.data(), (DWORD)EH2.size(), CR, Params.TSServer);
 																					if (FAILED(hrx))
@@ -1807,7 +1861,7 @@ HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DW
 		if (typ == ATYPE::CADES)
 		{
 			vector<char> S;
-			hr = Sign(CLEVEL::CADES_T, (const char*)std::get<0>(t), std::get<1>(t), Certificates, Params, S);
+			hr = Sign(LEVEL::T, (const char*)std::get<0>(t), std::get<1>(t), Certificates, Params, S);
 			z.PutFile("META-INF/signature.p7s", S.data(), (DWORD)S.size());
 			LoadFile(wtempf.c_str(), fndata);
 			DeleteFile(wtempf.c_str());

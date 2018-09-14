@@ -35,45 +35,41 @@ public:
 	};
 
 
-	enum class CLEVEL
+	enum class LEVEL
 	{
-		CMS = 0,
-		CADES_B = 1,
-		CADES_T = 2,
-		CADES_C = 3,
-		CADES_X = 4,
-		CADES_XLT = 5,
-		CADES_A = 6,
+		I = 0,
+		B = 1,
+		T = 2,
+		C = 3,
+		X = 4,
+		XL = 5,
 	};
 
-	enum class XLEVEL
-	{
-		XMLDSIG = 0,
-		XADES_B = 1,
-		XADES_T = 2
-	};
-
-	enum class XTYPE
+	
+	enum class ATTACHTYPE
 	{
 		DETACHED = 0,
+		// ENVELOPING = 1, not yet used
 		ENVELOPED = 2,
+		ATTACHED = 2,
 	};
 
 	struct SIGNPARAMETERS
 	{
 		CRYPT_ALGORITHM_IDENTIFIER HashAlgorithm = { szOID_NIST_sha256 };
-		bool Attached = true;
+		ATTACHTYPE Attached = ATTACHTYPE::ATTACHED;
 		const wchar_t* TSServer = L"http://timestamp.comodoca.com/";
 		std::string Policy;
 		CRYPT_TIMESTAMP_PARA tparams = { 0,TRUE,{},0,0 };
 		std::string commitmentTypeOid;
-		std::string ProductionPlace;
-		std::string Role;
 		/*
 		1.2.840.113549.1.9.16.6.1 - 6
 
 
 		*/
+		std::string ProductionPlace;
+		std::string Role;
+		int Type1OrType2 = 2; // For X and XL forms timestamp, currently 2 is supported, this parameter is ignored
 	};
 
 	struct VERIFYRESULT
@@ -99,11 +95,11 @@ public:
 
 	AdES();
 	HRESULT TimeStamp(CRYPT_TIMESTAMP_PARA params,const char* data, DWORD sz, std::vector<char>& CR, const wchar_t* url = L"http://timestamp.comodoca.com/", const char* alg = szOID_NIST_sha256);
-	HRESULT Sign(CLEVEL lev,const char* data,DWORD sz,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params,std::vector<char>& Signature);
-	HRESULT Verify(const char* data, DWORD sz, CLEVEL& lev,const char* omsg = 0,DWORD len = 0,std::vector<char>* msg = 0,std::vector<PCCERT_CONTEXT>* Certs = 0,VERIFYRESULTS* vr = 0);
+	HRESULT Sign(LEVEL lev,const char* data,DWORD sz,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params,std::vector<char>& Signature);
+	HRESULT Verify(const char* data, DWORD sz, LEVEL& lev,const char* omsg = 0,DWORD len = 0,std::vector<char>* msg = 0,std::vector<PCCERT_CONTEXT>* Certs = 0,VERIFYRESULTS* vr = 0);
 	HRESULT VerifyB(const char* data, DWORD sz, int sidx = 0,bool Attached = true,PCCERT_CONTEXT c = 0);
 	HRESULT VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX = 0, bool Attached = true, int TSServerSignIndex = 0, FILETIME* ft = 0);
-	HRESULT XMLSign(XLEVEL lev, XTYPE typ,const char* URIRef,const char* data, const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
+	HRESULT XMLSign(LEVEL lev, const char* URIRef,const char* data, const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
 
 	HRESULT ASiC(ALEVEL lev,ATYPE typ, std::vector<std::tuple<const BYTE*,DWORD,const char*>>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
 
