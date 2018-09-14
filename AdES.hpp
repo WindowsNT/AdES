@@ -49,9 +49,9 @@ public:
 	enum class ATTACHTYPE
 	{
 		DETACHED = 0,
-		// ENVELOPING = 1, not yet used
+		ENVELOPING = 1,
+		ATTACHED = 1,
 		ENVELOPED = 2,
-		ATTACHED = 2,
 	};
 
 	struct SIGNPARAMETERS

@@ -107,6 +107,7 @@ HrGetSigner(
 			return pCert;
 		}
 	}
+	return 0;
 }
 
 vector<PCCRL_CONTEXT> GetCRLs(PCCERT_CONTEXT p)
@@ -206,7 +207,7 @@ int main()
 		Certs.push_back(ce);
 	};
 
-	/*
+	
 	// Picker by store
 	for(;;)
 	{
@@ -232,13 +233,15 @@ int main()
 		}
 	
 	}
-	*/
+	
 
-
+/*
 	// Picker by subject
-	auto cert = HrGetSigner(L"ch.michael@cyta.gr"); // Yes I maintain this spam e-mail, send as much as you want :)
+	auto cert = HrGetSigner(L"ch.michael@lol.gr"); 
+	if (!cert)
+		return 0;
 	putin(cert);
-
+*/
 
 	// ----------------
 
