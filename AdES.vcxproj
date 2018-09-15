@@ -137,6 +137,7 @@
     <ClCompile Include="SigPolicyQualifierId.c" />
     <ClCompile Include="SigPolicyQualifierInfo.c" />
     <ClCompile Include="TerminalIdentifier.c" />
+    <ClCompile Include="TestTest.c" />
     <ClCompile Include="X121Address.c" />
   </ItemGroup>
   <ItemGroup>

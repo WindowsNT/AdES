@@ -16,6 +16,7 @@
 #include <asn_internal.h>
 
 #include "AdES.hpp"
+#include "TestTest.h"
 #include "SigningCertificateV2.h"
 #include "SignaturePolicyIdentifier.h"
 #include "CommitmentTypeIndication.h"
@@ -25,6 +26,38 @@
 using namespace std;
 
 #include "xml\\xml3all.h"
+
+template <typename T = char,typename T2 = std::vector<T>>
+inline bool PutFile(const wchar_t* f, T2& d)
+{
+	HANDLE hX = CreateFile(f, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+	if (hX == INVALID_HANDLE_VALUE)
+		return false;
+	DWORD A = 0;
+	WriteFile(hX, d.data(), (DWORD)d.size(), &A, 0);
+	CloseHandle(hX);
+	if (A != d.size())
+		return false;
+	return true;
+}
+
+template <typename T = char>
+inline bool LoadFile(const wchar_t* f, vector<T>& d)
+{
+	HANDLE hX = CreateFile(f, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+	if (hX == INVALID_HANDLE_VALUE)
+		return false;
+	LARGE_INTEGER sz = { 0 };
+	GetFileSizeEx(hX, &sz);
+	d.resize((size_t)(sz.QuadPart / sizeof(T)));
+	DWORD A = 0;
+	ReadFile(hX, d.data(), (DWORD)sz.QuadPart, &A, 0);
+	CloseHandle(hX);
+	if (A != sz.QuadPart)
+		return false;
+	return true;
+}
+
 
 class OID
 {
@@ -297,10 +330,127 @@ inline vector<char> StripASNTagLength(vector<char>& d)
 	return x;
 }
 
+
+inline void LenPush(unsigned char s,vector<char>& x, DWORD sz)
+{
+	x.push_back(s);
+	if (sz <= 127)
+		x.push_back((unsigned char)sz);
+	else
+	{
+		if (sz <= 255)
+		{
+			x.push_back((unsigned char)0x81);
+			x.push_back((unsigned char)sz);
+		}
+		else
+			if (sz <= 65535)
+			{
+				x.push_back((unsigned char)0x82);
+				x.push_back(HIBYTE(sz));
+				x.push_back(LOBYTE(sz));
+			}
+			else
+			{
+				//*
+			}
+	}
+}
+
 inline vector<char> EncodeCertList(vector<PCCERT_CONTEXT>& d)
 {
+	// 	CertificateValues :: = SEQUENCE OF Certificate
 	vector<char> x;
+	DWORD sz = 0;
+	for (auto& dd : d)
+	{
+		sz += dd->cbCertEncoded;
+	}
+	LenPush(0x30,x, sz);
+	for (auto& dd : d)
+	{
+		vector<char> dz(dd->cbCertEncoded);
+		memcpy(dz.data(), dd->pbCertEncoded, dd->cbCertEncoded);
+		x.insert(x.end(), dz.begin(), dz.end());
+	}
+
 	return x;
+}
+
+inline vector<char> EncodeCRLList(vector<PCCRL_CONTEXT>& d)
+{
+/*
+	TestTest tt = { 0 };
+	BYTE b1[1];
+	BYTE b2[1];
+	INTEGER_t ty1;
+	INTEGER_t os1;
+	tt.testdummy1 = &ty1;
+	tt.testdummy1->size = 1;
+	tt.testdummy1->buf = b1;
+	tt.testdummy1->buf[0] = 0x88;
+
+	tt.testdummy2 = &ty1;
+	tt.testdummy2->size = 1;
+	tt.testdummy2->buf = b2;
+	tt.testdummy2->buf[0] = 0x77;
+
+	// Encode it as DER
+	vector<char> buff3;
+	auto ec2 = der_encode(&asn_DEF_TestTest,
+		&tt, [](const void *buffer, size_t size, void *app_key) ->int
+	{
+		vector<char>* x = (vector<char>*)app_key;
+		auto es = x->size();
+		x->resize(x->size() + size);
+		memcpy(x->data() + es, buffer, size);
+		return 0;
+	}, (void*)&buff3);
+*/
+
+	vector<char> x;
+
+	/*
+
+   RevocationValues ::=  SEQUENCE {
+      crlVals          [0] SEQUENCE OF CertificateList OPTIONAL,
+      ocspVals         [1] SEQUENCE OF BasicOCSPResponse OPTIONAL,
+      otherRevVals     [2] OtherRevVals OPTIONAL 
+	  }
+
+   OtherRevVals ::= SEQUENCE {
+      OtherRevValType   OtherRevValType,
+      OtherRevVals      ANY DEFINED BY OtherRevValType 
+	  }
+
+   OtherRevValType ::= OBJECT IDENTIFIER
+   */
+
+	DWORD sz = 0;
+	for (auto& dd : d)
+	{
+		sz += dd->cbCrlEncoded;
+	}
+	LenPush(0x30, x, sz);
+	for (auto& dd : d)
+	{
+		vector<char> dz(dd->cbCrlEncoded);
+		memcpy(dz.data(), dd->pbCrlEncoded, dd->cbCrlEncoded);
+		x.insert(x.end(), dz.begin(), dz.end());
+	}
+
+
+	// x has the seq of CRLs
+
+	// We must also put the explicit tag 0xa0 <length>
+	vector<char> x3;
+	LenPush(0xa0, x3,x.size());
+	x3.insert(x3.end(), x.begin(), x.end());
+
+	vector<char> x2;
+	LenPush(0x30, x2, x3.size());
+	x2.insert(x2.end(), x3.begin(), x3.end());
+	return x2;
 }
 
 AdES::AdES()
@@ -1417,13 +1567,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 						// Get the timestamp of the data...
 						vector<char> EH;
 
-						hMsg = CryptMsgOpenToDecode(
-							MY_ENCODING_TYPE,   // Encoding type
-							dflg,
-							0,                  // Message type (get from message)
-							0,         // Cryptographic provider
-							NULL,               // Recipient information
-							NULL);
+						hMsg = CryptMsgOpenToDecode(MY_ENCODING_TYPE, dflg, 0, 0, 0, 0);
 						if (hMsg)
 						{
 							if (CryptMsgUpdate(
@@ -1511,13 +1655,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 												}
 
 
-												hMsg = CryptMsgOpenToDecode(
-													MY_ENCODING_TYPE,   // Encoding type
-													dflg,
-													0,                  // Message type (get from message)
-													0,         // Cryptographic provider
-													NULL,               // Recipient information
-													NULL);
+												hMsg = CryptMsgOpenToDecode(MY_ENCODING_TYPE, dflg, 0, 0, 0, 0);
 												if (hMsg)
 												{
 													if (CryptMsgUpdate(
@@ -1686,13 +1824,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 																			hMsg = 0;
 																		}
 
-																		hMsg = CryptMsgOpenToDecode(
-																			MY_ENCODING_TYPE,   // Encoding type
-																			dflg,
-																			0,                  // Message type (get from message)
-																			0,         // Cryptographic provider
-																			NULL,               // Recipient information
-																			NULL);
+																		hMsg = CryptMsgOpenToDecode(MY_ENCODING_TYPE, dflg, 0, 0, 0, 0);
 																		if (hMsg)
 																		{
 																			if (CryptMsgUpdate(
@@ -1756,6 +1888,115 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 																						{
 																							Signature.resize(cbEncodedBlob);
 																							hr = S_OK;
+
+																							if (lev >= LEVEL::XL)
+																							{
+																								// Add complete certs
+																								hr = E_FAIL;
+																								if (hMsg)
+																								{
+																									CryptMsgClose(hMsg);
+																									hMsg = 0;
+																								}
+
+																								hMsg = CryptMsgOpenToDecode(MY_ENCODING_TYPE,dflg,0,0,0,0);
+																								if (hMsg)
+																								{
+																									if (CryptMsgUpdate(
+																										hMsg,            // Handle to the message
+																										(BYTE*)Signature.data(),   // Pointer to the encoded BLOB
+																										cbEncodedBlob,   // Size of the encoded BLOB
+																										TRUE))           // Last call
+																									{
+																										S = true;
+																										
+																										for (DWORD i = 0; i < Certificates.size(); i++)
+																										{
+																											vector<PCCERT_CONTEXT> ve;
+																											vector<PCCRL_CONTEXT> vcrls;
+																											auto& c = Certificates[i];
+																											ve.push_back(c.cert.cert);
+																											for (auto& cc : c.cert.Crls)
+																											{
+																												vcrls.push_back(cc);
+																											}
+																											for (auto& cc : c.More)
+																											{
+																												ve.push_back(cc.cert);
+																												for (auto& ccc : cc.Crls)
+																												{
+																													vcrls.push_back(ccc);
+																												}
+																											}
+																											auto CR = EncodeCertList(ve);
+																											if (true)
+																											{
+																												CRYPT_ATTRIBUTE cat = { 0 };
+																												cat.cValue = 1;
+																												CRYPT_ATTR_BLOB bl;
+																												bl.cbData = (DWORD)CR.size();
+																												bl.pbData = (BYTE*)CR.data();
+																												cat.rgValue = &bl;
+																												cat.pszObjId = "1.2.840.113549.1.9.16.2.23";
+																												DWORD aa;
+																												CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
+																												vector<char> enc(aa);
+																												CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
+																												enc.resize(aa);
+
+																												CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR_PARA  ua = { 0 };
+																												ua.cbSize = sizeof(ua);
+																												ua.blob.pbData = (BYTE*)enc.data();
+																												ua.blob.cbData = (DWORD)enc.size();
+
+																												ua.dwSignerIndex = i;
+																												if (!CryptMsgControl(hMsg, 0, CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR, &ua))
+																													S = false;
+																											}
+
+																											CR = EncodeCRLList(vcrls);
+																											if (true)
+																											{
+																												CRYPT_ATTRIBUTE cat = { 0 };
+																												cat.cValue = 1;
+																												CRYPT_ATTR_BLOB bl;
+																												bl.cbData = (DWORD)CR.size();
+																												bl.pbData = (BYTE*)CR.data();
+																												cat.rgValue = &bl;
+																												cat.pszObjId = "1.2.840.113549.1.9.16.2.24";
+																												DWORD aa;
+																												CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
+																												vector<char> enc(aa);
+																												CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
+																												enc.resize(aa);
+
+																												CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR_PARA  ua = { 0 };
+																												ua.cbSize = sizeof(ua);
+																												ua.blob.pbData = (BYTE*)enc.data();
+																												ua.blob.cbData = (DWORD)enc.size();
+
+																												ua.dwSignerIndex = i;
+																												if (!CryptMsgControl(hMsg, 0, CMSG_CTRL_ADD_SIGNER_UNAUTH_ATTR, &ua))
+																													S = false;
+																											}
+
+																										}
+
+																										if (S)
+																										{
+																											if (CryptMsgGetParam(hMsg, CMSG_ENCODED_MESSAGE, 0, NULL, &cbEncodedBlob))       // Size of the returned information
+																											{
+																												Signature.resize(cbEncodedBlob);
+																												if (CryptMsgGetParam(hMsg, CMSG_ENCODED_MESSAGE, 0, (BYTE*)Signature.data(), &cbEncodedBlob))       // Size of the returned information
+																												{
+																													Signature.resize(cbEncodedBlob);
+																													hr = S_OK;
+																												}
+																											}
+																										}
+																									}
+																								}
+																							}
 																						}
 																					}
 																				}
@@ -1803,37 +2044,6 @@ inline wstring TempFile(wchar_t* x, const wchar_t* prf)
 	return x;
 }
 
-
-template <typename T = char>
-inline bool PutFile(const wchar_t* f, vector<T>& d)
-{
-	HANDLE hX = CreateFile(f, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
-	if (hX == INVALID_HANDLE_VALUE)
-		return false;
-	DWORD A = 0;
-	WriteFile(hX, d.data(), (DWORD)d.size(), &A, 0);
-	CloseHandle(hX);
-	if (A != d.size())
-		return false;
-	return true;
-}
-
-template <typename T = char>
-inline bool LoadFile(const wchar_t* f, vector<T>& d)
-{
-	HANDLE hX = CreateFile(f, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
-	if (hX == INVALID_HANDLE_VALUE)
-		return false;
-	LARGE_INTEGER sz = { 0 };
-	GetFileSizeEx(hX, &sz);
-	d.resize((size_t)(sz.QuadPart / sizeof(T)));
-	DWORD A = 0;
-	ReadFile(hX, d.data(), (DWORD)sz.QuadPart, &A, 0);
-	CloseHandle(hX);
-	if (A != sz.QuadPart)
-		return false;
-	return true;
-}
 
 
 HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data, std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata)

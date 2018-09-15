@@ -1,4 +1,5 @@
 ASN_MODULE_SOURCES=	\
+	TestTest.c	\
 	SigningCertificateV2.c	\
 	AlgorithmIdentifier.c	\
 	ESSCertIDv2.c	\
@@ -70,6 +71,7 @@ ASN_MODULE_SOURCES=	\
 	KeyHash.c
 
 ASN_MODULE_HEADERS=	\
+	TestTest.h	\
 	SigningCertificateV2.h	\
 	AlgorithmIdentifier.h	\
 	ESSCertIDv2.h	\

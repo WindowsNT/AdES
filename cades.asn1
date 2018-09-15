@@ -5,6 +5,12 @@
  */
 CADES DEFINITIONS ::= BEGIN
 
+TestTest ::= SEQUENCE
+{
+testdummy1 [0] INTEGER OPTIONAL,
+testdummy2 [1] INTEGER OPTIONAL
+}
+
 SigningCertificateV2 ::=  SEQUENCE 
 	{
 	certs        SEQUENCE OF ESSCertIDv2,
@@ -433,8 +439,6 @@ ResponderID ::= CHOICE {
 -- TimestampedCertsCRLs ::= TimeStampToken
 
 -- XL
-
-
 
 
 END

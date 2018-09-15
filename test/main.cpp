@@ -208,6 +208,8 @@ int main()
 	};
 
 	
+//#define PICKBYSUBJECT
+#ifndef PICKBYSUBJECT
 	// Picker by store
 	for(;;)
 	{
@@ -235,13 +237,14 @@ int main()
 	}
 	
 
-/*
+
 	// Picker by subject
+#else
 	auto cert = HrGetSigner(L"ch.michael@lol.gr"); 
 	if (!cert)
 		return 0;
 	putin(cert);
-*/
+#endif
 
 	// ----------------
 
@@ -254,7 +257,7 @@ int main()
 //	Params.Attached = false;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
 	Params.commitmentTypeOid = "1.2.840.113549.1.9.16.6.1";
-	auto hr1 = a.Sign(AdES::LEVEL::X, msg, (DWORD)b, Certs,  Params,Sig);
+	auto hr1 = a.Sign(AdES::LEVEL::XL, msg, (DWORD)b, Certs,  Params,Sig);
 	PutFile(L"..\\hello2.p7m", Sig);
 	AdES::LEVEL lev;
 	vector<PCCERT_CONTEXT> CV;

@@ -356,6 +356,9 @@
     <ClCompile Include="SignaturePolicyIdentifier.c">
       <Filter>ASNC</Filter>
     </ClCompile>
+    <ClCompile Include="TestTest.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="cades.asn1" />
