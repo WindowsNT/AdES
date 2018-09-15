@@ -208,7 +208,7 @@ int main()
 	};
 
 	
-#define PICKBYSUBJECT
+//#define PICKBYSUBJECT
 #ifndef PICKBYSUBJECT
 	// Picker by store
 	for(;;)
@@ -240,7 +240,7 @@ int main()
 
 	// Picker by subject
 #else
-	auto cert = HrGetSigner(L"ch.michael@cyta.gr"); 
+	auto cert = HrGetSigner(L"ch.michael@lol.gr"); 
 	if (!cert)
 		return 0;
 	putin(cert);
@@ -280,7 +280,7 @@ int main()
 		(DWORD)(hellox.size() - 1), 
 		std::forward<const char*>((const char*)"hello.xml"));
 	vector<tuple<const BYTE*, DWORD, const char*>> tx = { t1 };
-	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::XADES, tx, Certs,  Params, Sig);
+	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::CADES, tx, Certs,  Params, Sig);
 	PutFile(L"..\\hello2.asics", Sig);
 
 /*

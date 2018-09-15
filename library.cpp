@@ -2106,7 +2106,7 @@ HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DW
 		if (typ == ATYPE::CADES)
 		{
 			vector<char> S;
-			hr = Sign(LEVEL::T, (const char*)std::get<0>(t), std::get<1>(t), Certificates, Params, S);
+			hr = Sign(LEVEL::XL, (const char*)std::get<0>(t), std::get<1>(t), Certificates, Params, S);
 			z.PutFile("META-INF/signature.p7s", S.data(), (DWORD)S.size());
 			LoadFile(wtempf.c_str(), fndata);
 			DeleteFile(wtempf.c_str());
