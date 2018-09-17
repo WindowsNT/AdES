@@ -271,7 +271,6 @@ int main()
 	//Params.HashAlgorithm.pszObjId = szOID_OIWSEC_sha1;
 
 	Params.Attached = AdES::ATTACHTYPE::ENVELOPED;
-	//auto hr2 = a.XMLSign(AdES::LEVEL::I, 0,hellox.data(), Certs, Params, Sig);
 	auto hr2 = a.XMLSign(AdES::LEVEL::T,0, hellox.data(), Certs, Params, Sig);
 	PutFile(L"..\\hello2.xml", Sig);
 
@@ -280,7 +279,8 @@ int main()
 		(DWORD)(hellox.size() - 1), 
 		std::forward<const char*>((const char*)"hello.xml"));
 	vector<tuple<const BYTE*, DWORD, const char*>> tx = { t1 };
-	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::CADES, tx, Certs,  Params, Sig);
+	//auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::CADES, tx, Certs, Params, Sig);
+	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::XADES, tx, Certs,  Params, Sig);
 	PutFile(L"..\\hello2.asics", Sig);
 
 /*

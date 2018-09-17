@@ -444,11 +444,11 @@ inline vector<char> EncodeCRLList(vector<PCCRL_CONTEXT>& d)
 
 	// We must also put the explicit tag 0xa0 <length>
 	vector<char> x3;
-	LenPush(0xa0, x3, x.size());
+	LenPush(0xa0, x3,(DWORD) x.size());
 	x3.insert(x3.end(), x.begin(), x.end());
 
 	vector<char> x2;
-	LenPush(0x30, x2, x3.size());
+	LenPush(0x30, x2, (DWORD)x3.size());
 	x2.insert(x2.end(), x3.begin(), x3.end());
 	return x2;
 }
@@ -550,6 +550,29 @@ HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx, bool Attached, PCCER
 	if (CTFound && MDFound && TSFound && CHFound)
 		hr = S_OK;
 
+	return hr;
+}
+
+HRESULT AdES::VerifyU(const char* data, DWORD sz, bool Attached, int TSServerSignIndex)
+{
+
+	HRESULT hr = E_FAIL;
+	auto hMsg = CryptMsgOpenToDecode(MY_ENCODING_TYPE,Attached ? 0 : CMSG_DETACHED_FLAG,0,0,0,0);
+	if (hMsg)
+	{
+		if (CryptMsgUpdate(hMsg, (BYTE*)data, (DWORD)sz, TRUE))
+		{
+			vector<char> ca;
+			DWORD da = 0;
+			if (CryptMsgGetParam(hMsg, CMSG_SIGNER_UNAUTH_ATTR_PARAM, TSServerSignIndex, 0, &da))
+			{
+				ca.resize(da);
+				if (CryptMsgGetParam(hMsg, CMSG_SIGNER_UNAUTH_ATTR_PARAM, TSServerSignIndex, ca.data(), &da))
+				{
+				}
+			}
+		}
+	}
 	return hr;
 }
 
@@ -1078,6 +1101,8 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef, const char* data, const std
 	// Objects
 	XML3::XMLElement o2 = "<ds:Object/>";
 	shared_ptr<XML3::XMLElement> tscontent;
+	shared_ptr<XML3::XMLElement> cc2;
+	shared_ptr<XML3::XMLElement> cc1;
 	if (lev != LEVEL::XMLDSIG)
 	{
 		auto& xqp = o2.AddElement("xades:QualifyingProperties");
@@ -1237,6 +1262,16 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef, const char* data, const std
 
 			XML3::XMLElement c = "xades:EncapsulatedTimeStamp";
 			tscontent = xstt.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c));
+
+			if (lev >= LEVEL::C)
+			{
+				XML3::XMLElement c1 = "xades:CompleteCertificateRefs";
+				cc1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c1));
+
+				XML3::XMLElement c2 = "xades:CompleteRevocationRefs";
+				cc2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2));
+			}
+
 		}
 	}
 
@@ -2035,7 +2070,8 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 
 						if (hr == S_OK && lev >= LEVEL::C)
 						{
-							auto[hr, full1, full2] = AddCC(Signature, Certificates, Params);
+							auto[hr2, full1, full2] = AddCC(Signature, Certificates, Params);
+							hr = hr2;
 							if (hr == S_OK && lev >= LEVEL::X)
 							{
 								hr = E_FAIL;
@@ -2100,14 +2136,35 @@ HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DW
 
 		string mt = "application/vnd.etsi.asic-s+zip";
 		z.PutFile("mimetype", mt.c_str(), (DWORD)mt.length());
-		z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
+		if (typ == ATYPE::XADES)
+		{
+			XML3::XML xf;
+			xf.Parse((const char*)std::get<0>(t),std::get<1>(t));
+			XML3::XMLSerialization ser;
+			ser.Canonical = true;
+			auto se = xf.Serialize(&ser);
+			z.PutFile(std::get<2>(t),se.data(), (DWORD)se.size());
+
+		}
+		else
+			z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
 		//		z.PutDirectory("META-INF");
 
 		if (typ == ATYPE::CADES)
 		{
 			vector<char> S;
+			Params.Attached = AdES::ATTACHTYPE::DETACHED;
 			hr = Sign(LEVEL::XL, (const char*)std::get<0>(t), std::get<1>(t), Certificates, Params, S);
 			z.PutFile("META-INF/signature.p7s", S.data(), (DWORD)S.size());
+			LoadFile(wtempf.c_str(), fndata);
+			DeleteFile(wtempf.c_str());
+		}
+		else
+		{
+			vector<char> S;
+			Params.Attached = AdES::ATTACHTYPE::DETACHED;
+			hr = XMLSign(LEVEL::T,0, (const char*)std::get<0>(t), Certificates, Params, S);
+			z.PutFile("META-INF/signatures.xml", S.data(), (DWORD)S.size());
 			LoadFile(wtempf.c_str(), fndata);
 			DeleteFile(wtempf.c_str());
 		}
