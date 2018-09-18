@@ -178,6 +178,7 @@ vector<PCCERT_CONTEXT> GetChain(PCCERT_CONTEXT cert)
 int main()
 {
 	vector<char> hellox;
+	vector<char> helloxz;
 
 
 	// Load the file
@@ -208,7 +209,7 @@ int main()
 	};
 
 	
-//#define PICKBYSUBJECT
+#define PICKBYSUBJECT
 #ifndef PICKBYSUBJECT
 	// Picker by store
 	for(;;)
@@ -240,7 +241,7 @@ int main()
 
 	// Picker by subject
 #else
-	auto cert = HrGetSigner(L"ch.michael@lol.gr"); 
+	auto cert = HrGetSigner(L"ch.michael@cyta.gr"); 
 	if (!cert)
 		return 0;
 	putin(cert);
@@ -266,22 +267,40 @@ int main()
 	auto hr3 = a.Verify(Sig.data(), (DWORD)Sig.size(), lev, 0, 0, &dmsg, &CV, &v);
 
 	Sig.clear();
+	//XML3::XML xf(L"..\\hello.xml");
+
 	LoadFile(L"..\\hello.xml", hellox);
-	hellox.resize(hellox.size() + 1);
+	LoadFile(L"..\\hello.xml", helloxz);
+	helloxz.resize(helloxz.size() + 1);
 	//Params.HashAlgorithm.pszObjId = szOID_OIWSEC_sha1;
 
 	Params.Attached = AdES::ATTACHTYPE::ENVELOPED;
-	auto hr2 = a.XMLSign(AdES::LEVEL::T,0, hellox.data(), Certs, Params, Sig);
+	tuple<const BYTE*, DWORD, const char*> a1 = std::make_tuple<const BYTE*, DWORD, const char*>(
+		std::forward<const BYTE*>((BYTE*)helloxz.data()),
+		(DWORD)0,
+		std::forward<const char*>((const char*)0));
+	vector<tuple<const BYTE*, DWORD, const char*>> ax = { a1 };
+	auto hr2 = a.XMLSign(AdES::LEVEL::T,ax,Certs, Params, Sig);
 	PutFile(L"..\\hello2.xml", Sig);
 
 	tuple<const BYTE*, DWORD, const char*> t1 = std::make_tuple<const BYTE*, DWORD, const char*>(
-		std::forward<const BYTE*>((BYTE*)hellox.data()), 
-		(DWORD)(hellox.size() - 1), 
-		std::forward<const char*>((const char*)"hello.xml"));
+		std::forward<const BYTE*>((BYTE*)hello.data()), 
+		(DWORD)(hello.size()), 
+		std::forward<const char*>((const char*)"hello.txt"));
 	vector<tuple<const BYTE*, DWORD, const char*>> tx = { t1 };
-	//auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::CADES, tx, Certs, Params, Sig);
-	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::XADES, tx, Certs,  Params, Sig);
+	//auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::CADES, AdES::LEVEL::XL,tx, Certs, Params, Sig);
+	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::XADES,AdES::LEVEL::T, tx, Certs,  Params, Sig);
 	PutFile(L"..\\hello2.asics", Sig);
+
+	tuple<const BYTE*, DWORD, const char*> t2 = std::make_tuple<const BYTE*, DWORD, const char*>(
+		std::forward<const BYTE*>((BYTE*)hellox.data()),
+		(DWORD)(hellox.size()),
+		std::forward<const char*>((const char*)"hello.xml"));
+	vector<tuple<const BYTE*, DWORD, const char*>> tx2 = { t1,t2 };
+	auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::CADES, AdES::LEVEL::XL,tx2, Certs, Params, Sig);
+//	auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::XADES, AdES::LEVEL::T,tx2, Certs, Params, Sig);
+	PutFile(L"..\\hello2.asice", Sig);
+
 
 /*
 	LoadFile(L"..\\hello2.xml", hellox);

@@ -951,7 +951,7 @@ HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT
 	return hr;
 }
 
-HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef, const char* data, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
+HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& dat,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
 
 	auto guidcr = []() -> string
@@ -1024,22 +1024,30 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef, const char* data, const std
 
 
 	auto hr = E_FAIL;
-	if (!data)
+	if (Params.Attached == ATTACHTYPE::ENVELOPED)
+	{
+		if (dat.size() != 1)
+			return E_INVALIDARG;
+		if (std::get<1>(dat[0]) != 0)
 		return E_INVALIDARG;
+
+	}
 	if (Certificates.empty())
 		return E_INVALIDARG;
 	if (Certificates.size() != 1)
 		return E_NOTIMPL;
 
-	XML3::XML x;
-	auto xp = x.Parse(data, strlen(data));
-	if (xp != XML3::XML_PARSE::OK)
-		return E_UNEXPECTED;
+
+	//string s;
 
 	char d[1000] = { 0 };
+
 	XML3::XMLSerialization ser;
 	ser.Canonical = true;
-	string s = x.GetRootElement().Serialize(&ser);
+	vector<BYTE> dhash;
+	XML3::XML x;
+	LPWSTR alg = alg3from();
+	string d2;
 
 	// ds:Signature
 	string id1 = guidcr();
@@ -1055,27 +1063,46 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef, const char* data, const std
 	if (lev == LEVEL::XMLDSIG)
 		ds_SignedInfo.vv("xmlns") = "http://www.w3.org/2000/09/xmldsig#";
 	else
+	{
 		ds_SignedInfo.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+	}
 	ds_SignedInfo["ds:CanonicalizationMethod"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
 	ds_SignedInfo["ds:SignatureMethod"].vv("Algorithm") = algfrom();
 
-	auto& ref1 = ds_SignedInfo.AddElement("ds:Reference");
+	for (auto& data : dat)
+	{
+		string ss;
+		if (std::get<1>(data) == 0)
+		{
+			auto xp = x.Parse((char*)std::get<0>(data), strlen((char*)std::get<0>(data)));
+			if (xp != XML3::XML_PARSE::OK)
+				return E_UNEXPECTED;
 
-	ref1.vv("URI") = "";
-	if (URIRef && Params.Attached == ATTACHTYPE::DETACHED)
-		ref1.vv("URI") = URIRef;
+			ss = x.GetRootElement().Serialize(&ser);
+		}
+		else
+		{
+			ss.assign((char*)std::get<0>(data), std::get<1>(data));
+		}
 
-	ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
-	ref1["ds:DigestMethod"].vv("Algorithm") = alg2from();
+		auto& ref1 = ds_SignedInfo.AddElement("ds:Reference");
+		auto URIRef = std::get<2>(data);
+		ref1.vv("URI") = "";
+		if (URIRef && Params.Attached == ATTACHTYPE::DETACHED)
+			ref1.vv("URI") = URIRef;
 
-	// Hash
-	vector<BYTE> dhash;
-	LPWSTR alg = alg3from();
-	HASH hash(alg);
-	hash.hash((BYTE*)s.c_str(), (DWORD)s.length());
-	hash.get(dhash);
-	string d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
-	ref1["ds:DigestValue"].SetContent(d2.c_str());
+		if (std::get<1>(data) == 0)
+			ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
+		ref1["ds:DigestMethod"].vv("Algorithm") = alg2from();
+
+		// Hash
+		HASH hash(alg);
+		hash.hash((BYTE*)ss.c_str(), (DWORD)ss.length());
+		hash.get(dhash);
+	 d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
+		ref1["ds:DigestValue"].SetContent(d2.c_str());
+	}
+	
 
 
 	// Key Info
@@ -1089,7 +1116,16 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef, const char* data, const std
 	XML3::XMLElement ki = _ds_KeyInfo.c_str();
 	if (lev != LEVEL::XMLDSIG)
 	{
-		ki.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+		if (Params.ASiC)
+		{
+			ki.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
+			ki.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+			ki.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+			ki.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
+
+		}
+		else
+			ki.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
 		sprintf_s(d, 1000, "xmldsig-%s-keyinfo", id1.c_str());
 		ki.vv("Id") = d;
 	}
@@ -1113,9 +1149,21 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef, const char* data, const std
 		auto& xsp = xqp.AddElement("xades:SignedProperties");
 
 		// Up stuff xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" xmlns:xades141="http://uri.etsi.org/01903/v1.4.1#" 
-		xsp.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-		xsp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
-		xsp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+		if (Params.ASiC)
+		{
+			xsp.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
+			xsp.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+			xsp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+			xsp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+			xsp.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
+
+		}
+		else
+		{
+			xsp.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+			xsp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+			xsp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+		}
 
 		sprintf_s(d, 1000, "xmldsig-%s-sigprops", id1.c_str());
 		xsp.vv("Id") = d;
@@ -1220,6 +1268,7 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef, const char* data, const std
 		ref2.vv("URI") = d;
 		ref2.vv("Type") = "http://uri.etsi.org/01903#SignedProperties";
 
+	
 		ref2["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
 
 		// Hash
@@ -1278,8 +1327,18 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef, const char* data, const std
 	ds_Signature.AddElement(ds_SignedInfo);
 
 	// Value
-	string _ds_sv = R"(<ds:SignatureValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#"></ds:SignatureValue>)";
+	string _ds_sv = R"(<ds:SignatureValue></ds:SignatureValue>)";
 	XML3::XMLElement sv = _ds_sv.c_str();
+	if (Params.ASiC)
+	{
+		sv.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
+		sv.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+		sv.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+		sv.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
+	}
+	else
+		sv.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+
 	sprintf_s(d, 1000, "xmldsig-%s-sigvalue", id1.c_str());
 	if (lev != LEVEL::XMLDSIG)
 		sv.vv("Id") = d;
@@ -1290,11 +1349,11 @@ HRESULT AdES::XMLSign(LEVEL lev, const char* URIRef, const char* data, const std
 		remprefix(ds_SignedInfo);
 		ds_SignedInfo.SetElementName("SignedInfo");
 	}
-	s = ds_SignedInfo.Serialize(&ser);
+	string sf = ds_SignedInfo.Serialize(&ser);
 
 
 	vector<char> Sig;
-	hr = GetEncryptedHash(s.data(), (DWORD)s.size(), Certificates[0].cert.cert, Params.HashAlgorithm, Sig);
+	hr = GetEncryptedHash(sf.data(), (DWORD)sf.size(), Certificates[0].cert.cert, Params.HashAlgorithm, Sig);
 	string dss = XML3::Char2Base64((const char*)Sig.data(), Sig.size(), false);
 	sv.SetContent(dss.c_str());
 
@@ -2117,12 +2176,12 @@ inline wstring TempFile(wchar_t* x, const wchar_t* prf)
 
 
 
-HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data, std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata)
+HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data, std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata)
 {
 	HRESULT hr = E_FAIL;
 	fndata.clear();
 
-	if (lev == ALEVEL::S)
+	if (alev == ALEVEL::S)
 	{
 		if (data.size() != 1)
 			return E_INVALIDARG;
@@ -2136,25 +2195,19 @@ HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DW
 
 		string mt = "application/vnd.etsi.asic-s+zip";
 		z.PutFile("mimetype", mt.c_str(), (DWORD)mt.length());
-		if (typ == ATYPE::XADES)
-		{
-			XML3::XML xf;
-			xf.Parse((const char*)std::get<0>(t),std::get<1>(t));
-			XML3::XMLSerialization ser;
-			ser.Canonical = true;
-			auto se = xf.Serialize(&ser);
-			z.PutFile(std::get<2>(t),se.data(), (DWORD)se.size());
-
-		}
-		else
-			z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
+		z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
 		//		z.PutDirectory("META-INF");
 
 		if (typ == ATYPE::CADES)
 		{
 			vector<char> S;
 			Params.Attached = AdES::ATTACHTYPE::DETACHED;
-			hr = Sign(LEVEL::XL, (const char*)std::get<0>(t), std::get<1>(t), Certificates, Params, S);
+			hr = Sign(lev, (const char*)std::get<0>(t), std::get<1>(t), Certificates, Params, S);
+			if (FAILED(hr))
+			{
+				DeleteFile(wtempf.c_str());
+				return hr;
+			}
 			z.PutFile("META-INF/signature.p7s", S.data(), (DWORD)S.size());
 			LoadFile(wtempf.c_str(), fndata);
 			DeleteFile(wtempf.c_str());
@@ -2163,12 +2216,109 @@ HRESULT AdES::ASiC(ALEVEL lev, ATYPE typ, std::vector<std::tuple<const BYTE*, DW
 		{
 			vector<char> S;
 			Params.Attached = AdES::ATTACHTYPE::DETACHED;
-			hr = XMLSign(LEVEL::T,0, (const char*)std::get<0>(t), Certificates, Params, S);
-			z.PutFile("META-INF/signatures.xml", S.data(), (DWORD)S.size());
+			Params.ASiC = true;
+
+			hr = XMLSign(lev, data, Certificates, Params, S);
+			if (FAILED(hr))
+			{
+				DeleteFile(wtempf.c_str());
+				return hr;
+			}
+			S.resize(S.size() + 1);
+			XML3::XML x;
+			x.Parse(S.data(), S.size());
+
+			XML3::XMLElement el;
+			el.SetElementName("asic:XAdESSignatures");
+			el.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+			el.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
+			el.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
+			el.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+
+			el.AddElement(x.GetRootElement());
+			x.SetRootElement(el);
+
+			XML3::XMLSerialization ser;
+			ser.Canonical = true;
+			auto ns = x.Serialize(&ser);
+			z.PutFile("META-INF/signatures.xml", ns.data(), (DWORD)ns.size());
 			LoadFile(wtempf.c_str(), fndata);
 			DeleteFile(wtempf.c_str());
 		}
 
+	}
+	else
+	{
+		// Extended
+		if (data.size() == 0)
+			return E_INVALIDARG;
+
+		wchar_t x[1000] = { 0 };
+		wstring wtempf = TempFile(x, L"asic");
+		string tempf = XML3::XMLU(wtempf.c_str());
+		DeleteFileA(tempf.c_str());
+		ZIPUTILS::ZIP z(tempf.c_str());
+
+		string mt = "application/vnd.etsi.asic-e+zip";
+		z.PutFile("mimetype", mt.c_str(), (DWORD)mt.length());
+
+		//		z.PutDirectory("META-INF");
+		if (typ == ATYPE::CADES)
+		{
+
+			XML3::XML ASiCManifest;
+			ASiCManifest.GetRootElement().SetElementName("ASiCManifest");
+			ASiCManifest.GetRootElement().vv("xmlns") = "http://uri.etsi.org/02918/v1.2.1#";
+			ASiCManifest.GetRootElement().vv("xmlns:ns2") = "http://www.w3.org/2000/09/xmldsig#";
+			ASiCManifest.GetRootElement()["SigReference"].vv("URI") = "META-INF/signature.p7s";
+			ASiCManifest.GetRootElement()["SigReference"].vv("Mimetype") = "application/x-pkcs7-signature";
+
+			for (auto& t : data)
+			{
+				
+				auto& ref = ASiCMceanifest.GetRootElement().AddElement("DataObjectReference");
+				ref.vv("URI") = std::get<2>(t);
+				// 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_OIWSEC_sha1) == 0)
+				auto& d = ref.AddElement("ns2:DigestMethod");
+				d.vv("Algorithm") = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+
+				auto& d2 = ref.AddElement("ns2:DigestValue");
+
+				HASH h(BCRYPT_SHA256_ALGORITHM);
+				h.hash(std::get<0>(t), std::get<1>(t));
+				vector<BYTE> ddd;
+				h.get(ddd);
+
+				string a = XML3::Char2Base64((char*)ddd.data(), ddd.size(), false);
+				d2.SetContent(a.c_str());
+			}
+
+			XML3::XMLSerialization ser;
+			ser.Canonical = true;
+			string s = ASiCManifest.Serialize(&ser);
+			z.PutFile("META-INF/ASiCManifest.xml", (const char*)s.data(), s.size());
+
+			vector<char> S;
+			Params.Attached = AdES::ATTACHTYPE::DETACHED;
+			hr = Sign(LEVEL::XL, (const char*)s.data(), s.size(), Certificates, Params, S);
+			if (FAILED(hr))
+			{
+				DeleteFile(wtempf.c_str());
+				return hr;
+			}
+			z.PutFile("META-INF/signature.p7s", (const char*)s.data(), s.size());
+
+
+			for (auto& t : data)
+			{
+				z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
+			}
+			LoadFile(wtempf.c_str(), fndata);
+			DeleteFile(wtempf.c_str());
+		}
+		else
+		{
+		}
 	}
 
 	return hr;

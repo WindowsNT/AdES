@@ -72,6 +72,7 @@ public:
 		std::string ProductionPlace;
 		std::string Role;
 		int Type1OrType2 = 2; // For X and XL forms timestamp, currently 2 is supported, this parameter is ignored
+		bool ASiC = false; // True if this XAdES is for ASiC
 	};
 
 	struct VERIFYRESULT
@@ -108,9 +109,9 @@ public:
 	HRESULT VerifyB(const char* data, DWORD sz, int sidx = 0,bool Attached = true,PCCERT_CONTEXT c = 0);
 	HRESULT VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX = 0, bool Attached = true, int TSServerSignIndex = 0, FILETIME* ft = 0);
 	HRESULT VerifyU(const char* data, DWORD sz, bool Attached = true, int TSServerSignIndex = 0);
-	HRESULT XMLSign(LEVEL lev, const char* URIRef,const char* data, const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
+	HRESULT XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data,const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
 
-	HRESULT ASiC(ALEVEL lev,ATYPE typ, std::vector<std::tuple<const BYTE*,DWORD,const char*>>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
+	HRESULT ASiC(ALEVEL alev,ATYPE typ, LEVEL lev,std::vector<std::tuple<const BYTE*,DWORD,const char*>>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
 
 };
 
