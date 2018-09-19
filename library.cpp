@@ -2230,8 +2230,8 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 				return hr;
 			}
 			S.resize(S.size() + 1);
-			XML3::XML x;
-			x.Parse(S.data(), S.size());
+			XML3::XML x2;
+			x2.Parse(S.data(), S.size());
 
 			XML3::XMLElement el;
 			el.SetElementName("asic:XAdESSignatures");
@@ -2240,12 +2240,12 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 			el.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
 			el.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
 
-			el.AddElement(x.GetRootElement());
-			x.SetRootElement(el);
+			el.AddElement(x2.GetRootElement());
+			x2.SetRootElement(el);
 
 			XML3::XMLSerialization ser;
 			ser.Canonical = true;
-			auto ns = x.Serialize(&ser);
+			auto ns = x2.Serialize(&ser);
 			z.PutFile("META-INF/signatures.xml", ns.data(), (DWORD)ns.size());
 			LoadFile(wtempf.c_str(), fndata);
 			DeleteFile(wtempf.c_str());
@@ -2303,7 +2303,7 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 		XML3::XMLSerialization ser;
 		ser.Canonical = true;
 		string s = ASiCManifest.Serialize(&ser);
-		z.PutFile("META-INF/ASiCManifest.xml", (const char*)s.data(), s.size());
+		z.PutFile("META-INF/ASiCManifest.xml", (const char*)s.data(), (DWORD)s.size());
 
 		vector<char> S;
 		Params.Attached = AdES::ATTACHTYPE::DETACHED;
@@ -2311,13 +2311,13 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 	
 		if (typ == ATYPE::CADES)
 		{
-			hr = Sign(LEVEL::XL, (const char*)s.data(), s.size(), Certificates, Params, S);
+			hr = Sign(LEVEL::XL, (const char*)s.data(), (DWORD)s.size(), Certificates, Params, S);
 			if (FAILED(hr))
 			{
 				DeleteFile(wtempf.c_str());
 				return hr;
 			}
-			z.PutFile("META-INF/signature.p7s", (const char*)S.data(), S.size());
+			z.PutFile("META-INF/signature.p7s", (const char*)S.data(), (DWORD)S.size());
 			LoadFile(wtempf.c_str(), fndata);
 			DeleteFile(wtempf.c_str());
 		}
@@ -2325,7 +2325,7 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 		{
 		//  s = ASiCManifest.GetRootElement().Serialize(&ser);
 			auto tu = make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)s.data()), 0, 0);
-			std::get<1>(tu) = s.size();
+			std::get<1>(tu) =(DWORD) s.size();
 			std::get<2>(tu) = "META-INF/ASiCManifest.xml";
 			vector<tuple<const BYTE*, DWORD, const char*>> tu2 = { tu };
 			hr = XMLSign(lev, tu2, Certificates, Params, S);
@@ -2335,8 +2335,8 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 				return hr;
 			}
 			S.resize(S.size() + 1);
-			XML3::XML x;
-			x.Parse(S.data(), S.size());
+			XML3::XML x2;
+			x2.Parse(S.data(), S.size());
 
 			XML3::XMLElement el;
 			el.SetElementName("asic:XAdESSignatures");
@@ -2345,12 +2345,11 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 			el.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
 			el.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
 
-			el.AddElement(x.GetRootElement());
-			x.SetRootElement(el);
+			el.AddElement(x2.GetRootElement());
+			x2.SetRootElement(el);
 
-			XML3::XMLSerialization ser;
-			ser.Canonical = true;
-			auto ns = x.Serialize(&ser);
+	
+			auto ns = x2.Serialize(&ser);
 			z.PutFile("META-INF/signatures.xml", ns.data(), (DWORD)ns.size());
 			LoadFile(wtempf.c_str(), fndata);
 			DeleteFile(wtempf.c_str());
