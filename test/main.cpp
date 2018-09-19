@@ -297,8 +297,8 @@ int main()
 		(DWORD)(hellox.size()),
 		std::forward<const char*>((const char*)"hello.xml"));
 	vector<tuple<const BYTE*, DWORD, const char*>> tx2 = { t1,t2 };
-	auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::CADES, AdES::LEVEL::XL,tx2, Certs, Params, Sig);
-//	auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::XADES, AdES::LEVEL::T,tx2, Certs, Params, Sig);
+	//auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::CADES, AdES::LEVEL::XL,tx2, Certs, Params, Sig);
+	auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::XADES, AdES::LEVEL::T,tx2, Certs, Params, Sig);
 	PutFile(L"..\\hello2.asice", Sig);
 
 

@@ -1092,7 +1092,12 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 			ref1.vv("URI") = URIRef;
 
 		if (std::get<1>(data) == 0)
-			ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
+		{
+			if (Params.Attached == ATTACHTYPE::DETACHED)
+				;//		ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+			else 
+				ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
+		}
 		ref1["ds:DigestMethod"].vv("Algorithm") = alg2from();
 
 		// Hash
@@ -2262,62 +2267,94 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 		string mt = "application/vnd.etsi.asic-e+zip";
 		z.PutFile("mimetype", mt.c_str(), (DWORD)mt.length());
 
-		//		z.PutDirectory("META-INF");
-		if (typ == ATYPE::CADES)
+		for (auto& t : data)
+		{
+			z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
+		}
+
+
+		XML3::XML ASiCManifest;
+		ASiCManifest.GetRootElement().SetElementName("ASiCManifest");
+		ASiCManifest.GetRootElement().vv("xmlns") = "http://uri.etsi.org/02918/v1.2.1#";
+		ASiCManifest.GetRootElement().vv("xmlns:ns2") = "http://www.w3.org/2000/09/xmldsig#";
+		ASiCManifest.GetRootElement()["SigReference"].vv("URI") = "META-INF/signature.p7s";
+		ASiCManifest.GetRootElement()["SigReference"].vv("MimeType") = "application/x-pkcs7-signature";
+
+		for (auto& t : data)
 		{
 
-			XML3::XML ASiCManifest;
-			ASiCManifest.GetRootElement().SetElementName("ASiCManifest");
-			ASiCManifest.GetRootElement().vv("xmlns") = "http://uri.etsi.org/02918/v1.2.1#";
-			ASiCManifest.GetRootElement().vv("xmlns:ns2") = "http://www.w3.org/2000/09/xmldsig#";
-			ASiCManifest.GetRootElement()["SigReference"].vv("URI") = "META-INF/signature.p7s";
-			ASiCManifest.GetRootElement()["SigReference"].vv("Mimetype") = "application/x-pkcs7-signature";
+			auto& ref = ASiCManifest.GetRootElement().AddElement("DataObjectReference");
+			ref.vv("URI") = std::get<2>(t);
+			// 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_OIWSEC_sha1) == 0)
+			auto& d = ref.AddElement("ns2:DigestMethod");
+			d.vv("Algorithm") = "http://www.w3.org/2001/04/xmlenc#sha256";
 
-			for (auto& t : data)
-			{
-				
-				auto& ref = ASiCMceanifest.GetRootElement().AddElement("DataObjectReference");
-				ref.vv("URI") = std::get<2>(t);
-				// 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_OIWSEC_sha1) == 0)
-				auto& d = ref.AddElement("ns2:DigestMethod");
-				d.vv("Algorithm") = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+			auto& d2 = ref.AddElement("ns2:DigestValue");
 
-				auto& d2 = ref.AddElement("ns2:DigestValue");
+			HASH h(BCRYPT_SHA256_ALGORITHM);
+			h.hash(std::get<0>(t), std::get<1>(t));
+			vector<BYTE> ddd;
+			h.get(ddd);
 
-				HASH h(BCRYPT_SHA256_ALGORITHM);
-				h.hash(std::get<0>(t), std::get<1>(t));
-				vector<BYTE> ddd;
-				h.get(ddd);
+			string a = XML3::Char2Base64((char*)ddd.data(), ddd.size(), false);
+			d2.SetContent(a.c_str());
+		}
 
-				string a = XML3::Char2Base64((char*)ddd.data(), ddd.size(), false);
-				d2.SetContent(a.c_str());
-			}
+		XML3::XMLSerialization ser;
+		ser.Canonical = true;
+		string s = ASiCManifest.Serialize(&ser);
+		z.PutFile("META-INF/ASiCManifest.xml", (const char*)s.data(), s.size());
 
-			XML3::XMLSerialization ser;
-			ser.Canonical = true;
-			string s = ASiCManifest.Serialize(&ser);
-			z.PutFile("META-INF/ASiCManifest.xml", (const char*)s.data(), s.size());
-
-			vector<char> S;
-			Params.Attached = AdES::ATTACHTYPE::DETACHED;
+		vector<char> S;
+		Params.Attached = AdES::ATTACHTYPE::DETACHED;
+		Params.ASiC = true;
+	
+		if (typ == ATYPE::CADES)
+		{
 			hr = Sign(LEVEL::XL, (const char*)s.data(), s.size(), Certificates, Params, S);
 			if (FAILED(hr))
 			{
 				DeleteFile(wtempf.c_str());
 				return hr;
 			}
-			z.PutFile("META-INF/signature.p7s", (const char*)s.data(), s.size());
-
-
-			for (auto& t : data)
-			{
-				z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
-			}
+			z.PutFile("META-INF/signature.p7s", (const char*)S.data(), S.size());
 			LoadFile(wtempf.c_str(), fndata);
 			DeleteFile(wtempf.c_str());
 		}
 		else
 		{
+		//  s = ASiCManifest.GetRootElement().Serialize(&ser);
+			auto tu = make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)s.data()), 0, 0);
+			std::get<1>(tu) = s.size();
+			std::get<2>(tu) = "META-INF/ASiCManifest.xml";
+			vector<tuple<const BYTE*, DWORD, const char*>> tu2 = { tu };
+			hr = XMLSign(lev, tu2, Certificates, Params, S);
+			if (FAILED(hr))
+			{
+				DeleteFile(wtempf.c_str());
+				return hr;
+			}
+			S.resize(S.size() + 1);
+			XML3::XML x;
+			x.Parse(S.data(), S.size());
+
+			XML3::XMLElement el;
+			el.SetElementName("asic:XAdESSignatures");
+			el.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+			el.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
+			el.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
+			el.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+
+			el.AddElement(x.GetRootElement());
+			x.SetRootElement(el);
+
+			XML3::XMLSerialization ser;
+			ser.Canonical = true;
+			auto ns = x.Serialize(&ser);
+			z.PutFile("META-INF/signatures.xml", ns.data(), (DWORD)ns.size());
+			LoadFile(wtempf.c_str(), fndata);
+			DeleteFile(wtempf.c_str());
+
 		}
 	}
 
