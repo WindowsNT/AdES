@@ -1029,8 +1029,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 		if (dat.size() != 1)
 			return E_INVALIDARG;
 		if (std::get<1>(dat[0]) != 0)
-		return E_INVALIDARG;
-
+			return E_INVALIDARG;
 	}
 	if (Certificates.empty())
 		return E_INVALIDARG;
@@ -1071,14 +1070,25 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 
 	for (auto& data : dat)
 	{
+		auto URIRef = std::get<2>(data);
 		string ss;
 		if (std::get<1>(data) == 0)
 		{
+			x.Clear();
 			auto xp = x.Parse((char*)std::get<0>(data), strlen((char*)std::get<0>(data)));
 			if (xp != XML3::XML_PARSE::OK)
 				return E_UNEXPECTED;
 
-			ss = x.GetRootElement().Serialize(&ser);
+			if (Params.Attached == ATTACHTYPE::ENVELOPING)
+			{
+				XML3::XMLElement enveloping = lev == LEVEL::XMLDSIG ? "Object" : "ds:Object";
+				enveloping.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+				enveloping.vv("Id") = URIRef;
+				enveloping.AddElement(x.GetRootElement());
+				ss = enveloping.Serialize(&ser);
+			}
+			else
+				ss = x.GetRootElement().Serialize(&ser);
 		}
 		else
 		{
@@ -1086,16 +1096,19 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 		}
 
 		auto& ref1 = ds_SignedInfo.AddElement("ds:Reference");
-		auto URIRef = std::get<2>(data);
 		ref1.vv("URI") = "";
 		if (URIRef && Params.Attached == ATTACHTYPE::DETACHED)
 			ref1.vv("URI") = URIRef;
+		if (URIRef && Params.Attached == ATTACHTYPE::ENVELOPING)
+		{
+			// With #
+			sprintf_s(d, 1000, "#%s", URIRef);
+			ref1.vv("URI") = d;
+		}
 
 		if (std::get<1>(data) == 0)
 		{
-			if (Params.Attached == ATTACHTYPE::DETACHED)
-				;//		ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
-			else 
+			if (Params.Attached == ATTACHTYPE::ENVELOPED)
 				ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
 		}
 		ref1["ds:DigestMethod"].vv("Algorithm") = alg2from();
@@ -1395,7 +1408,28 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 	if (Params.Attached == ATTACHTYPE::DETACHED)
 		res = ds_Signature.Serialize(&ser);
 	else
+	if (Params.Attached == ATTACHTYPE::ENVELOPING)
+	{
+		for (auto& data : dat)
+		{
+			auto URIRef = std::get<2>(data);
+			XML3::XMLElement enveloping = lev == LEVEL::XMLDSIG ? "Object" : "ds:Object";
+			enveloping.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+			enveloping.vv("Id") = URIRef;
+
+			XML3::XML x4;
+			x4.Parse((char*)std::get<0>(data), strlen((char*)std::get<0>(data)));
+
+			enveloping.AddElement(x4.GetRootElement());
+			ds_Signature.AddElement(enveloping);
+		}
+
+		res = ds_Signature.Serialize(&ser);
+	}
+	else
 		res = x.Serialize(&ser);
+
+
 	Signature.resize(res.length());
 	memcpy(Signature.data(), res.c_str(), res.length());
 	return hr;
