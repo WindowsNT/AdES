@@ -34,7 +34,7 @@ HRESULT XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, const char
 ```
 
 ## ASiC
-Article at CodeProject: Pending
+Article at CodeProject: https://www.codeproject.com/Articles/1260769/The-AdES-Trilogy-Part-3-ASiC-containers
 
 Quick guide:
 
