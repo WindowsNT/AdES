@@ -189,6 +189,7 @@ int main()
 	AdES a;
 	std::vector<AdES::CERT> Certs;
 	AdES::SIGNPARAMETERS Params;
+	Params.Debug = true;
 
 	auto putin = [&](PCCERT_CONTEXT cert)
 	{
@@ -274,11 +275,24 @@ int main()
 	helloxz.resize(helloxz.size() + 1);
 	//Params.HashAlgorithm.pszObjId = szOID_OIWSEC_sha1;
 
-	Params.Attached = AdES::ATTACHTYPE::ENVELOPING;
+/*	Params.Attached = AdES::ATTACHTYPE::ENVELOPING;
 	tuple<const BYTE*, DWORD, const char*> a1 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)helloxz.data()),(DWORD)0,std::forward<const char*>((const char*)"blahblah1"));
 	tuple<const BYTE*, DWORD, const char*> a2 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)helloxz.data()), (DWORD)0, std::forward<const char*>((const char*)"blahblah2"));
 	vector<tuple<const BYTE*, DWORD, const char*>> ax = { a1,a2 };
 	auto hr2 = a.XMLSign(AdES::LEVEL::T,ax,Certs, Params, Sig);
+*/
+	Params.Attached = AdES::ATTACHTYPE::ENVELOPED;
+	tuple<const BYTE*, DWORD, const char*> a1 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)helloxz.data()), (DWORD)0, std::forward<const char*>((const char*)"blahblah1"));
+	vector<tuple<const BYTE*, DWORD, const char*>> ax = { a1};
+	auto hr2 = a.XMLSign(AdES::LEVEL::T, ax, Certs, Params, Sig);
+
+	/*
+	Sig.resize(Sig.size() + 1);
+	tuple<const BYTE*, DWORD, const char*> a2 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)Sig.data()), (DWORD)0, std::forward<const char*>((const char*)"blahblah2"));
+	vector<tuple<const BYTE*, DWORD, const char*>> ax2 = { a2 };
+	hr2 = a.XMLSign(AdES::LEVEL::T, ax2, Certs, Params, Sig);
+	*/
+
 	PutFile(L"..\\hello2.xml", Sig);
 
 	tuple<const BYTE*, DWORD, const char*> t1 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)hello.data()), (DWORD)(hello.size()), std::forward<const char*>((const char*)"hello.txt"));

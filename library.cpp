@@ -1394,6 +1394,8 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 	}
 
 
+	// Remove namespaces which we put for hashing
+	ds_Signature.RemoveDuplicateNamespaces(0);
 
 	x.GetRootElement().AddElement(ds_Signature);
 	ser.Canonical = true;
@@ -1404,6 +1406,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 		remprefix(x.GetRootElement());
 	}
 
+	
 	string res;
 	if (Params.Attached == ATTACHTYPE::DETACHED)
 		res = ds_Signature.Serialize(&ser);
@@ -1934,6 +1937,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 	vector <shared_ptr<vector<char>>> mem;
 	for (auto& c : Certificates)
 	{
+		if (Params.Debug) printf("Using new certificate...\r\n");
 		CMSG_SIGNER_ENCODE_INFO SignerEncodeInfo = { 0 };
 
 		HCRYPTPROV_OR_NCRYPT_KEY_HANDLE a = 0;
@@ -1955,6 +1959,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 			// Build also the CaDES-
 			CRYPT_ATTRIBUTE* ca = AddMem<CRYPT_ATTRIBUTE>(mem, sizeof(CRYPT_ATTRIBUTE) * 10);
 			// Add the timestamp
+			if (Params.Debug) printf("Adding local time...\r\n");
 			FILETIME ft = { 0 };
 			SYSTEMTIME sT = { 0 };
 			GetSystemTime(&sT);
@@ -1973,6 +1978,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 			ca[0].rgValue = b0;
 
 			// Hash of the cert
+			if (Params.Debug) printf("Adding certificate...\r\n");
 			vector<BYTE> dhash;
 			HASH hash(BCRYPT_SHA256_ALGORITHM);
 			hash.hash(c.cert.cert->pbCertEncoded, c.cert.cert->cbCertEncoded);
@@ -2014,6 +2020,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 
 			if (Params.commitmentTypeOid.length())
 			{
+				if (Params.Debug) printf("Adding commitment type...\r\n");
 				vector<char> ctt(strlen(Params.commitmentTypeOid.c_str()) + 1);
 				memcpy(ctt.data(), Params.commitmentTypeOid.c_str(), strlen(Params.commitmentTypeOid.c_str()));
 				OID oid;
@@ -2046,6 +2053,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 
 			if (Params.Policy.length() > 0)
 			{
+				if (Params.Debug) printf("Adding policy...\r\n");
 				vector<char> Polx(Params.Policy.size() + 1);
 				memcpy(Polx.data(), Params.Policy.c_str(), Params.Policy.size());
 				OID oid;
@@ -2143,6 +2151,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 		if (hMsg)
 		{
 			// Add the signature
+			if (Params.Debug) printf("Signing...\r\n");
 			Signature.resize(cbEncodedBlob);
 			if (CryptMsgUpdate(hMsg, (BYTE*)data, (DWORD)sz, true))
 			{
@@ -2164,22 +2173,26 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 					if (hr == S_OK && lev >= LEVEL::T)
 					{
 						hr = E_FAIL;
+						if (Params.Debug) printf("Adding trusted timestamp...\r\n");
 						hr = AddCT(Signature, Certificates, Params);
 
 						if (hr == S_OK && lev >= LEVEL::C)
 						{
+							if (Params.Debug) printf("Adding C level...\r\n");
 							auto[hr2, full1, full2] = AddCC(Signature, Certificates, Params);
 							hr = hr2;
 							if (hr == S_OK && lev >= LEVEL::X)
 							{
 								hr = E_FAIL;
+								if (Params.Debug) printf("Adding X level...\r\n");
 								hr = AddCX(Signature, Certificates, Params, full1, full2);
 
 								if (hr == S_OK && lev >= LEVEL::XL)
 								{
 									// Add complete certs
 									hr = E_FAIL;
-									hr = AddCXL(Signature, Certificates, Params);						
+									if (Params.Debug) printf("Adding XL level...\r\n");
+									hr = AddCXL(Signature, Certificates, Params);
 								}
 							}
 						}
@@ -2199,6 +2212,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 		else
 			CryptReleaseContext(a, 0);
 	}
+	if (Params.Debug) printf("Completed.\r\n");
 	return hr;
 }
 
