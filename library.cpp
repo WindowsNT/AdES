@@ -1024,6 +1024,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 
 
 	auto hr = E_FAIL;
+	Signature.clear();
 	if (Params.Attached == ATTACHTYPE::ENVELOPED)
 	{
 		if (dat.size() != 1)
@@ -1033,9 +1034,11 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 	}
 	if (Certificates.empty())
 		return E_INVALIDARG;
-	if (Certificates.size() != 1)
-		return E_NOTIMPL;
-
+	if (Params.Attached == ATTACHTYPE::ENVELOPED)
+	{
+		if (Certificates.size() != 1)
+			return E_NOTIMPL;
+	}
 
 	//string s;
 
@@ -1048,393 +1051,405 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 	LPWSTR alg = alg3from();
 	string d2;
 
-	// ds:Signature
-	string id1 = guidcr();
 
-	XML3::XMLElement ds_Signature;
-	ds_Signature.SetElementName("ds:Signature");
-	ds_Signature.vv(lev == LEVEL::XMLDSIG ? "xmlns" : "xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-	if (lev != LEVEL::XMLDSIG)
-		ds_Signature.vv("Id") = "xmldsig-" + id1;
-
-	XML3::XMLElement ds_SignedInfo;
-	ds_SignedInfo.SetElementName("ds:SignedInfo");
-	if (lev == LEVEL::XMLDSIG)
-		ds_SignedInfo.vv("xmlns") = "http://www.w3.org/2000/09/xmldsig#";
-	else
+	for (size_t iCert = 0; iCert < Certificates.size(); iCert++)
 	{
-		ds_SignedInfo.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-	}
-	ds_SignedInfo["ds:CanonicalizationMethod"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
-	ds_SignedInfo["ds:SignatureMethod"].vv("Algorithm") = algfrom();
 
-	for (auto& data : dat)
-	{
-		auto URIRef = std::get<2>(data);
-		string ss;
-		if (std::get<1>(data) == 0)
-		{
-			x.Clear();
-			auto xp = x.Parse((char*)std::get<0>(data), strlen((char*)std::get<0>(data)));
-			if (xp != XML3::XML_PARSE::OK)
-				return E_UNEXPECTED;
+		// ds:Signature
+		string id1 = guidcr();
 
-			if (Params.Attached == ATTACHTYPE::ENVELOPING)
-			{
-				XML3::XMLElement enveloping = lev == LEVEL::XMLDSIG ? "Object" : "ds:Object";
-				enveloping.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-				enveloping.vv("Id") = URIRef;
-				enveloping.AddElement(x.GetRootElement());
-				ss = enveloping.Serialize(&ser);
-			}
-			else
-				ss = x.GetRootElement().Serialize(&ser);
-		}
+		XML3::XMLElement ds_Signature;
+		ds_Signature.SetElementName("ds:Signature");
+		ds_Signature.vv(lev == LEVEL::XMLDSIG ? "xmlns" : "xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+		if (lev != LEVEL::XMLDSIG)
+			ds_Signature.vv("Id") = "xmldsig-" + id1;
+
+		XML3::XMLElement ds_SignedInfo;
+		ds_SignedInfo.SetElementName("ds:SignedInfo");
+		if (lev == LEVEL::XMLDSIG)
+			ds_SignedInfo.vv("xmlns") = "http://www.w3.org/2000/09/xmldsig#";
 		else
 		{
-			ss.assign((char*)std::get<0>(data), std::get<1>(data));
+			ds_SignedInfo.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
 		}
+		ds_SignedInfo["ds:CanonicalizationMethod"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+		ds_SignedInfo["ds:SignatureMethod"].vv("Algorithm") = algfrom();
 
-		auto& ref1 = ds_SignedInfo.AddElement("ds:Reference");
-		ref1.vv("URI") = "";
-		if (URIRef && Params.Attached == ATTACHTYPE::DETACHED)
-			ref1.vv("URI") = URIRef;
-		if (URIRef && Params.Attached == ATTACHTYPE::ENVELOPING)
+		for (auto& data : dat)
 		{
-			// With #
-			sprintf_s(d, 1000, "#%s", URIRef);
-			ref1.vv("URI") = d;
+			auto URIRef = std::get<2>(data);
+			string ss;
+			if (std::get<1>(data) == 0)
+			{
+				x.Clear();
+				auto xp = x.Parse((char*)std::get<0>(data), strlen((char*)std::get<0>(data)));
+				if (xp != XML3::XML_PARSE::OK)
+					return E_UNEXPECTED;
+
+				if (Params.Attached == ATTACHTYPE::ENVELOPING)
+				{
+					XML3::XMLElement enveloping = lev == LEVEL::XMLDSIG ? "Object" : "ds:Object";
+					enveloping.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+					enveloping.vv("Id") = URIRef;
+					enveloping.AddElement(x.GetRootElement());
+					ss = enveloping.Serialize(&ser);
+				}
+				else
+					ss = x.GetRootElement().Serialize(&ser);
+			}
+			else
+			{
+				ss.assign((char*)std::get<0>(data), std::get<1>(data));
+			}
+
+			auto& ref1 = ds_SignedInfo.AddElement("ds:Reference");
+			ref1.vv("URI") = "";
+			if (URIRef && Params.Attached == ATTACHTYPE::DETACHED)
+				ref1.vv("URI") = URIRef;
+			if (URIRef && Params.Attached == ATTACHTYPE::ENVELOPING)
+			{
+				// With #
+				sprintf_s(d, 1000, "#%s", URIRef);
+				ref1.vv("URI") = d;
+			}
+
+			if (std::get<1>(data) == 0)
+			{
+				if (Params.Attached == ATTACHTYPE::ENVELOPED)
+					ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
+			}
+			ref1["ds:DigestMethod"].vv("Algorithm") = alg2from();
+
+			// Hash
+			HASH hash(alg);
+			hash.hash((BYTE*)ss.c_str(), (DWORD)ss.length());
+			hash.get(dhash);
+			d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
+			ref1["ds:DigestValue"].SetContent(d2.c_str());
 		}
 
-		if (std::get<1>(data) == 0)
-		{
-			if (Params.Attached == ATTACHTYPE::ENVELOPED)
-				ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
-		}
-		ref1["ds:DigestMethod"].vv("Algorithm") = alg2from();
-
-		// Hash
-		HASH hash(alg);
-		hash.hash((BYTE*)ss.c_str(), (DWORD)ss.length());
-		hash.get(dhash);
-	 d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
-		ref1["ds:DigestValue"].SetContent(d2.c_str());
-	}
-	
 
 
-	// Key Info
-	string _ds_KeyInfo = R"(<ds:KeyInfo>
+		// Key Info
+		string _ds_KeyInfo = R"(<ds:KeyInfo>
 	<ds:X509Data>
 		<ds:X509Certificate>
 		</ds:X509Certificate>
 	</ds:X509Data>
 </ds:KeyInfo>
 	)";
-	XML3::XMLElement ki = _ds_KeyInfo.c_str();
-	if (lev != LEVEL::XMLDSIG)
-	{
+		XML3::XMLElement ki = _ds_KeyInfo.c_str();
+		if (lev != LEVEL::XMLDSIG)
+		{
+			if (Params.ASiC)
+			{
+				ki.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
+				ki.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+				ki.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+				ki.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
+
+			}
+			else
+				ki.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+			sprintf_s(d, 1000, "xmldsig-%s-keyinfo", id1.c_str());
+			ki.vv("Id") = d;
+		}
+
+		auto& kiel = ki["ds:X509Data"]["ds:X509Certificate"];
+		string d3 = XML3::Char2Base64((const char*)Certificates[iCert].cert.cert->pbCertEncoded, Certificates[iCert].cert.cert->cbCertEncoded, false);
+		kiel.SetContent(d3.c_str());
+
+		// Objects
+		XML3::XMLElement o2 = "<ds:Object/>";
+		shared_ptr<XML3::XMLElement> tscontent;
+		shared_ptr<XML3::XMLElement> cc2;
+		shared_ptr<XML3::XMLElement> cc1;
+		if (lev != LEVEL::XMLDSIG)
+		{
+			auto& xqp = o2.AddElement("xades:QualifyingProperties");
+			xqp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+			xqp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+			xqp.vv("Target") = "#xmldsig-" + id1;
+
+			auto& xsp = xqp.AddElement("xades:SignedProperties");
+
+			// Up stuff xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" xmlns:xades141="http://uri.etsi.org/01903/v1.4.1#" 
+			if (Params.ASiC)
+			{
+				xsp.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
+				xsp.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+				xsp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+				xsp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+				xsp.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
+
+			}
+			else
+			{
+				xsp.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+				xsp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+				xsp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+			}
+
+			sprintf_s(d, 1000, "xmldsig-%s-sigprops", id1.c_str());
+			xsp.vv("Id") = d;
+
+			auto& xssp = xsp.AddElement("xades:SignedSignatureProperties");
+			auto& xst = xssp.AddElement("xades:SigningTime");
+
+			// Find the time (UTC)
+			SYSTEMTIME sT;
+			GetSystemTime(&sT);
+			// 2018-09-04T10:35:44.602-04:00
+			sprintf_s(d, 1000, "%04u-%02u-%02uT%02u:%02u:%02uZ", sT.wYear, sT.wMonth, sT.wDay, sT.wHour, sT.wMinute, sT.wSecond);
+			xst.SetContent(d);
+
+			auto& xsc = xssp.AddElement("xades:SigningCertificateV2");
+			auto& xce = xsc.AddElement("xades:Cert");
+			auto& xced = xce.AddElement("xades:CertDigest");
+			auto& xces = xce.AddElement("xades:IssuerSerialV2");
+
+			xced["ds:DigestMethod"].vv("Algorithm") = alg2from();
+
+			auto srl = certsrl(Certificates[iCert].cert.cert);
+			sprintf_s(d, 1000, "%llu", srl);
+			xces["ds:X509SerialNumber"].SetContent(d);
+
+			vector<BYTE> dhash3;
+			LPWSTR alg3 = alg3from();
+			HASH hash33(alg3);
+			hash33.hash(Certificates[iCert].cert.cert->pbCertEncoded, Certificates[iCert].cert.cert->cbCertEncoded);
+			hash33.get(dhash3);
+			string dx = XML3::Char2Base64((char*)dhash3.data(), dhash3.size(), false);
+			xced["ds:DigestValue"].SetContent(dx.c_str());
+
+			auto& xsdop = xsp.AddElement("xades:SignedDataObjectProperties");
+
+
+			// Policy
+			if (Params.Policy.length())
+			{
+				auto& xspol = xssp.AddElement("xades:SignaturePolicyIdentifier");
+				auto& xspolid = xspol.AddElement("xades:SignaturePolicyId");
+				auto& xspolid2 = xspolid.AddElement("xades:SigPolicyId");
+				auto& xi2id = xspolid2.AddElement("xades:Identifier");
+				xi2id.SetContent(Params.Policy.c_str());
+				auto& xspolid3 = xspolid.AddElement("xades:SigPolicyHash");
+				xspolid3["ds:DigestMethod"].vv("Algorithm") = alg2from();
+				HASH hb(alg3from());
+				hb.hash((BYTE*)Params.Policy.data(), (DWORD)Params.Policy.size());
+				vector<BYTE> hbb;
+				hb.get(hbb);
+				string dd2 = XML3::Char2Base64((char*)hbb.data(), hbb.size(), false);
+				xspolid3["ds:DigestValue"].SetContent(dd2.c_str());
+			}
+
+
+			// Commitment
+			if (Params.commitmentTypeOid.length())
+			{
+				auto& xcti = xsdop.AddElement("xades:CommitmentTypeIndication");
+				auto& xctid = xcti.AddElement("xades:CommitmentTypeId");
+				auto& xiid = xctid.AddElement("xades:Identifier");
+				const string& cmt = Params.commitmentTypeOid;
+				if (cmt == "1.2.840.113549.1.9.16.6.1")
+				{
+					xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfOrigin");
+					xctid.AddElement("xades:Description").SetContent("Indicates that the signer recognizes to have created, approved and sent the signed data object");
+				}
+				if (cmt == "1.2.840.113549.1.9.16.6.2")
+				{
+					xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfReceipt");
+					xctid.AddElement("xades:Description").SetContent("Indicates that signer recognizes to have received the content of the signed data object");
+				}
+				if (cmt == "1.2.840.113549.1.9.16.6.3")
+				{
+					xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfDelivery");
+					xctid.AddElement("xades:Description").SetContent("Indicates that the TSP providing that indication has delivered a signed data object in a local store accessible to the recipient of the signed data object");
+				}
+				if (cmt == "1.2.840.113549.1.9.16.6.4")
+				{
+					xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfSender");
+					xctid.AddElement("xades:Description").SetContent("Indicates that the entity providing that indication has sent the signed data object (but not necessarily created it)");
+				}
+				if (cmt == "1.2.840.113549.1.9.16.6.5")
+				{
+					xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfApproval");
+					xctid.AddElement("xades:Description").SetContent("Indicates that the signer has approved the content of the signed data object");
+				}
+				if (cmt == "1.2.840.113549.1.9.16.6.6")
+				{
+					xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfCreation");
+					xctid.AddElement("xades:Description").SetContent("Indicates that the signer has created the signed data object (but not necessarily approved, nor sent it)");
+				}
+				/*auto& xasdo = */xcti.AddElement("xades:AllSignedDataObjects");
+			}
+
+
+			string sps = xsp.Serialize(&ser);
+			string spk = ki.Serialize(&ser);
+
+			auto& ref2 = ds_SignedInfo.AddElement("ds:Reference");
+			sprintf_s(d, 1000, "#xmldsig-%s-sigprops", id1.c_str());
+			ref2.vv("URI") = d;
+			ref2.vv("Type") = "http://uri.etsi.org/01903#SignedProperties";
+
+
+			ref2["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+
+			// Hash
+			dhash.clear();
+			HASH hash2(alg);
+			hash2.hash((BYTE*)sps.c_str(), (DWORD)sps.length());
+			hash2.get(dhash);
+			d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
+			ref2["ds:DigestMethod"].vv("Algorithm") = alg2from();
+			ref2["ds:DigestValue"].SetContent(d2.c_str());
+
+
+			auto& ref3 = ds_SignedInfo.AddElement("ds:Reference");
+			sprintf_s(d, 1000, "#xmldsig-%s-keyinfo", id1.c_str());
+			ref3.vv("URI") = d;
+			//ref2.vv("Type") = "http://uri.etsi.org/01903#SignedProperties";
+
+			ref3["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+
+			// Hash
+			dhash.clear();
+			HASH hash3(alg);
+			hash3.hash((BYTE*)spk.c_str(), (DWORD)spk.length());
+			hash3.get(dhash);
+			d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
+			ref3["ds:DigestMethod"].vv("Algorithm") = alg2from();
+			ref3["ds:DigestValue"].SetContent(d2.c_str());
+
+			// Unsigned 
+			if (lev >= LEVEL::T)
+			{
+				auto& xup = xqp.AddElement("xades:UnsignedProperties");
+				/*<xades:UnsignedSignatureProperties>
+								<xades:SignatureTimeStamp>
+									<ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+									<xades:EncapsulatedTimeStamp>*/
+				auto& xusp = xup.AddElement("xades:UnsignedSignatureProperties");
+				auto& xstt = xusp.AddElement("xades:SignatureTimeStamp");
+				xstt["ds:CanonicalizationMethod"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+
+				XML3::XMLElement c = "xades:EncapsulatedTimeStamp";
+				tscontent = xstt.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c));
+
+				if (lev >= LEVEL::C)
+				{
+					XML3::XMLElement c1 = "xades:CompleteCertificateRefs";
+					cc1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c1));
+
+					XML3::XMLElement c2 = "xades:CompleteRevocationRefs";
+					cc2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2));
+				}
+
+			}
+		}
+
+		ds_Signature.AddElement(ds_SignedInfo);
+
+		// Value
+		string _ds_sv = R"(<ds:SignatureValue></ds:SignatureValue>)";
+		XML3::XMLElement sv = _ds_sv.c_str();
 		if (Params.ASiC)
 		{
-			ki.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
-			ki.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-			ki.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
-			ki.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
-
+			sv.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
+			sv.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+			sv.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+			sv.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
 		}
 		else
-			ki.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-		sprintf_s(d, 1000, "xmldsig-%s-keyinfo", id1.c_str());
-		ki.vv("Id") = d;
-	}
+			sv.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
 
-	auto& kiel = ki["ds:X509Data"]["ds:X509Certificate"];
-	string d3 = XML3::Char2Base64((const char*)Certificates[0].cert.cert->pbCertEncoded, Certificates[0].cert.cert->cbCertEncoded, false);
-	kiel.SetContent(d3.c_str());
+		sprintf_s(d, 1000, "xmldsig-%s-sigvalue", id1.c_str());
+		if (lev != LEVEL::XMLDSIG)
+			sv.vv("Id") = d;
 
-	// Objects
-	XML3::XMLElement o2 = "<ds:Object/>";
-	shared_ptr<XML3::XMLElement> tscontent;
-	shared_ptr<XML3::XMLElement> cc2;
-	shared_ptr<XML3::XMLElement> cc1;
-	if (lev != LEVEL::XMLDSIG)
-	{
-		auto& xqp = o2.AddElement("xades:QualifyingProperties");
-		xqp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
-		xqp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
-		xqp.vv("Target") = "#xmldsig-" + id1;
-
-		auto& xsp = xqp.AddElement("xades:SignedProperties");
-
-		// Up stuff xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" xmlns:xades141="http://uri.etsi.org/01903/v1.4.1#" 
-		if (Params.ASiC)
+		// Remove prefix if necessary 
+		if (lev == LEVEL::XMLDSIG)
 		{
-			xsp.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
-			xsp.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-			xsp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
-			xsp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
-			xsp.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
-
+			remprefix(ds_SignedInfo);
+			ds_SignedInfo.SetElementName("SignedInfo");
 		}
-		else
-		{
-			xsp.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-			xsp.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
-			xsp.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
-		}
-
-		sprintf_s(d, 1000, "xmldsig-%s-sigprops", id1.c_str());
-		xsp.vv("Id") = d;
-
-		auto& xssp = xsp.AddElement("xades:SignedSignatureProperties");
-		auto& xst = xssp.AddElement("xades:SigningTime");
-
-		// Find the time (UTC)
-		SYSTEMTIME sT;
-		GetSystemTime(&sT);
-		// 2018-09-04T10:35:44.602-04:00
-		sprintf_s(d, 1000, "%04u-%02u-%02uT%02u:%02u:%02uZ", sT.wYear, sT.wMonth, sT.wDay, sT.wHour, sT.wMinute, sT.wSecond);
-		xst.SetContent(d);
-
-		auto& xsc = xssp.AddElement("xades:SigningCertificateV2");
-		auto& xce = xsc.AddElement("xades:Cert");
-		auto& xced = xce.AddElement("xades:CertDigest");
-		auto& xces = xce.AddElement("xades:IssuerSerialV2");
-
-		xced["ds:DigestMethod"].vv("Algorithm") = alg2from();
-
-		auto srl = certsrl(Certificates[0].cert.cert);
-		sprintf_s(d, 1000, "%llu", srl);
-		xces["ds:X509SerialNumber"].SetContent(d);
-
-		vector<BYTE> dhash3;
-		LPWSTR alg3 = alg3from();
-		HASH hash33(alg3);
-		hash33.hash(Certificates[0].cert.cert->pbCertEncoded, Certificates[0].cert.cert->cbCertEncoded);
-		hash33.get(dhash3);
-		string dx = XML3::Char2Base64((char*)dhash3.data(), dhash3.size(), false);
-		xced["ds:DigestValue"].SetContent(dx.c_str());
-
-		auto& xsdop = xsp.AddElement("xades:SignedDataObjectProperties");
+		string sf = ds_SignedInfo.Serialize(&ser);
 
 
-		// Policy
-		if (Params.Policy.length())
-		{
-			auto& xspol = xssp.AddElement("xades:SignaturePolicyIdentifier");
-			auto& xspolid = xspol.AddElement("xades:SignaturePolicyId");
-			auto& xspolid2 = xspolid.AddElement("xades:SigPolicyId");
-			auto& xi2id = xspolid2.AddElement("xades:Identifier");
-			xi2id.SetContent(Params.Policy.c_str());
-			auto& xspolid3 = xspolid.AddElement("xades:SigPolicyHash");
-			xspolid3["ds:DigestMethod"].vv("Algorithm") = alg2from();
-			HASH hb(alg3from());
-			hb.hash((BYTE*)Params.Policy.data(), (DWORD)Params.Policy.size());
-			vector<BYTE> hbb;
-			hb.get(hbb);
-			string dd2 = XML3::Char2Base64((char*)hbb.data(), hbb.size(), false);
-			xspolid3["ds:DigestValue"].SetContent(dd2.c_str());
-		}
+		vector<char> Sig;
+		hr = GetEncryptedHash(sf.data(), (DWORD)sf.size(), Certificates[iCert].cert.cert, Params.HashAlgorithm, Sig);
+		string dss = XML3::Char2Base64((const char*)Sig.data(), Sig.size(), false);
+		sv.SetContent(dss.c_str());
 
-
-		// Commitment
-		if (Params.commitmentTypeOid.length())
-		{
-			auto& xcti = xsdop.AddElement("xades:CommitmentTypeIndication");
-			auto& xctid = xcti.AddElement("xades:CommitmentTypeId");
-			auto& xiid = xctid.AddElement("xades:Identifier");
-			const string& cmt = Params.commitmentTypeOid;
-			if (cmt == "1.2.840.113549.1.9.16.6.1")
-			{
-				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfOrigin");
-				xctid.AddElement("xades:Description").SetContent("Indicates that the signer recognizes to have created, approved and sent the signed data object");
-			}
-			if (cmt == "1.2.840.113549.1.9.16.6.2")
-			{
-				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfReceipt");
-				xctid.AddElement("xades:Description").SetContent("Indicates that signer recognizes to have received the content of the signed data object");
-			}
-			if (cmt == "1.2.840.113549.1.9.16.6.3")
-			{
-				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfDelivery");
-				xctid.AddElement("xades:Description").SetContent("Indicates that the TSP providing that indication has delivered a signed data object in a local store accessible to the recipient of the signed data object");
-			}
-			if (cmt == "1.2.840.113549.1.9.16.6.4")
-			{
-				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfSender");
-				xctid.AddElement("xades:Description").SetContent("Indicates that the entity providing that indication has sent the signed data object (but not necessarily created it)");
-			}
-			if (cmt == "1.2.840.113549.1.9.16.6.5")
-			{
-				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfApproval");
-				xctid.AddElement("xades:Description").SetContent("Indicates that the signer has approved the content of the signed data object");
-			}
-			if (cmt == "1.2.840.113549.1.9.16.6.6")
-			{
-				xiid.SetContent("http://uri.etsi.org/01903/v1.2.2#ProofOfCreation");
-				xctid.AddElement("xades:Description").SetContent("Indicates that the signer has created the signed data object (but not necessarily approved, nor sent it)");
-			}
-			/*auto& xasdo = */xcti.AddElement("xades:AllSignedDataObjects");
-		}
-
-
-		string sps = xsp.Serialize(&ser);
-		string spk = ki.Serialize(&ser);
-
-		auto& ref2 = ds_SignedInfo.AddElement("ds:Reference");
-		sprintf_s(d, 1000, "#xmldsig-%s-sigprops", id1.c_str());
-		ref2.vv("URI") = d;
-		ref2.vv("Type") = "http://uri.etsi.org/01903#SignedProperties";
-
-	
-		ref2["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
-
-		// Hash
-		dhash.clear();
-		HASH hash2(alg);
-		hash2.hash((BYTE*)sps.c_str(), (DWORD)sps.length());
-		hash2.get(dhash);
-		d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
-		ref2["ds:DigestMethod"].vv("Algorithm") = alg2from();
-		ref2["ds:DigestValue"].SetContent(d2.c_str());
-
-
-		auto& ref3 = ds_SignedInfo.AddElement("ds:Reference");
-		sprintf_s(d, 1000, "#xmldsig-%s-keyinfo", id1.c_str());
-		ref3.vv("URI") = d;
-		//ref2.vv("Type") = "http://uri.etsi.org/01903#SignedProperties";
-
-		ref3["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
-
-		// Hash
-		dhash.clear();
-		HASH hash3(alg);
-		hash3.hash((BYTE*)spk.c_str(), (DWORD)spk.length());
-		hash3.get(dhash);
-		d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
-		ref3["ds:DigestMethod"].vv("Algorithm") = alg2from();
-		ref3["ds:DigestValue"].SetContent(d2.c_str());
-
-		// Unsigned 
 		if (lev >= LEVEL::T)
 		{
-			auto& xup = xqp.AddElement("xades:UnsignedProperties");
-			/*<xades:UnsignedSignatureProperties>
-							<xades:SignatureTimeStamp>
-								<ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
-								<xades:EncapsulatedTimeStamp>*/
-			auto& xusp = xup.AddElement("xades:UnsignedSignatureProperties");
-			auto& xstt = xusp.AddElement("xades:SignatureTimeStamp");
-			xstt["ds:CanonicalizationMethod"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
-
-			XML3::XMLElement c = "xades:EncapsulatedTimeStamp";
-			tscontent = xstt.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c));
-
-			if (lev >= LEVEL::C)
-			{
-				XML3::XMLElement c1 = "xades:CompleteCertificateRefs";
-				cc1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c1));
-
-				XML3::XMLElement c2 = "xades:CompleteRevocationRefs";
-				cc2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2));
-			}
-
+			string svs = sv.Serialize(&ser);
+			vector<char> tsr;
+			TimeStamp(Params.tparams, (char*)svs.data(), (DWORD)svs.size(), tsr, Params.TSServer);
+			string b = XML3::Char2Base64(tsr.data(), tsr.size(), false);
+			tscontent->SetContent(b.c_str());
 		}
-	}
-
-	ds_Signature.AddElement(ds_SignedInfo);
-
-	// Value
-	string _ds_sv = R"(<ds:SignatureValue></ds:SignatureValue>)";
-	XML3::XMLElement sv = _ds_sv.c_str();
-	if (Params.ASiC)
-	{
-		sv.vv("xmlns:asic") = "http://uri.etsi.org/02918/v1.2.1#";
-		sv.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-		sv.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
-		sv.vv("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
-	}
-	else
-		sv.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-
-	sprintf_s(d, 1000, "xmldsig-%s-sigvalue", id1.c_str());
-	if (lev != LEVEL::XMLDSIG)
-		sv.vv("Id") = d;
-
-	// Remove prefix if necessary 
-	if (lev == LEVEL::XMLDSIG)
-	{
-		remprefix(ds_SignedInfo);
-		ds_SignedInfo.SetElementName("SignedInfo");
-	}
-	string sf = ds_SignedInfo.Serialize(&ser);
-
-
-	vector<char> Sig;
-	hr = GetEncryptedHash(sf.data(), (DWORD)sf.size(), Certificates[0].cert.cert, Params.HashAlgorithm, Sig);
-	string dss = XML3::Char2Base64((const char*)Sig.data(), Sig.size(), false);
-	sv.SetContent(dss.c_str());
-
-	if (lev >= LEVEL::T)
-	{
-		string svs = sv.Serialize(&ser);
-		vector<char> tsr;
-		TimeStamp(Params.tparams, (char*)svs.data(), (DWORD)svs.size(), tsr, Params.TSServer);
-		string b = XML3::Char2Base64(tsr.data(), tsr.size(), false);
-		tscontent->SetContent(b.c_str());
-	}
 
 
 
-	ds_Signature.AddElement(sv);
-	ds_Signature.AddElement(ki);
-	if (lev != LEVEL::XMLDSIG)
-	{
-		ds_Signature.AddElement(o2);
-	}
-
-
-	// Remove namespaces which we put for hashing
-	ds_Signature.RemoveDuplicateNamespaces(0);
-
-	x.GetRootElement().AddElement(ds_Signature);
-	ser.Canonical = true;
-
-	// Prefix, out
-	if (lev == LEVEL::XMLDSIG)
-	{
-		remprefix(x.GetRootElement());
-	}
-
-	
-	string res;
-	if (Params.Attached == ATTACHTYPE::DETACHED)
-		res = ds_Signature.Serialize(&ser);
-	else
-	if (Params.Attached == ATTACHTYPE::ENVELOPING)
-	{
-		for (auto& data : dat)
+		ds_Signature.AddElement(sv);
+		ds_Signature.AddElement(ki);
+		if (lev != LEVEL::XMLDSIG)
 		{
-			auto URIRef = std::get<2>(data);
-			XML3::XMLElement enveloping = lev == LEVEL::XMLDSIG ? "Object" : "ds:Object";
-			enveloping.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-			enveloping.vv("Id") = URIRef;
-
-			XML3::XML x4;
-			x4.Parse((char*)std::get<0>(data), strlen((char*)std::get<0>(data)));
-
-			enveloping.AddElement(x4.GetRootElement());
-			ds_Signature.AddElement(enveloping);
+			ds_Signature.AddElement(o2);
 		}
 
-		res = ds_Signature.Serialize(&ser);
+		// Remove namespaces which we put for hashing
+		ds_Signature.RemoveDuplicateNamespaces(0);
+
+		x.GetRootElement().AddElement(ds_Signature);
+		ser.Canonical = true;
+
+		// Prefix, out
+		if (lev == LEVEL::XMLDSIG)
+		{
+			remprefix(x.GetRootElement());
+		}
+
+
+		string res;
+		if (Params.Attached == ATTACHTYPE::DETACHED)
+			res = ds_Signature.Serialize(&ser);
+		else
+			if (Params.Attached == ATTACHTYPE::ENVELOPING)
+			{
+				for (auto& data : dat)
+				{
+					auto URIRef = std::get<2>(data);
+					XML3::XMLElement enveloping = lev == LEVEL::XMLDSIG ? "Object" : "ds:Object";
+					enveloping.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+					enveloping.vv("Id") = URIRef;
+
+					XML3::XML x4;
+					x4.Parse((char*)std::get<0>(data), strlen((char*)std::get<0>(data)));
+
+					enveloping.AddElement(x4.GetRootElement());
+					ds_Signature.AddElement(enveloping);
+				}
+
+				res = ds_Signature.Serialize(&ser);
+			}
+			else
+				res = x.Serialize(&ser);
+		auto es = Signature.size();
+		Signature.resize(es + res.length());
+		memcpy(Signature.data() + es, res.c_str(), res.length());
 	}
-	else
-		res = x.Serialize(&ser);
 
+	if (Certificates.size() > 1)
+	{
+		string s1 = "<root>";
+		string s2 = "</root>";
+		Signature.insert(Signature.begin(), s1.begin(), s1.end());
+		Signature.insert(Signature.end(), s2.begin(), s2.end());
+	}
 
-	Signature.resize(res.length());
-	memcpy(Signature.data(), res.c_str(), res.length());
 	return hr;
 }
 
