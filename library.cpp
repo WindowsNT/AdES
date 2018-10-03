@@ -1974,23 +1974,27 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 			// Build also the CaDES-
 			CRYPT_ATTRIBUTE* ca = AddMem<CRYPT_ATTRIBUTE>(mem, sizeof(CRYPT_ATTRIBUTE) * 10);
 			// Add the timestamp
-			if (Params.Debug) printf("Adding local time...\r\n");
-			FILETIME ft = { 0 };
-			SYSTEMTIME sT = { 0 };
-			GetSystemTime(&sT);
-			SystemTimeToFileTime(&sT, &ft);
-			char buff[1000] = { 0 };
-			DWORD buffsize = 1000;
-			CryptEncodeObjectEx(PKCS_7_ASN_ENCODING, szOID_RSA_signingTime, (void*)&ft, 0, 0, buff, &buffsize);
+			if (!Params.PAdES)
+			{
+				if (Params.Debug) printf("Adding local time...\r\n");
+				FILETIME ft = { 0 };
+				SYSTEMTIME sT = { 0 };
+				GetSystemTime(&sT);
+				SystemTimeToFileTime(&sT, &ft);
+				char buff[1000] = { 0 };
+				DWORD buffsize = 1000;
+				CryptEncodeObjectEx(PKCS_7_ASN_ENCODING, szOID_RSA_signingTime, (void*)&ft, 0, 0, buff, &buffsize);
 
-			char* bb = AddMem<char>(mem, buffsize);
-			memcpy(bb, buff, buffsize);
-			CRYPT_ATTR_BLOB* b0 = AddMem<CRYPT_ATTR_BLOB>(mem);
-			b0->cbData = buffsize;
-			b0->pbData = (BYTE*)bb;
-			ca[0].pszObjId = szOID_RSA_signingTime;
-			ca[0].cValue = 1;
-			ca[0].rgValue = b0;
+				char* bb = AddMem<char>(mem, buffsize);
+				memcpy(bb, buff, buffsize);
+				CRYPT_ATTR_BLOB* b0 = AddMem<CRYPT_ATTR_BLOB>(mem);
+				b0->cbData = buffsize;
+				b0->pbData = (BYTE*)bb;
+				ca[SignerEncodeInfo.cAuthAttr].pszObjId = szOID_RSA_signingTime;
+				ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
+				ca[SignerEncodeInfo.cAuthAttr].rgValue = b0;
+				SignerEncodeInfo.cAuthAttr++;
+			}
 
 			// Hash of the cert
 			if (Params.Debug) printf("Adding certificate...\r\n");
@@ -2026,11 +2030,11 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 			::CRYPT_ATTR_BLOB bd1 = { 0 };
 			bd1.cbData = (DWORD)buff3.size();
 			bd1.pbData = (BYTE*)ooodb;
-			ca[1].pszObjId = "1.2.840.113549.1.9.16.2.47";
-			ca[1].cValue = 1;
-			ca[1].rgValue = &bd1;
+			ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.2.840.113549.1.9.16.2.47";
+			ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
+			ca[SignerEncodeInfo.cAuthAttr].rgValue = &bd1;
 
-			SignerEncodeInfo.cAuthAttr = 2;
+			SignerEncodeInfo.cAuthAttr++;
 			SignerEncodeInfo.rgAuthAttr = ca;
 
 			if (Params.commitmentTypeOid.length())

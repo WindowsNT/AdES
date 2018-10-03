@@ -74,6 +74,7 @@ public:
 		int Type1OrType2 = 2; // For X and XL forms timestamp, currently 2 is supported, this parameter is ignored
 		bool ASiC = false; // True if this XAdES is for ASiC
 		bool Debug = false;
+		bool PAdES = false;
 	};
 
 	struct VERIFYRESULT
