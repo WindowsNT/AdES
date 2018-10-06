@@ -34,7 +34,7 @@ HRESULT XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, const char
 ```
 
 ## PAdES
-Article at CodeProject: TBA
+Article at CodeProject: https://www.codeproject.com/Articles/1262275/The-AdES-Tetralogy-Part-3-PAdES-for-Windows-in-Cpl
 
 Quick guide:
 
