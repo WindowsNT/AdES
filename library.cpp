@@ -2055,7 +2055,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	// Find font if defined
 	int HelvFound = 0;
 
-	HelvFound = 9;
+	HelvFound = 0;
 
 	//* Found Helvetica inside
 
