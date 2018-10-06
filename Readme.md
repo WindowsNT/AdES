@@ -1,5 +1,5 @@
 # Project Title
-A C++ library for Windows to create CAdES-B,CAdES-T,CAdES-C,CAdES-X,CAdES-XL,XAdES-B and XAdES-T messages. Also supports ASiC-S and ASiC-E with both CAdES and XAdES.
+A C++ library for Windows to create CAdES-B,CAdES-T,CAdES-C,CAdES-X,CAdES-XL,XAdES-B,XAdES-T and (experimentally) PAdES-B-T messages. Also supports ASiC-S and ASiC-E with both CAdES and XAdES.
 
 ## CAdES
 Article at CodeProject: https://www.codeproject.com/script/Articles/ArticleVersion.aspx?waid=267644&aid=1256991
@@ -31,6 +31,15 @@ Quick guide:
 
 ```C++
 HRESULT XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data,const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
+```
+
+## PAdES
+Article at CodeProject: TBA
+
+Quick guide:
+
+```C++
+HRESULT PDFSign(LEVEL lev,const char* data,DWORD sz,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params,std::vector<char>& Signature);
 ```
 
 ## ASiC
