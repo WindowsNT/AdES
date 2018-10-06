@@ -2144,7 +2144,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%u 0 R]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, iDescribeSignature, iFont, iFont2, iPages);
 	xrefs[iRoot] = vafter.size() + res.size() + 1;
 	vafter += vRoot;
-	vProducer.Format("%u 0 obj\n<</Producer(AdES Tools)/ModDate(D:20181002132630+03'00')>>\nendobj\n", iProducer);
+	vProducer.Format("%u 0 obj\n<</Producer(AdES Tools https://www.turboirc.com)/ModDate(D:%s)>>\nendobj\n", iProducer,dd.c_str());
 	xrefs[iProducer] = vafter.size() + res.size() + 1;
 	vafter += vProducer;
 	// build xref
@@ -2199,22 +2199,6 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	ps = to_sign.data();
 	ps2 = res.data();
 
-
-/*	// Sign
-	AdES ad;
-	auto cc = HrGetSigner(L"ch.michael@cyta.gr");
-	vector<AdES::CERT> ce;
-	putin(cc, ce);
-	//auto cc2 = HrGetSigner(L"m.chourdakis@music.uoa.gr");
-	//putin(cc2, ce);
-	AdES::SIGNPARAMETERS p;
-	vector<char> r;
-	p.Attached = AdES::ATTACHTYPE::DETACHED;
-	p.PAdES = true;
-	auto hrx = ad.Sign(levx, to_sign.data(), to_sign.size(), ce, p, r);
-	if (FAILED(hrx))
-		return hrx;
-*/
 	Params.PAdES = true;
 	Params.Attached = AdES::ATTACHTYPE::DETACHED;
 	vector<char> r;
