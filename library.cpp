@@ -2051,11 +2051,28 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	annots.Name = "Annots";
 	PDF::INX annotsr;
 	annotsr.Type = PDF::INXTYPE::TYPE_ARRAY;
+
+	// Current Anotations
+	size_t current_annot_idx = 0;
+	auto current_annot = pdf.findname(RefObject, "Annots",&current_annot_idx);
+
 	PDF::astring annot_string;
-	annot_string.Format("%u 0 R", iDescribeSignature);
+	annot_string.Format(" %u 0 R", iDescribeSignature);
 	annotsr.Value = annot_string;
 	annots.Contents.push_back(annotsr);
-	RefObject->content.Contents.push_front(annots);
+
+	PDF::astring AnnotFinal;
+	if (current_annot == 0)
+	{
+		RefObject->content.Contents.push_front(annots);
+		AnnotFinal = annot_string;
+	}
+	else
+	{
+		current_annot->Contents.front().Value += annot_string;
+		AnnotFinal = current_annot->Contents.front().Value;
+	}
+
 	vector<char> strref;
 	auto refp = pdf.findname(RefObject, "Parent");
 	// iPages in Parent
@@ -2141,7 +2158,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	vPages.Format("%u 0 obj\n<</Type/Pages/MediaBox[0 0 200 200]/Count 1/Kids[%u 0 R]>>\nendobj\n", iPages, iPage);
 	xrefs[iPages] = vafter.size() + res.size() + 1;
 	vafter += vPages;
-	vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%u 0 R]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, iDescribeSignature, iFont, iFont2, iPages);
+	vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
 	xrefs[iRoot] = vafter.size() + res.size() + 1;
 	vafter += vRoot;
 	vProducer.Format("%u 0 obj\n<</Producer(AdES Tools https://www.turboirc.com)/ModDate(D:%s)>>\nendobj\n", iProducer,dd.c_str());
@@ -2167,7 +2184,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 
 
 	vafter += xrf;
-	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R/Size 12>>\n", iRoot, last.xref.p, iProducer);
+	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R>>\n", iRoot, last.xref.p, iProducer);
 	vafter += trl;
 	sxref.Format("startxref\n%llu\n", xrefpos);
 	vafter += sxref;

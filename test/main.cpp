@@ -243,7 +243,7 @@ int main()
 
 	// Picker by subject
 #else
-	auto cert = HrGetSigner(L"ch.michael@lol.gr"); 
+	auto cert = HrGetSigner(L"ch.michael@cyta.gr"); 
 	if (!cert)
 		return 0;
 	putin(cert);
@@ -257,6 +257,7 @@ int main()
 	
 	LoadFile(L"..\\hello.xml", hellox);
 	LoadFile(L"..\\hello.pdf", hellopdf);
+//	LoadFile(L"r:\\h2.pdf", hellopdf);
 	LoadFile(L"..\\hello.xml", helloxz);
 	helloxz.resize(helloxz.size() + 1);
 

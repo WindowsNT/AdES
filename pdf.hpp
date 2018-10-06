@@ -220,7 +220,7 @@ namespace PDF
 					if (n->Name.empty())
 					{
 						n->Name = n->Value;
-						n->Value.empty();
+						n->Value.clear();
 					}
 					n = n->Par;
 					if (!n)
@@ -484,18 +484,22 @@ namespace PDF
 			return 0;
 		}
 
-		INX* findname(OBJECT* dd, string Name)
+		INX* findname(OBJECT* dd, string Name,size_t* iIdx = 0)
 		{
 			if (!dd)
 				return 0;
 			if (dd->content.Type == INXTYPE::TYPE_DIC)
 			{
+				int ii = 0;
 				for (auto& tt : dd->content.Contents)
 				{
 					if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == Name)
 					{
+						if (iIdx)
+							*iIdx = ii;
 						return &tt;
 					}
+					ii++;
 				}
 			}
 			return 0;
