@@ -27,6 +27,22 @@ namespace PDF
 			return *this;
 		}
 
+		astring trim()
+		{
+			auto ec = [](char c)
+			{
+				if (c == ' ' || c == '\t' || c == '\r' || c == '\n')
+					return true;
+				return false;
+
+			};
+			astring t = *this;
+			while (t.length() && ec(t[0]))
+				t.erase(t.begin());
+			while (t.length() && ec(t[t.length() - 1]))
+				t.erase(t.end() - 1);	
+			return t;
+		}
 		astring() : string() {}
 		astring(const char*s) : string(s) {}
 	};
@@ -134,12 +150,12 @@ namespace PDF
 				astring str;
 				if (Contents.empty())
 				{
-					str.Format("<<%s>>", Value.c_str());
+					str.Format("<<%s>>", Value.trim().c_str());
 					AddCh(d, str);
 				}
 				else
 				{
-					str.Format("<<%s", Value.c_str());
+					str.Format("<<%s", Value.trim().c_str());
 					AddCh(d, str);
 					for (auto& c : Contents)
 						c.Serialize(d);
@@ -153,12 +169,12 @@ namespace PDF
 				astring str;
 				if (Contents.empty())
 				{
-					str.Format("[%s]", Value.c_str());
+					str.Format("[%s]", Value.trim().c_str());
 					AddCh(d, str);
 				}
 				else
 				{
-					str.Format("[%s", Value.c_str());
+					str.Format("[%s", Value.trim().c_str());
 					AddCh(d, str);
 					for (auto& c : Contents)
 						c.Serialize(d);
@@ -193,18 +209,24 @@ namespace PDF
 				astring str;
 				if (Contents.empty())
 				{
-					if (Name.empty())
-						str.Format("/%s", Value.c_str());
+					if (Name.trim().empty())
+						str.Format("/%s", Value.trim().c_str());
 					else
-						str.Format("/%s %s", Name.c_str(), Value.c_str());
+					if (Value.trim().empty())
+						str.Format("/%s", Name.trim().c_str());
+					else
+						str.Format("/%s %s", Name.trim().c_str(), Value.trim().c_str());
 					AddCh(d, str);
 				}
 				else
 				{
-					if (Name.empty())
-						str.Format("/%s", Value.c_str());
+					if (Name.trim().empty())
+						str.Format("/%s", Value.trim().c_str());
 					else
-						str.Format("/%s %s", Name.c_str(), Value.c_str());
+					if (Value.trim().empty())
+						str.Format("/%s", Name.trim().c_str());
+					else
+						str.Format("/%s %s", Name.trim().c_str(), Value.trim().c_str());
 					AddCh(d, str);
 					for (auto& c : Contents)
 						c.Serialize(d);
@@ -535,11 +557,11 @@ namespace PDF
 		}
 
 
-		INX* findname(OBJECT* dd, string Name,size_t* iIdx = 0)
+		INX* findname(OBJECT* dd, string Name,size_t* iIdx = 0,bool R = false)
 		{
 			if (!dd)
 				return 0;
-			return findname(&dd->content, Name, iIdx);
+			return findname(&dd->content, Name, iIdx,R);
 		}
 
 		unsigned long long mmax()

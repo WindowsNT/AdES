@@ -1965,6 +1965,14 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	auto lastkids = pdf.findname(PageObject, "Kids");
 	if (lastkids == 0)
 		return E_UNEXPECTED;
+
+	auto count = pdf.findname(PageObject, "Count", 0, true);
+	long long Count = 1;
+	if (count)
+	{
+		Count = atoll(count->Value.c_str());
+	}
+
 	string firstref = "";
 	if (lastkids->Contents.size() >= 1 && lastkids->Contents.front().Type == PDF::INXTYPE::TYPE_ARRAY)
 	{
@@ -2002,6 +2010,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	if (!RefObject)
 		return E_UNEXPECTED;
 
+
 	// Serialization of this reference
 	if (RefObject->content.Type != PDF::INXTYPE::TYPE_DIC)
 		return E_UNEXPECTED;
@@ -2012,7 +2021,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 
 	auto& last = pdf.docs[0];
 	auto mxd = pdf.mmax() + 1;
-//	int iContents = atoll(lastcnt->Value.c_str());
+	//int iContents = atoll(lastcnt->Value.c_str());
 
 
 	bool InRL = false;
@@ -2078,14 +2087,14 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	int CountExistingSignatures = 0;
 	if (current_annot == 0)
 	{
-		RefObject->content.Contents.push_front(annots);
+		RefObject->content.Contents.push_back(annots);
 		AnnotFinal = annot_string;
 	}
 	else
 	{
 		current_annot->Contents.front().Value += annot_string;
 		auto spl = split(current_annot->Contents.front().Value, ' ');
-		CountExistingSignatures = (spl.size() / 3) - 1; // e.g. If 2 signatures, count is 6
+		CountExistingSignatures = (int)(spl.size() / 3) - 1; // e.g. If 2 signatures, count is 6
 		AnnotFinal = current_annot->Contents.front().Value;
 	}
 
@@ -2170,11 +2179,11 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	v7.Format("%u 0 obj\n<</Type/XObject/Resources<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]>>/Subtype/Form/BBox[0 0 0 0]/Matrix [1 0 0 1 0 0]/Length 8/FormType 1/Filter/FlateDecode>>stream\x0a\x78\x9c\x03", iXOBject); 			v7b.Format("\x01\x0d");			v7b += "endstream\nendobj\n";
 	xrefs[iXOBject] = vafter.size() + res.size() + 1;
 	vafter += v7;			vafter.resize(vafter.size() + 4);			vafter += v7b;
-	//			vPage.Format("%u 0 obj\n<</Parent %u 0 R/Contents %u 0 R/Type/Page/Resources<</Font<</Helv %u 0 R>>>>/Annots[%u 0 R]>>\nendobj\n", iPage, iPages, iContents, iFont, iDescribeSignature);
+	//vPage.Format("%u 0 obj\n<</Parent %u 0 R/Contents %u 0 R/Type/Page/Resources<</Font<</Helv %u 0 R>>>>/Annots[%u 0 R]>>\nendobj\n", iPage, iPages, iContents, iFont, iDescribeSignature);
 	vPage.Format("%u 0 obj\n%s\r\nendobj\r\n", iPage, strref.data());
 	xrefs[iPage] = vafter.size() + res.size() + 1;
 	vafter += vPage;
-	vPages.Format("%u 0 obj\n<</Type/Pages/MediaBox[0 0 200 200]/Count 1/Kids[%u 0 R]>>\nendobj\n", iPages, iPage);
+	vPages.Format("%u 0 obj\n<</Type/Pages/Count %u/Kids[%u 0 R]>>\nendobj\n", iPages,Count, iPage);
 	xrefs[iPages] = vafter.size() + res.size() + 1;
 	vafter += vPages;
 	if (!HelvFound)
