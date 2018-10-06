@@ -217,6 +217,11 @@ namespace PDF
 			{
 				if (n->Type == INXTYPE::TYPE_NAME)
 				{
+					if (n->Name.empty())
+					{
+						n->Name = n->Value;
+						n->Value.empty();
+					}
 					n = n->Par;
 					if (!n)
 						return false;
