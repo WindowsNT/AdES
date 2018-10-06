@@ -167,6 +167,27 @@ namespace PDF
 				}
 			}
 			else
+			if (Type == INXTYPE::TYPE_STRING)
+			{
+				astring str;
+				if (Contents.empty())
+				{
+					str.Format("(%s)", Value.c_str());
+					AddCh(d, str);
+				}
+				else
+				{
+
+/*					str.Format("(%s", Value.c_str());
+					AddCh(d, str);
+					for (auto& c : Contents)
+						c.Serialize(d);
+					str.Format(")");
+					AddCh(d, str);
+*/
+				}
+			}
+			else
 			if (Type == INXTYPE::TYPE_NAME)
 			{
 				astring str;
@@ -484,14 +505,14 @@ namespace PDF
 			return 0;
 		}
 
-		INX* findname(OBJECT* dd, string Name,size_t* iIdx = 0)
+		INX* findname(INX* dd, string Name, size_t* iIdx = 0,bool R = false)
 		{
 			if (!dd)
 				return 0;
-			if (dd->content.Type == INXTYPE::TYPE_DIC)
+			if (dd->Type == INXTYPE::TYPE_DIC)
 			{
 				int ii = 0;
-				for (auto& tt : dd->content.Contents)
+				for (auto& tt : dd->Contents)
 				{
 					if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == Name)
 					{
@@ -502,7 +523,23 @@ namespace PDF
 					ii++;
 				}
 			}
+			if (!R)
+				return 0;
+			for (auto& cc : dd->Contents)
+			{
+				auto ifo = findname(&cc, Name, iIdx,R);
+				if (ifo)
+					return ifo;
+			}
 			return 0;
+		}
+
+
+		INX* findname(OBJECT* dd, string Name,size_t* iIdx = 0)
+		{
+			if (!dd)
+				return 0;
+			return findname(&dd->content, Name, iIdx);
 		}
 
 		unsigned long long mmax()

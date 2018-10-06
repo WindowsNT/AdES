@@ -2052,6 +2052,19 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	PDF::INX annotsr;
 	annotsr.Type = PDF::INXTYPE::TYPE_ARRAY;
 
+	// Find font if defined
+	int HelvFound = 0;
+
+	HelvFound = 9;
+
+	//* Found Helvetica inside
+
+	if (HelvFound)
+	{
+		iFont = 0;
+		iProducer--;
+	}
+
 	// Current Anotations
 	size_t current_annot_idx = 0;
 	auto current_annot = pdf.findname(RefObject, "Annots",&current_annot_idx);
@@ -2062,6 +2075,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	annots.Contents.push_back(annotsr);
 
 	PDF::astring AnnotFinal;
+	int CountExistingSignatures = 0;
 	if (current_annot == 0)
 	{
 		RefObject->content.Contents.push_front(annots);
@@ -2070,6 +2084,8 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	else
 	{
 		current_annot->Contents.front().Value += annot_string;
+		auto spl = split(current_annot->Contents.front().Value, ' ');
+		CountExistingSignatures = (spl.size() / 3) - 1; // e.g. If 2 signatures, count is 6
 		AnnotFinal = current_annot->Contents.front().Value;
 	}
 
@@ -2085,7 +2101,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	PDF::AddCh(to_sign, "\n");
 	PDF::AddCh(res, "\n");
 	PDF::astring vSignatureDescriptor;
-	vSignatureDescriptor.Format("%u 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[0 0 0 0]/FT/Sig/DR<<>>/T(Signature1)/V %u 0 R/P %u 0 R/AP<</N %u 0 R>>>>\nendobj\n", iDescribeSignature, iSignature, iPage, iXOBject);
+	vSignatureDescriptor.Format("\x0a%u 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[0 0 0 0]/FT/Sig/DR<<>>/T(Signature%u)/V %u 0 R/P %u 0 R/AP<</N %u 0 R>>>>\nendobj\n", iDescribeSignature, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
 	xrefs[iDescribeSignature] = to_sign.size();
 	AddCh(to_sign, vSignatureDescriptor);
 	AddCh(res, vSignatureDescriptor);
@@ -2142,9 +2158,12 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	else
 		vSignatureAfter.Format(">/Type/Sig/SubFilter/%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), dd.c_str(), u1, u1 + vs.length(), 0);
 	vafter += vSignatureAfter;
-	vFont.Format("%u 0 obj\n<</BaseFont/Helvetica/Type/Font/Subtype/Type1/Encoding/WinAnsiEncoding/Name/Helv>>\nendobj\n", iFont);
-	xrefs[iFont] = vafter.size() + res.size() + 1;
-	vafter += vFont;
+	if (!HelvFound)
+	{
+		vFont.Format("%u 0 obj\n<</BaseFont/Helvetica/Type/Font/Subtype/Type1/Encoding/WinAnsiEncoding/Name/Helv>>\nendobj\n", iFont);
+		xrefs[iFont] = vafter.size() + res.size() + 1;
+		vafter += vFont;
+	}
 	vFont2.Format("%u 0 obj\n<</BaseFont/ZapfDingbats/Type/Font/Subtype/Type1/Name/ZaDb>>\nendobj\n", iFont2);
 	xrefs[iFont2] = vafter.size() + res.size() + 1;
 	vafter += vFont2;
@@ -2158,7 +2177,10 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	vPages.Format("%u 0 obj\n<</Type/Pages/MediaBox[0 0 200 200]/Count 1/Kids[%u 0 R]>>\nendobj\n", iPages, iPage);
 	xrefs[iPages] = vafter.size() + res.size() + 1;
 	vafter += vPages;
-	vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
+	if (!HelvFound)
+		vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
+	else
+		vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
 	xrefs[iRoot] = vafter.size() + res.size() + 1;
 	vafter += vRoot;
 	vProducer.Format("%u 0 obj\n<</Producer(AdES Tools https://www.turboirc.com)/ModDate(D:%s)>>\nendobj\n", iProducer,dd.c_str());
@@ -2168,8 +2190,11 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	unsigned long long xrefpos = vafter.size() + res.size() + 1;
 
 	// Build xrefs
-	vector<unsigned long long> xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iFont, iFont2, iProducer };
-	xrf.Format("xref\n%u 9\n", iRoot);
+	vector<unsigned long long> xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iFont, iFont2,iProducer };
+	if (HelvFound)
+		xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iProducer };
+
+	xrf.Format("xref\n%u %u\n", iRoot,xrint.size());
 	for (auto s : xrint)
 	{
 		PDF::astring xg;

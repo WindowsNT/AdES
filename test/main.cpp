@@ -243,7 +243,7 @@ int main()
 
 	// Picker by subject
 #else
-	auto cert = HrGetSigner(L"ch.michael@cyta.gr"); 
+	auto cert = HrGetSigner(L"ch.michael@lol.gr"); 
 	if (!cert)
 		return 0;
 	putin(cert);
@@ -257,7 +257,7 @@ int main()
 	
 	LoadFile(L"..\\hello.xml", hellox);
 	LoadFile(L"..\\hello.pdf", hellopdf);
-//	LoadFile(L"r:\\h2.pdf", hellopdf);
+	//LoadFile(L"r:\\h2.pdf", hellopdf);
 	LoadFile(L"..\\hello.xml", helloxz);
 	helloxz.resize(helloxz.size() + 1);
 
@@ -282,7 +282,7 @@ int main()
 	auto hr6 = a.PDFSign(AdES::LEVEL::XL, hellopdf.data(), (DWORD)hellopdf.size(), Certs, Params, Sig);
 	PutFile(L"..\\hello2.pdf", Sig);
 	Sig.clear();
-
+/*
 	// XML Try
 	if (Certs.size() > 1)
 	{
@@ -314,6 +314,6 @@ int main()
 	//auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::CADES, AdES::LEVEL::XL,tx2, Certs, Params, Sig);
 	auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::XADES, AdES::LEVEL::T,tx2, Certs, Params, Sig);
 	PutFile(L"..\\hello2.asice", Sig);
-
+*/
 	// Free Certificates in Production Code...
 }
