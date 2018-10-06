@@ -178,6 +178,7 @@ vector<PCCERT_CONTEXT> GetChain(PCCERT_CONTEXT cert)
 int main()
 {
 	vector<char> hellox;
+	vector<char> hellopdf;
 	vector<char> helloxz;
 
 
@@ -253,8 +254,13 @@ int main()
 
 	if (Certs.empty())
 		return 0;
+	
+	LoadFile(L"..\\hello.xml", hellox);
+	LoadFile(L"..\\hello.pdf", hellopdf);
+	LoadFile(L"..\\hello.xml", helloxz);
+	helloxz.resize(helloxz.size() + 1);
 
-
+	// CAdES Try
 	std::vector<char> Sig;
 	Params.Attached = AdES::ATTACHTYPE::ATTACHED;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
@@ -266,16 +272,17 @@ int main()
 	vector<char> dmsg;
 	AdES::VERIFYRESULTS v;
 	auto hr3 = a.Verify(Sig.data(), (DWORD)Sig.size(), lev, 0, 0, &dmsg, &CV, &v);
-
-
 	Sig.clear();
-	//XML3::XML xf(L"..\\hello.xml");
 
-	LoadFile(L"..\\hello.xml", hellox);
-	LoadFile(L"..\\hello.xml", helloxz);
-	helloxz.resize(helloxz.size() + 1);
-	//Params.HashAlgorithm.pszObjId = szOID_OIWSEC_sha1;
+	// PDF Try
+	std::vector<char> PDFSig;
+	Params.Attached = AdES::ATTACHTYPE::DETACHED;
+	Sig.clear();
+	auto hr6 = a.PDFSign(AdES::LEVEL::XL, hellopdf.data(), (DWORD)hellopdf.size(), Certs, Params, Sig);
+	PutFile(L"..\\hello2.pdf", Sig);
+	Sig.clear();
 
+	// XML Try
 	if (Certs.size() > 1)
 	{
 		Params.Attached = AdES::ATTACHTYPE::ENVELOPING;
@@ -292,16 +299,9 @@ int main()
 		vector<tuple<const BYTE*, DWORD, const char*>> ax = { a1 };
 		auto hr2 = a.XMLSign(AdES::LEVEL::T, ax, Certs, Params, Sig);
 	}
-
-	/*
-	Sig.resize(Sig.size() + 1);
-	tuple<const BYTE*, DWORD, const char*> a2 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)Sig.data()), (DWORD)0, std::forward<const char*>((const char*)"blahblah2"));
-	vector<tuple<const BYTE*, DWORD, const char*>> ax2 = { a2 };
-	hr2 = a.XMLSign(AdES::LEVEL::T, ax2, Certs, Params, Sig);
-	*/
-
 	PutFile(L"..\\hello2.xml", Sig);
 
+	// ASiC Try
 	tuple<const BYTE*, DWORD, const char*> t1 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)hello.data()), (DWORD)(hello.size()), std::forward<const char*>((const char*)"hello.txt"));
 	vector<tuple<const BYTE*, DWORD, const char*>> tx = { t1 };
 	//auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::CADES, AdES::LEVEL::XL,tx, Certs, Params, Sig);
@@ -313,14 +313,6 @@ int main()
 	//auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::CADES, AdES::LEVEL::XL,tx2, Certs, Params, Sig);
 	auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::XADES, AdES::LEVEL::T,tx2, Certs, Params, Sig);
 	PutFile(L"..\\hello2.asice", Sig);
-
-
-/*
-	LoadFile(L"..\\hello2.xml", hellox);
-	hellox.resize(hellox.size() + 1);
-	hr2 = a.XMLSign(AdES::XLEVEL::XADES_B, AdES::XTYPE::ENVELOPED, hellox.data(), Certs, More, Params, Sig);
-	PutFile(L"..\\hello2.xml", Sig);
-*/
 
 	// Free Certificates in Production Code...
 }

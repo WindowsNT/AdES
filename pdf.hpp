@@ -8,15 +8,52 @@ namespace PDF
 	typedef signed long ssize_t;
 #endif
 
-	ssize_t memstr(const char* arr, size_t length, const char* tofind, size_t flength) {
-		for (ssize_t i = 0; i < length - flength; ++i) {
+	// astring class
+	class astring : public std::string
+	{
+	public:
+		astring& Format(const char* f, ...)
+		{
+			va_list args;
+			va_start(args, f);
+
+			int len = _vscprintf(f, args) + 100;
+			if (len < 8192)
+				len = 8192;
+			vector<char> b(len);
+			vsprintf_s(b.data(), len, f, args);
+			assign(b.data());
+			va_end(args);
+			return *this;
+		}
+
+		astring() : string() {}
+		astring(const char*s) : string(s) {}
+	};
+
+	template <typename T>
+	void AddCh(vector<char>& s, T& s2)
+	{
+		auto os = s.size();
+		s.resize(s.size() + s2.length());
+		memcpy(s.data() + os, s2.data(), s2.length());
+	}
+	inline void AddCh(vector<char>& s, const char* s2)
+	{
+		auto os = s.size();
+		s.resize(s.size() + strlen(s2));
+		memcpy(s.data() + os, s2, strlen(s2));
+	}
+
+	inline ssize_t memstr(const char* arr, size_t length, const char* tofind, size_t flength) {
+		for (size_t i = 0; i < length - flength; ++i) {
 			if (memcmp(arr + i, tofind, flength) == 0)
 				return i;
 		}
 		return (ssize_t)-1;
 	}
 
-	ssize_t memrstr(const char* arr, size_t length, const char* tofind, size_t flength) {
+	inline ssize_t memrstr(const char* arr, size_t length, const char* tofind, size_t flength) {
 		for (ssize_t i = (length - flength); i >= 0; --i) {
 			if (memcmp(arr + i, tofind, flength) == 0)
 				return i;
@@ -41,7 +78,7 @@ namespace PDF
 		return elems;
 	}
 
-	string upoline(const char*& st, unsigned long long& i)
+	inline string upoline(const char*& st, unsigned long long& i)
 	{
 		string a;
 		if (!st)
@@ -78,16 +115,83 @@ namespace PDF
 		TYPE_DIC = 1,
 		TYPE_NAME = 2,
 		TYPE_ARRAY = 3,
+		TYPE_STRING = 4,
 	};
 
 	class INX
 	{
 	public:
-		INXTYPE Type = INXTYPE::TYPE_NONE; // 1 dic, 2 name, 3 array
-		INX* Par;
-		string Name;
-		string Value;
+		INXTYPE Type = INXTYPE::TYPE_NONE;
+		INX* Par = 0;
+		astring Name;
+		astring Value;
 		list<INX> Contents;
+
+		void Serialize(vector<char>& d)
+		{
+			if (Type == INXTYPE::TYPE_DIC)
+			{
+				astring str;
+				if (Contents.empty())
+				{
+					str.Format("<<%s>>", Value.c_str());
+					AddCh(d, str);
+				}
+				else
+				{
+					str.Format("<<%s", Value.c_str());
+					AddCh(d, str);
+					for (auto& c : Contents)
+						c.Serialize(d);
+					str.Format(">>");
+					AddCh(d, str);
+				}
+			}
+			else
+			if (Type == INXTYPE::TYPE_ARRAY)
+			{
+				astring str;
+				if (Contents.empty())
+				{
+					str.Format("[%s]", Value.c_str());
+					AddCh(d, str);
+				}
+				else
+				{
+					str.Format("[%s", Value.c_str());
+					AddCh(d, str);
+					for (auto& c : Contents)
+						c.Serialize(d);
+					str.Format("]");
+					AddCh(d, str);
+				}
+			}
+			else
+			if (Type == INXTYPE::TYPE_NAME)
+			{
+				astring str;
+				if (Contents.empty())
+				{
+					if (Name.empty())
+						str.Format("/%s", Value.c_str());
+					else
+						str.Format("/%s %s", Name.c_str(), Value.c_str());
+					AddCh(d, str);
+				}
+				else
+				{
+					if (Name.empty())
+						str.Format("/%s", Value.c_str());
+					else
+						str.Format("/%s %s", Name.c_str(), Value.c_str());
+					AddCh(d, str);
+					for (auto& c : Contents)
+						c.Serialize(d);
+				}
+			}
+			else
+				DebugBreak();
+		}
 	};
 
 	class OBJECT
@@ -98,9 +202,12 @@ namespace PDF
 		unsigned long long num = 0;
 		bool q = false;
 		INX content;
-		INX* n = &content;
+
+		
+
 		bool Parse(unsigned long long nu,const char *d)
 		{
+			INX* n = &content;
 			num = nu;
 			unsigned long long i = 0;
 			if (nu != 0) // 0 -> trailer
@@ -135,7 +242,7 @@ namespace PDF
 
 			for (;;)
 			{
-				if (d[0] == '<' && d[1] == '<')
+				if (d[0] == '<' && d[1] == '<' &&  n->Type != INXTYPE::TYPE_STRING)
 				{
 					//if (!EndT2()) break;
 					d += 2;
@@ -143,7 +250,7 @@ namespace PDF
 					continue;
 				}
 
-				if (d[0] == '>' && d[1] == '>')
+				if (d[0] == '>' && d[1] == '>' &&  n->Type != INXTYPE::TYPE_STRING)
 				{
 					d += 2;
 					if (!EndT2()) break;
@@ -155,14 +262,14 @@ namespace PDF
 						continue;
 					}
 				}
-				if (d[0] == '[')
+				if (d[0] == '[' && n->Type != INXTYPE::TYPE_STRING)
 				{
 					d += 1;
 					Add(INXTYPE::TYPE_ARRAY);
 					continue;
 				}
 
-				if (d[0] == ']')
+				if (d[0] == ']' && n->Type != INXTYPE::TYPE_STRING)
 				{
 					d += 1;
 					if (!EndT2()) break;
@@ -175,7 +282,26 @@ namespace PDF
 					}
 				}
 
-				if (d[0] == '/')
+				if (d[0] == '(' && *(d - 1) != '\\')
+				{
+					d += 1;
+					Add(INXTYPE::TYPE_STRING);
+					continue;
+				}
+
+				if (d[0] == ')' && *(d - 1) != '\\' && n->Type == INXTYPE::TYPE_STRING)
+				{
+					d += 1;
+					if (n->Type == INXTYPE::TYPE_STRING)
+					{
+						n = n->Par;
+						if (!n || n == &content)
+							break;
+						continue;
+					}
+				}
+
+				if (d[0] == '/' && n->Type != INXTYPE::TYPE_STRING)
 				{
 					if (!EndT2()) break;
 					d += 1;
@@ -275,18 +401,23 @@ namespace PDF
 		OBJECT trailer;
 
 
-
-		INX* findname(size_t iR,string Name)
+		OBJECT* findobject(size_t num)
 		{
 			OBJECT* d = 0;
 			for (auto& o : objects)
 			{
-				if (o.num == iR)
+				if (o.num == num)
 				{
 					d = &o;
-					break;
+					return d;
 				}
 			}
+			return 0;
+		}
+
+		INX* findname(size_t iR,string Name)
+		{
+			OBJECT* d = findobject(iR);
 			if (!d)
 				return 0;
 			if (d->content.Type == INXTYPE::TYPE_DIC)
@@ -327,6 +458,57 @@ namespace PDF
 		unsigned long long sz = 0;
 
 		vector<DOC> docs;
+
+
+		ssize_t root()
+		{
+			if (docs.empty())
+				return -1;
+			auto& last = docs[0];
+			return last.root();
+		}
+
+		OBJECT* findobject(size_t num)
+		{
+			for (auto& doc : docs)
+			{
+				OBJECT* dd = doc.findobject(num);
+				if (dd)
+					return dd;
+			}
+			return 0;
+		}
+
+		INX* findname(OBJECT* dd, string Name)
+		{
+			if (!dd)
+				return 0;
+			if (dd->content.Type == INXTYPE::TYPE_DIC)
+			{
+				for (auto& tt : dd->content.Contents)
+				{
+					if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == Name)
+					{
+						return &tt;
+					}
+				}
+			}
+			return 0;
+		}
+
+		unsigned long long mmax()
+		{
+			unsigned long long mm = 0;
+			for (auto& doc : docs)
+			{
+				auto num = doc.xref.mmax();
+				if (num > mm)
+					mm = num;
+			}
+			return mm;
+		}
+
+
 		string PDFVersion;
 		bool Parse2(const char* dd, unsigned long long s)
 		{
@@ -366,12 +548,18 @@ namespace PDF
 
 				for (auto& obj : doc.xref.refs)
 				{
-					auto s = obj.second;
-					if (get<0>(s) == false)
+					auto s2 = obj.second;
+					if (get<0>(s2) == false)
+					{
+						OBJECT o;
+						o.p = 0;
+						o.num = obj.first;
+						doc.objects.push_back(o);
 						continue;
+					}
 					OBJECT o;
-					o.p = get<1>(s);
-					o.Parse(obj.first, dd + get<1>(s));
+					o.p = get<1>(s2);
+					o.Parse(obj.first, dd + get<1>(s2));
 					doc.objects.push_back(o);
 				}
 
@@ -386,14 +574,7 @@ namespace PDF
 
 
 
-		template <typename T>
-		void AddCh(vector<char>& s, T& s2)
-		{
-			auto os = s.size();
-			s.resize(s.size() + s2.length());
-			memcpy(s.data() + os, s2.data(), s2.length());
-		}
-
+/*
 		HRESULT PrepareSigning(AdES::LEVEL levx,vector<char>& to_sign, vector<char>& res)
 		{
 
@@ -402,15 +583,20 @@ namespace PDF
 			if (docs.empty())
 				return E_UNEXPECTED;
 
-			auto& last = docs[0];
-			auto lastroot = last.root();
+			auto lastroot = root();
 			if (lastroot == -1)
 				return E_UNEXPECTED;
-			auto lastpages = last.findname(lastroot,"Pages");
+			auto rootobject = findobject(lastroot);
+			if (!rootobject)
+				return E_UNEXPECTED;
+			auto lastpages = findname(rootobject,"Pages");
 			if (lastpages == 0)
 				return E_UNEXPECTED;
 			auto iiPage = atoll(lastpages->Value.c_str());
-			auto lastkids = last.findname(iiPage, "Kids");
+			auto PageObject = findobject(iiPage);
+			if (!PageObject)
+				return E_UNEXPECTED;
+			auto lastkids = findname(PageObject, "Kids");
 			if (lastkids == 0)
 				return E_UNEXPECTED;
 			string firstref = "";
@@ -446,11 +632,20 @@ namespace PDF
 			int iFirstRef = atoll(firstref.c_str());
 			if (iFirstRef == 0)
 				return E_UNEXPECTED;
-			auto lastcnt = last.findname(iFirstRef, "Contents");
+			auto RefObject = findobject(iFirstRef);
+			if (!RefObject)
+				return E_UNEXPECTED;
+
+			// Serialization of this reference
+			if (RefObject->content.Type != INXTYPE::TYPE_DIC)
+				return E_UNEXPECTED;
+
+			auto lastcnt = findname(RefObject, "Contents");
 			if (lastcnt == 0)
 				return E_UNEXPECTED;
 
-			auto mxd = last.xref.mmax() + 1;
+			auto& last = docs[0];
+			auto mxd = mmax() + 1;
 			int iContents = atoll(lastcnt->Value.c_str());
 
 
@@ -461,17 +656,17 @@ namespace PDF
 			memcpy(to_sign.data(), d, sz);
 			res.resize(sz);
 			memcpy(res.data(), d, sz);
-/*
-			int iRoot = mxd + 1;
-			int iPages = mxd + 2;
-			int iPage = mxd + 3;
-			int iSignature = mxd + 6;
-			int iXOBject = mxd + 7;
-			int iDescribeSignature = mxd + 8;
-			int iFont = mxd + 9;
-			int iFont2 = mxd + 10;
-			int iProducer = mxd + 11;
-*/
+
+//			int iRoot = mxd + 1;
+//			int iPages = mxd + 2;
+//			int iPage = mxd + 3;
+//			int iSignature = mxd + 6;
+//			int iXOBject = mxd + 7;
+//			int iDescribeSignature = mxd + 8;
+//			int iFont = mxd + 9;
+//			int iFont2 = mxd + 10;
+//			int iProducer = mxd + 11;
+
 
 			int iRoot = mxd + 1;
 			int iPages = mxd + 2;
@@ -482,6 +677,24 @@ namespace PDF
 			int iFont = mxd + 7;
 			int iFont2 = mxd + 8;
 			int iProducer = mxd + 9;
+
+
+			INX annots;
+			annots.Type = INXTYPE::TYPE_NAME;
+			annots.Name = "Annots";
+			INX annotsr;
+			annotsr.Type = INXTYPE::TYPE_ARRAY;
+			astring annot_string;
+			annot_string.Format("%u 0 R", iDescribeSignature);
+			annotsr.Value = annot_string;
+			annots.Contents.push_back(annotsr);
+			RefObject->content.Contents.push_front(annots);
+			vector<char> strref;
+			auto refp = findname(RefObject, "Parent");
+			// iPages in Parent
+			refp->Value.Format("%u 0 R", iPages);
+			RefObject->content.Serialize(strref);
+			strref.resize(strref.size() + 1);
 
 			map<int, unsigned long long> xrefs;
 
@@ -554,7 +767,8 @@ namespace PDF
 			v7.Format("%u 0 obj\n<</Type/XObject/Resources<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]>>/Subtype/Form/BBox[0 0 0 0]/Matrix [1 0 0 1 0 0]/Length 8/FormType 1/Filter/FlateDecode>>stream\x0a\x78\x9c\x03",iXOBject); 			v7b.Format("\x01\x0d");			v7b += "endstream\nendobj\n";
 			xrefs[iXOBject] = vafter.size() + res.size() + 1;
 			vafter += v7;			vafter.resize(vafter.size() + 4);			vafter += v7b;
-			vPage.Format("%u 0 obj\n<</Parent %u 0 R/Contents %u 0 R/Type/Page/Resources<</Font<</Helv %u 0 R>>>>/MediaBox[0 0 200 200]/Annots[%u 0 R]>>\nendobj\n",iPage,iPages, iContents,iFont,iDescribeSignature);
+//			vPage.Format("%u 0 obj\n<</Parent %u 0 R/Contents %u 0 R/Type/Page/Resources<</Font<</Helv %u 0 R>>>>/Annots[%u 0 R]>>\nendobj\n", iPage, iPages, iContents, iFont, iDescribeSignature);
+			vPage.Format("%u 0 obj\n%s\r\nendobj\r\n", iPage,strref.data());
 			xrefs[iPage] = vafter.size() + res.size() + 1;
 			vafter += vPage;
 			vPages.Format("%u 0 obj\n<</Type/Pages/MediaBox[0 0 200 200]/Count 1/Kids[%u 0 R]>>\nendobj\n",iPages,iPage);
@@ -584,37 +798,6 @@ namespace PDF
 
 			}
 
-/*
-			xrf.Format("xref\n%u 4\n",mxd);
-			int jS = 1;
-			for(int idx = mxd ; idx < (4 + mxd) ; idx++)
-			{
-				astring xg;
-				auto j = xrefs[idx];
-				if (j != 0)
-					xg.Format("%010llu 00000 n \n", j);
-				else
-					xg.Format("%010llu 00000 f \n", 0LL);
-				xrf += xg;
-				jS++;
-			}
-			astring xrf2;
-			xrf2.Format("%u 6\n", mxd + 6);
-			xrf += xrf2;
-			jS = 6;
-			for (int idx = (mxd + 6) ; idx <= (mxd + 11); idx++)
-			{
-				astring xg;
-				auto j = xrefs[idx];
-				if (j != 0)
-					xg.Format("%010llu 00000 n \n", j);
-				else
-					xg.Format("%010llu 00000 f \n", 0LL);
-				xrf += xg;
-				jS++;
-			}
-
-*/
 
 			vafter += xrf;
 			trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R/Size 12>>\n", iRoot, last.xref.p,iProducer);
@@ -664,11 +847,10 @@ namespace PDF
 			auto hrx = ad.Sign(levx, to_sign.data(), to_sign.size(), ce, p, r);
 			if (FAILED(hrx))
 				return hrx;
-/*			AdES::LEVEL lev;
-			vector<char> org;
-			ad.Verify(r.data(), r.size(), lev, 0, 0, &org);
-			char* a2 = (char*)org.data();
-*/
+//			AdES::LEVEL lev;
+//			vector<char> org;
+//			ad.Verify(r.data(), r.size(), lev, 0, 0, &org);
+//			char* a2 = (char*)org.data();
 
  			char* pv = res.data() + ures;
 			if (!InRL)
@@ -688,7 +870,7 @@ namespace PDF
 
 			return S_OK;
 		}
-
+*/
 
 	};
 
