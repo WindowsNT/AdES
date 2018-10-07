@@ -2030,7 +2030,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	char* ps2 = res.data();
 	to_sign.resize(sz);
 	memcpy(to_sign.data(), d, sz);
-	res.resize(sz);
+	res.resize(sz); 
 	memcpy(res.data(), d, sz);
 
 	//			int iRoot = mxd + 1;
@@ -2053,6 +2053,25 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	auto iFont = mxd + 7;
 	auto iFont2 = mxd + 8;
 	auto iProducer = mxd + 9;
+
+
+
+	vector<char> pageser;
+	auto pg = *PageObject;
+	for (auto cc = pg.content.Contents.begin(); cc != pg.content.Contents.end(); cc++)
+	{
+		if (cc->Name.trim() == string("Kids"))
+		{
+			PDF::astring fx;
+			fx.Format("%u 0 R", iPage);
+			//pg.content.Contents.erase(cc)
+			cc->Contents.front().Value = fx;
+		}
+
+	}
+	pg.content.Serialize(pageser);
+	pageser.resize(pageser.size() + 1);
+
 
 
 	PDF::INX annots;
@@ -2098,6 +2117,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 		AnnotFinal = current_annot->Contents.front().Value;
 	}
 
+
 	vector<char> strref;
 	auto refp = pdf.findname(RefObject, "Parent");
 	// iPages in Parent
@@ -2110,7 +2130,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	PDF::AddCh(to_sign, "\n");
 	PDF::AddCh(res, "\n");
 	PDF::astring vSignatureDescriptor;
-	vSignatureDescriptor.Format("\x0a%u 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[0 0 0 0]/FT/Sig/DR<<>>/T(Signature%u)/V %u 0 R/P %u 0 R/AP<</N %u 0 R>>>>\nendobj\n", iDescribeSignature, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
+	vSignatureDescriptor.Format("%u 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[0 0 0 0]/FT/Sig/DR<<>>/T(Signature%u)/V %u 0 R/P %u 0 R/AP<</N %u 0 R>>>>\nendobj\n", iDescribeSignature, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
 	xrefs[iDescribeSignature] = to_sign.size();
 	AddCh(to_sign, vSignatureDescriptor);
 	AddCh(res, vSignatureDescriptor);
@@ -2140,7 +2160,9 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 
 	string de3 = "adbe.pkcs7.detached";
 	if (levx != AdES::LEVEL::CMS)
-		de3 = "ETSI.CAdES.detached";
+			de3 = "ETSI.CAdES.detached";
+
+	
 	PDF::astring dd;
 	SYSTEMTIME sT;
 	GetSystemTime(&sT);
@@ -2179,11 +2201,12 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	v7.Format("%u 0 obj\n<</Type/XObject/Resources<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]>>/Subtype/Form/BBox[0 0 0 0]/Matrix [1 0 0 1 0 0]/Length 8/FormType 1/Filter/FlateDecode>>stream\x0a\x78\x9c\x03", iXOBject); 			v7b.Format("\x01\x0d");			v7b += "endstream\nendobj\n";
 	xrefs[iXOBject] = vafter.size() + res.size() + 1;
 	vafter += v7;			vafter.resize(vafter.size() + 4);			vafter += v7b;
-	//vPage.Format("%u 0 obj\n<</Parent %u 0 R/Contents %u 0 R/Type/Page/Resources<</Font<</Helv %u 0 R>>>>/Annots[%u 0 R]>>\nendobj\n", iPage, iPages, iContents, iFont, iDescribeSignature);
+	//vPage.Format("%u 0 obj\n<</Parent %u 0 R/Contents %u 0 R/Type/Page/Resources<</Font<</Helv %u 0 R>>>>/MediaBox[0 0 200 200]/Annots[%u 0 R]>>\nendobj\n", iPage, iPages, iContents, iFont, iDescribeSignature);
 	vPage.Format("%u 0 obj\n%s\r\nendobj\r\n", iPage, strref.data());
 	xrefs[iPage] = vafter.size() + res.size() + 1;
 	vafter += vPage;
-	vPages.Format("%u 0 obj\n<</Type/Pages/Count %u/Kids[%u 0 R]>>\nendobj\n", iPages,Count, iPage);
+//	vPages.Format("%u 0 obj\n<</Type/Pages/Count %u/Kids[%u 0 R]>>\nendobj\n", iPages,Count, iPage);
+	vPages.Format("%u 0 obj\n%s\r\nendobj\r\n", iPages, pageser.data());
 	xrefs[iPages] = vafter.size() + res.size() + 1;
 	vafter += vPages;
 	if (!HelvFound)
@@ -2218,7 +2241,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 
 
 	vafter += xrf;
-	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R>>\n", iRoot, last.xref.p, iProducer);
+	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R/Size %u>>\n", iRoot, last.xref.p, iProducer,xrint.size() + 1);
 	vafter += trl;
 	sxref.Format("startxref\n%llu\n", xrefpos);
 	vafter += sxref;
