@@ -2073,9 +2073,14 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 		if (cc->Name.trim() == string("Kids"))
 		{
 			PDF::astring fx;
-			fx.Format("%u 0 R", iPage);
+			auto v = cc->Contents.front().Value;
+			fx.Format("%u 0 R", iFirstRef);
+			auto fou = v.find(fx.c_str(), 0);
+			v.erase(fou, fx.length());
+			fx.Format("%u 0 R ", iPage);
+			v.insert(0, fx.c_str());
 			//pg.content.Contents.erase(cc)
-			cc->Contents.front().Value = fx;
+			cc->Contents.front().Value = v;
 		}
 		if (cc->Name.trim() == string("Count"))
 		{
