@@ -463,22 +463,38 @@ namespace PDF
 			return 0;
 		}
 
-		INX* findname(size_t iR,string Name)
+		INX* findname(INX*d,string Name, size_t* iIdx = 0, bool R = false)
 		{
-			OBJECT* d = findobject(iR);
 			if (!d)
 				return 0;
-			if (d->content.Type == INXTYPE::TYPE_DIC)
+			if (d->Type == INXTYPE::TYPE_DIC)
 			{
-				for (auto& tt : d->content.Contents)
+				size_t ii = 0;
+				for (auto& tt : d->Contents)
 				{
 					if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == Name)
-					{
-						return &tt;
-					}
+						if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == Name)
+						{
+							if (iIdx)
+								*iIdx = ii;
+							return &tt;
+						}
+					ii++;
+				
 				}
 			}
+			if (!R)
+				return 0;
+			size_t jj = 0;
+			for (auto& cc : d->Contents)
+			{
+				auto ifo = findname(&cc, Name, iIdx, R);
+				if (ifo)
+					return ifo;
+				jj++;
+			}
 			return 0;
+
 		}
 
 		ssize_t root()
@@ -533,7 +549,7 @@ namespace PDF
 				return 0;
 			if (dd->Type == INXTYPE::TYPE_DIC)
 			{
-				int ii = 0;
+				size_t ii = 0;
 				for (auto& tt : dd->Contents)
 				{
 					if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == Name)
@@ -584,7 +600,6 @@ namespace PDF
 				return false;
 			d = dd;
 			sz = s;
-			DOC doc;
 			const char* ss = dd;
 			if (strncmp(ss, "%PDF-", 5) != 0)
 				return false;
@@ -596,6 +611,7 @@ namespace PDF
 			auto sss = s;
 			for (;;)
 			{
+				DOC doc;
 
 				auto peof = memrstr(dd, sss, "%%EOF", 5);
 				if (peof == -1)

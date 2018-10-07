@@ -1966,12 +1966,22 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	if (lastkids == 0)
 		return E_UNEXPECTED;
 
-	auto count = pdf.findname(PageObject, "Count", 0, true);
-	long long Count = 1;
-	if (count)
+	// Count from all revisions
+	long long Count = 0;
+	for (auto& doc : pdf.docs)
 	{
-		Count = atoll(count->Value.c_str());
+		int jj = 0;
+		for (auto& objj : doc.objects)
+		{
+			auto count = doc.findname(&objj.content, "Count");
+			if (count)
+			{
+				Count += atoll(count->Value.c_str());
+			}
+		}
 	}
+	if (Count == 0)
+		Count = 1;
 
 	string firstref = "";
 	if (lastkids->Contents.size() >= 1 && lastkids->Contents.front().Type == PDF::INXTYPE::TYPE_ARRAY)
@@ -2066,6 +2076,13 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 			fx.Format("%u 0 R", iPage);
 			//pg.content.Contents.erase(cc)
 			cc->Contents.front().Value = fx;
+		}
+		if (cc->Name.trim() == string("Count"))
+		{
+			PDF::astring fx;
+			fx.Format("%u", Count);
+			//pg.content.Contents.erase(cc)
+			cc->Value = fx;
 		}
 
 	}
