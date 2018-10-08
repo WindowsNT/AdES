@@ -1,4 +1,4 @@
-# Project Title
+# AdES
 A C++ library for Windows to create CAdES-B,CAdES-T,CAdES-C,CAdES-X,CAdES-XL,XAdES-B,XAdES-T and (experimentally) PAdES-B-T messages. Also supports ASiC-S and ASiC-E with both CAdES and XAdES.
 
 ## CAdES
