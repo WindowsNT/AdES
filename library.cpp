@@ -662,8 +662,12 @@ HRESULT AdES::VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX, bool Attac
 	return hr;
 }
 
-HRESULT AdES::TimeStamp(CRYPT_TIMESTAMP_PARA params, const char* data, DWORD sz, vector<char>& Result, const wchar_t* url, const char* alg)
+HRESULT AdES::TimeStamp(SIGNPARAMETERS& sparams, const char* data, DWORD sz, vector<char>& Result, const wchar_t* url, const char* alg)
 {
+	CRYPT_TIMESTAMP_PARA params = { 0,TRUE,{},0,0 };
+	if (sparams.TSPolicy.length())
+		params.pszTSAPolicyId = sparams.TSPolicy.c_str();
+
 	CRYPT_TIMESTAMP_CONTEXT*re;
 	auto flg = TIMESTAMP_VERIFY_CONTEXT_SIGNATURE;
 
@@ -1388,7 +1392,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 		{
 			string svs = sv.Serialize(&ser);
 			vector<char> tsr;
-			TimeStamp(Params.tparams, (char*)svs.data(), (DWORD)svs.size(), tsr, Params.TSServer);
+			TimeStamp(Params, (char*)svs.data(), (DWORD)svs.size(), tsr, Params.TSServer.c_str());
 			string b = XML3::Char2Base64(tsr.data(), tsr.size(), false);
 			tscontent->SetContent(b.c_str());
 		}
@@ -1493,7 +1497,7 @@ HRESULT AdES::AddCT(vector<char>& Signature, const std::vector<CERT>& Certificat
 						EH.resize(cbEncodedBlob);
 
 						vector<char> CR;
-						auto hrx = TimeStamp(Params.tparams, EH.data(), (DWORD)EH.size(), CR, Params.TSServer);
+						auto hrx = TimeStamp(Params, EH.data(), (DWORD)EH.size(), CR, Params.TSServer.c_str());
 						if (FAILED(hrx))
 						{
 							S = false;
@@ -1768,7 +1772,7 @@ HRESULT AdES::AddCX(std::vector<char>& Signature, const std::vector<CERT>& Certi
 				hash.get(dhash);
 
 				vector<char> CR;
-				auto hrx = TimeStamp(Params.tparams, EH2.data(), (DWORD)EH2.size(), CR, Params.TSServer);
+				auto hrx = TimeStamp(Params, EH2.data(), (DWORD)EH2.size(), CR, Params.TSServer.c_str());
 				if (FAILED(hrx))
 				{
 					S = false;

@@ -60,9 +60,9 @@ public:
 	{
 		CRYPT_ALGORITHM_IDENTIFIER HashAlgorithm = { szOID_NIST_sha256 };
 		ATTACHTYPE Attached = ATTACHTYPE::ATTACHED;
-		const wchar_t* TSServer = L"http://timestamp.comodoca.com/";
+		std::wstring TSServer = L"http://timestamp.comodoca.com/";
 		std::string Policy;
-		CRYPT_TIMESTAMP_PARA tparams = { 0,TRUE,{},0,0 };
+		std::string TSPolicy;
 		std::string commitmentTypeOid;
 		/*
 		1.2.840.113549.1.9.16.6.1 - 6
@@ -105,7 +105,7 @@ public:
 	HRESULT AddCX(std::vector<char>& Signature, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& full1, std::vector<char >&full2);
 	HRESULT AddCXL(std::vector<char>& Signature, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params);
 
-	HRESULT TimeStamp(CRYPT_TIMESTAMP_PARA params,const char* data, DWORD sz, std::vector<char>& CR, const wchar_t* url = L"http://timestamp.comodoca.com/", const char* alg = szOID_NIST_sha256);
+	HRESULT TimeStamp(SIGNPARAMETERS& params,const char* data, DWORD sz, std::vector<char>& CR, const wchar_t* url = L"http://timestamp.comodoca.com/", const char* alg = szOID_NIST_sha256);
 	HRESULT Sign(LEVEL lev,const char* data,DWORD sz,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params,std::vector<char>& Signature);
 	HRESULT Verify(const char* data, DWORD sz, LEVEL& lev,const char* omsg = 0,DWORD len = 0,std::vector<char>* msg = 0,std::vector<PCCERT_CONTEXT>* Certs = 0,VERIFYRESULTS* vr = 0);
 	HRESULT VerifyB(const char* data, DWORD sz, int sidx = 0,bool Attached = true,PCCERT_CONTEXT c = 0);
