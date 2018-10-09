@@ -2,6 +2,7 @@
 #define CMSG_SIGNER_ENCODE_INFO_HAS_CMS_FIELDS
 #include <string>
 #include <tuple>
+#include <algorithm>
 #include <map>
 #include <sstream>
 #include <windows.h>
@@ -1949,16 +1950,13 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 		return E_UNEXPECTED;
 
 	// We have parsed it...
-// Find Contents
 	if (pdf.docs.empty())
 		return E_UNEXPECTED;
 
-	auto lastroot = pdf.root();
-	if (lastroot == -1)
-		return E_UNEXPECTED;
-	auto rootobject = pdf.findobject(lastroot);
+	auto rootobject = pdf.findobject(pdf.root());
 	if (!rootobject)
 		return E_UNEXPECTED;
+	auto infoobject = pdf.findobject(pdf.info());
 	auto lastpages = pdf.findname(rootobject, "Pages");
 	if (lastpages == 0)
 		return E_UNEXPECTED;
@@ -1974,7 +1972,6 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	long long Count = 0;
 	for (auto& doc : pdf.docs)
 	{
-		int jj = 0;
 		for (auto& objj : doc.objects)
 		{
 			auto count = doc.findname(&objj.content, "Count");
@@ -2024,7 +2021,6 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	if (!RefObject)
 		return E_UNEXPECTED;
 
-
 	// Serialization of this reference
 	if (RefObject->content.Type != PDF::INXTYPE::TYPE_DIC)
 		return E_UNEXPECTED;
@@ -2034,7 +2030,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 		return E_UNEXPECTED;
 
 	auto& last = pdf.docs[0];
-	auto mxd = pdf.mmax() + 1;
+	auto mxd = pdf.mmax();// +1;
 	//int iContents = atoll(lastcnt->Value.c_str());
 
 
@@ -2067,6 +2063,35 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	auto iFont = mxd + 7;
 	auto iFont2 = mxd + 8;
 	auto iProducer = mxd + 9;
+
+	bool SwitchReferences =  true;
+
+	/*
+
+	We will switch:
+		Root Object
+		Info Object
+		Page Object
+		1rst Ref Object
+	
+	*/
+
+	if (SwitchReferences)
+	{
+		iRoot = rootobject->num;
+		if (infoobject)
+			iProducer = infoobject->num;
+		else
+			iProducer = mxd + 6;
+		iPages = PageObject->num;
+		iPage = RefObject->num;
+
+		iSignature = mxd + 1;
+		iXOBject = mxd + 2;
+		iDescribeSignature = mxd + 3;
+		iFont = mxd + 4;
+		iFont2 = mxd + 5;
+	}
 
 
 
@@ -2254,22 +2279,73 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	if (HelvFound)
 		xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iProducer };
 
-	xrf.Format("xref\n%u %u\n", iRoot,xrint.size());
-	for (auto s : xrint)
-	{
-		PDF::astring xg;
-		auto j = xrefs[s];
-		if (j != 0)
-			xg.Format("%010llu 00000 n \n", j);
-		else
-			xg.Format("%010llu 00000 f \n", 0LL);
-		xrf += xg;
 
+	xrint.insert(xrint.begin(), 0);
+
+	if (SwitchReferences)
+	{
+		std::sort(xrint.begin(), xrint.end());
+
+		map<long long, long long> need;
+		long long i = 0;
+		need[0] = 1;
+		
+		auto prev = (--need.end());
+		for (auto s : xrint)
+		{
+			if (s == (i + 1))
+			{
+				prev->second++;
+				i++;
+				continue;
+			}
+			i = s;
+			need[i] = 1;
+			prev = (--need.end());
+		}
+
+		xrf.Format("xref\n");
+/*		if (need[0] > 0)
+		{
+			PDF::astring xg;
+			xg.Format("%u %u\n", 0, need[0]);
+			xrf += xg;
+		}
+*/
+		for (auto s : xrint)
+		{
+			PDF::astring xg;
+			auto j = xrefs[s];
+			if (need[s] > 0)
+			{
+				xg.Format("%u %u\n", s,need[s]);
+				xrf += xg;
+			}
+			if (j == 0)
+				xg.Format("%010llu 65535 f \n",j);
+			else
+				xg.Format("%010llu 00000 n \n", j);
+			xrf += xg;
+		}
+	}
+	else
+	{
+		xrf.Format("xref\n%u %u\n", iRoot, xrint.size());
+		for (auto s : xrint)
+		{
+			PDF::astring xg;
+			auto j = xrefs[s];
+			if (j != 0)
+				xg.Format("%010llu 00000 n \n", j);
+			else
+				xg.Format("%010llu 00000 f \n", 0LL);
+			xrf += xg;
+		}
 	}
 
-
 	vafter += xrf;
-	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R/Size %u>>\n", iRoot, last.xref.p, iProducer,xrint.size() + 1);
+	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R>>\n", iRoot, last.xref.p, iProducer);
+//	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R/Size %u>>\n", iRoot, last.xref.p, iProducer,xrint.size() + 1);
 	vafter += trl;
 	sxref.Format("startxref\n%llu\n", xrefpos);
 	vafter += sxref;

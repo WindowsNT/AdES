@@ -356,9 +356,9 @@ namespace PDF
 					Add(INXTYPE::TYPE_NAME);
 					continue;
 				}
-				if (d[0] == '\r' || d[0] == '\n')
+/*				if (d[0] == '\r' || d[0] == '\n')
 					;
-				else
+				else*/
 				{
 					if (n->Type == INXTYPE::TYPE_NAME && n->Name.empty() && (d[0] == ' ' || d[0] == '\n' || d[0] == '\r'))
 					{
@@ -512,6 +512,23 @@ namespace PDF
 			}
 			return -1;
 		}
+
+		ssize_t info()
+		{
+			if (trailer.content.Type == INXTYPE::TYPE_DIC)
+			{
+				for (auto& tt : trailer.content.Contents)
+				{
+					if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == "Info")
+					{
+						auto r = atoll(tt.Value.c_str());
+						return r;
+					}
+				}
+			}
+			return -1;
+		}
+
 	};
 
 	class PDF
@@ -531,6 +548,15 @@ namespace PDF
 			auto& last = docs[0];
 			return last.root();
 		}
+
+		ssize_t info()
+		{
+			if (docs.empty())
+				return -1;
+			auto& last = docs[0];
+			return last.info();
+		}
+
 
 		OBJECT* findobject(size_t num)
 		{
