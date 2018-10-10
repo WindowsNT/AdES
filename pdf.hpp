@@ -393,13 +393,23 @@ namespace PDF
 			return mm;
 		}
 
+		bool ParseAsObject(const char *d, OBJECT& trl)
+		{
+			// Nothing currently...
+	/*		OBJECT o;
+			if (!o.Parse(0,d))
+				return false;
+*/
+			return false;
+		}
+
 
 		bool Parse(const char *d,OBJECT& trl)
 		{
 			unsigned long long i = 0;
 			string xrtag = upoline(d, i);
 			if (xrtag != "xref")
-				return false;
+				return ParseAsObject(d - i,trl);
 			unsigned long long  WaitN = 0;
 			unsigned long long  Start = 0;
 			for (;;)

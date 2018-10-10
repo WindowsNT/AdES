@@ -63,18 +63,13 @@ public:
 		std::wstring TSServer = L"http://timestamp.comodoca.com/";
 		std::string Policy;
 		std::string TSPolicy;
-		std::string commitmentTypeOid;
-		/*
-		1.2.840.113549.1.9.16.6.1 - 6
-
-
-		*/
-		std::string ProductionPlace;
-		std::string Role;
+		std::string commitmentTypeOid;//		1.2.840.113549.1.9.16.6.1 - 6
+		std::vector<CRYPT_ATTRIBUTE> cextras;
+		std::string xextras;
 		int Type1OrType2 = 2; // For X and XL forms timestamp, currently 2 is supported, this parameter is ignored
-		bool ASiC = false; // True if this XAdES is for ASiC
+		bool ASiC = false; // True if this is for ASiC
 		bool Debug = false;
-		bool PAdES = false;
+		bool PAdES = false; // True if PAdES, to eliminate self timestamp
 	};
 
 	struct VERIFYRESULT

@@ -1079,6 +1079,13 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 		{
 			ds_SignedInfo.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
 		}
+
+		if (Params.xextras.length())
+		{
+			XML3::XML extr(Params.xextras.c_str(),Params.xextras.size());
+			ds_SignedInfo.AddElement(extr.GetRootElement());
+		}
+
 		ds_SignedInfo["ds:CanonicalizationMethod"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
 		ds_SignedInfo["ds:SignatureMethod"].vv("Algorithm") = algfrom();
 
@@ -2287,7 +2294,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 		std::sort(xrint.begin(), xrint.end());
 
 		map<long long, long long> need;
-		long long i = 0;
+		unsigned long long i = 0;
 		need[0] = 1;
 		
 		auto prev = (--need.end());
@@ -2443,7 +2450,12 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 		if (AuthAttr)
 		{
 			// Build also the CaDES-
-			CRYPT_ATTRIBUTE* ca = AddMem<CRYPT_ATTRIBUTE>(mem, sizeof(CRYPT_ATTRIBUTE) * 10);
+			CRYPT_ATTRIBUTE* ca = AddMem<CRYPT_ATTRIBUTE>(mem, sizeof(CRYPT_ATTRIBUTE) * (10 + Params.cextras.size()));
+			for (auto extra : Params.cextras)
+			{
+				ca[SignerEncodeInfo.cAuthAttr] = extra;
+				SignerEncodeInfo.cAuthAttr++;
+			}
 			// Add the timestamp
 			if (!Params.PAdES)
 			{

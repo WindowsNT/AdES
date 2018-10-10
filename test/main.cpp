@@ -261,6 +261,27 @@ int main()
 	helloxz.resize(helloxz.size() + 1);
 
 	// CAdES Try
+
+	// Add also a custom hello
+#define MY_ENCODING_TYPE  (PKCS_7_ASN_ENCODING | X509_ASN_ENCODING)
+	CERT_NAME_VALUE cat = { 0 };
+	cat.dwValueType = CERT_RDN_UNICODE_STRING;
+	cat.Value.pbData = (BYTE*)L"Hello";
+	cat.Value.cbData = 10;
+	DWORD aa;
+	CryptEncodeObject(MY_ENCODING_TYPE, X509_UNICODE_ANY_STRING, (void*)&cat, 0, &aa);
+	vector<char> enc(aa);
+	CryptEncodeObject(MY_ENCODING_TYPE, X509_UNICODE_ANY_STRING, (void*)&cat, (BYTE*)enc.data(), &aa);
+	enc.resize(aa);
+	CRYPT_ATTRIBUTE cattr;
+	cattr.pszObjId = "2.25.43.12.1.3452.3356.113117.1";
+	cattr.cValue = 1;
+	CRYPT_INTEGER_BLOB b0;
+	b0.cbData = enc.size();
+	b0.pbData = (BYTE*)enc.data();
+	cattr.rgValue = &b0;
+	Params.cextras.push_back(cattr);
+
 	std::vector<char> Sig;
 	Params.Attached = AdES::ATTACHTYPE::ATTACHED;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
@@ -283,6 +304,7 @@ int main()
 	Sig.clear();
 
 	// XML Try
+	Params.xextras = "<extra><alert>Hello</alert></extra>";
 	if (Certs.size() > 1)
 	{
 		Params.Attached = AdES::ATTACHTYPE::ENVELOPING;
