@@ -395,6 +395,8 @@ namespace PDF
 
 		bool ParseAsObject(const char *d, OBJECT& trl)
 		{
+			UNREFERENCED_PARAMETER(d);
+			UNREFERENCED_PARAMETER(trl);
 			// Nothing currently...
 	/*		OBJECT o;
 			if (!o.Parse(0,d))

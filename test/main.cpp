@@ -308,30 +308,30 @@ int main()
 	if (Certs.size() > 1)
 	{
 		Params.Attached = AdES::ATTACHTYPE::ENVELOPING;
-		tuple<const BYTE*, DWORD, const char*> a1 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)helloxz.data()), (DWORD)0, std::forward<const char*>((const char*)"blahblah1"));
-		tuple<const BYTE*, DWORD, const char*> a2 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)helloxz.data()), (DWORD)0, std::forward<const char*>((const char*)"blahblah2"));
-		vector<tuple<const BYTE*, DWORD, const char*>> ax = { a1,a2 };
+		AdES::FILEREF a1(helloxz.data(),0,"blahblah1");
+		AdES::FILEREF a2(helloxz.data(), 0, "blahblah2");
+		vector<AdES::FILEREF> ax = { a1,a2 };
 		auto hr2 = a.XMLSign(AdES::LEVEL::T, ax, Certs, Params, Sig);
 
 	}
 	else
 	{
 		Params.Attached = AdES::ATTACHTYPE::ENVELOPED;
-		tuple<const BYTE*, DWORD, const char*> a1 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)helloxz.data()), (DWORD)0, std::forward<const char*>((const char*)"blahblah1"));
-		vector<tuple<const BYTE*, DWORD, const char*>> ax = { a1 };
+		AdES::FILEREF a1(helloxz.data(), 0, "blahblah1");
+		vector<AdES::FILEREF> ax = { a1};
 		auto hr2 = a.XMLSign(AdES::LEVEL::T, ax, Certs, Params, Sig);
 	}
 	PutFile(L"..\\hello2.xml", Sig);
 
 	// ASiC Try
-	tuple<const BYTE*, DWORD, const char*> t1 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)hello.data()), (DWORD)(hello.size()), std::forward<const char*>((const char*)"hello.txt"));
-	vector<tuple<const BYTE*, DWORD, const char*>> tx = { t1 };
+	AdES::FILEREF t1(hello.data(), (DWORD)hello.size(), "hello.txt");
+	vector<AdES::FILEREF> tx = { t1 };
 	//auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::CADES, AdES::LEVEL::XL,tx, Certs, Params, Sig);
 	auto hr4 = a.ASiC(AdES::ALEVEL::S, AdES::ATYPE::XADES,AdES::LEVEL::T, tx, Certs,  Params, Sig);
 	PutFile(L"..\\hello2.asics", Sig);
 
-	tuple<const BYTE*, DWORD, const char*> t2 = std::make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)hellox.data()),(DWORD)(hellox.size()),std::forward<const char*>((const char*)"hello.xml"));
-	vector<tuple<const BYTE*, DWORD, const char*>> tx2 = { t1,t2 };
+	AdES::FILEREF t2(hellox.data(), (DWORD)hellox.size(), "hello.xml");
+	vector<AdES::FILEREF> tx2 = { t1,t2 };
 	//auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::CADES, AdES::LEVEL::XL,tx2, Certs, Params, Sig);
 	auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::XADES, AdES::LEVEL::T,tx2, Certs, Params, Sig);
 	PutFile(L"..\\hello2.asice", Sig);

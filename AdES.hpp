@@ -95,6 +95,23 @@ public:
 
 	AdES();
 
+	struct FILEREF
+	{
+		const char* data = 0; // pointer to data
+		DWORD sz = 0; // size, or 0 if null terminated XML
+		const char* ref = 0;
+		std::string mime = "application/octet-stream";
+
+		FILEREF(const char * d = 0, DWORD z = 0, const char* rref = 0, const char* mim = 0)
+		{
+			data = d;
+			sz = z;
+			ref = rref;
+			if (mim)
+				mime = mim;
+		}
+	};
+
 	HRESULT AddCT(std::vector<char>& Signature, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params);
 	std::tuple<HRESULT,std::vector<char>,std::vector<char>> AddCC(std::vector<char>& Signature, const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params);
 	HRESULT AddCX(std::vector<char>& Signature, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& full1, std::vector<char >&full2);
@@ -106,10 +123,10 @@ public:
 	HRESULT VerifyB(const char* data, DWORD sz, int sidx = 0,bool Attached = true,PCCERT_CONTEXT c = 0);
 	HRESULT VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX = 0, bool Attached = true, int TSServerSignIndex = 0, FILETIME* ft = 0);
 	HRESULT VerifyU(const char* data, DWORD sz, bool Attached = true, int TSServerSignIndex = 0);
-	HRESULT XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data,const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
+	HRESULT XMLSign(LEVEL lev, std::vector<FILEREF>& data,const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
 	HRESULT PDFSign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature);
 
-	HRESULT ASiC(ALEVEL alev,ATYPE typ, LEVEL lev,std::vector<std::tuple<const BYTE*,DWORD,const char*>>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
+	HRESULT ASiC(ALEVEL alev,ATYPE typ, LEVEL lev,std::vector<FILEREF>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
 
 };
 

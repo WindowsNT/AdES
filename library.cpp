@@ -958,8 +958,10 @@ HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT
 	return hr;
 }
 
-HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& dat,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
+HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
+
+	string CanonicalizationString = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
 
 	auto guidcr = []() -> string
 	{
@@ -1036,7 +1038,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 	{
 		if (dat.size() != 1)
 			return E_INVALIDARG;
-		if (std::get<1>(dat[0]) != 0)
+		if (dat[0].sz != 0)
 			return E_INVALIDARG;
 	}
 	if (Certificates.empty())
@@ -1086,17 +1088,19 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 			ds_SignedInfo.AddElement(extr.GetRootElement());
 		}
 
-		ds_SignedInfo["ds:CanonicalizationMethod"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+		ds_SignedInfo["ds:CanonicalizationMethod"].vv("Algorithm") = CanonicalizationString;
 		ds_SignedInfo["ds:SignatureMethod"].vv("Algorithm") = algfrom();
 
-		for (auto& data : dat)
+		for (size_t jidx = 0;  jidx < dat.size() ; jidx++)
 		{
-			auto URIRef = std::get<2>(data);
+			auto&  data = dat[jidx];
+			
+			auto URIRef = data.ref;
 			string ss;
-			if (std::get<1>(data) == 0)
+			if (data.sz == 0)
 			{
 				x.Clear();
-				auto xp = x.Parse((char*)std::get<0>(data), strlen((char*)std::get<0>(data)));
+				auto xp = x.Parse((char*)data.data, strlen((char*)data.data));
 				if (xp != XML3::XML_PARSE::OK)
 					return E_UNEXPECTED;
 
@@ -1113,10 +1117,12 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 			}
 			else
 			{
-				ss.assign((char*)std::get<0>(data), std::get<1>(data));
+				ss.assign((char*)data.data, data.sz);
 			}
 
 			auto& ref1 = ds_SignedInfo.AddElement("ds:Reference");
+			sprintf_s(d, 1000, "data%llu",(unsigned long long) jidx);
+			ref1.vv("Id") = d;
 			ref1.vv("URI") = "";
 			if (URIRef && Params.Attached == ATTACHTYPE::DETACHED)
 				ref1.vv("URI") = URIRef;
@@ -1127,7 +1133,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 				ref1.vv("URI") = d;
 			}
 
-			if (std::get<1>(data) == 0)
+			if (data.sz == 0)
 			{
 				if (Params.Attached == ATTACHTYPE::ENVELOPED)
 					ref1["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
@@ -1239,6 +1245,32 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 			auto& xsdop = xsp.AddElement("xades:SignedDataObjectProperties");
 
 
+			for (size_t jidx = 0; jidx < dat.size(); jidx++)
+			{
+				auto&  data = dat[jidx];
+				if (data.mime.length())
+				{
+					auto& x1 = xsdop.AddElement("xades:DataObjectFormat");
+					sprintf_s(d, 1000, "#data%llu", (unsigned long long)jidx);
+					x1.vv("ObjectReference") = d;
+
+					auto& x2 = x1.AddElement("xades:MimeType");
+					x2.SetContent(data.mime.c_str());
+
+				}
+			}
+
+			// And a ref3 DataObjectFormat
+			if (true)
+			{
+				auto& x1 = xsdop.AddElement("xades:DataObjectFormat");
+				sprintf_s(d, 1000, "#SignedInfoKeyProperties");
+				x1.vv("ObjectReference") = d;
+
+				auto& x2 = x1.AddElement("xades:MimeType");
+				x2.SetContent("application/x-x509-ca-cert");
+			}
+
 			// Policy
 			if (Params.Policy.length())
 			{
@@ -1262,7 +1294,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 			if (Params.commitmentTypeOid.length())
 			{
 				auto& xcti = xsdop.AddElement("xades:CommitmentTypeIndication");
-				auto& xctid = xcti.AddElement("xades:CommitmentTypeId");
+				auto& xctid = xcti.AddElement("xades:CommitmentTypeId"	);
 				auto& xiid = xctid.AddElement("xades:Identifier");
 				const string& cmt = Params.commitmentTypeOid;
 				if (cmt == "1.2.840.113549.1.9.16.6.1")
@@ -1304,11 +1336,12 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 
 			auto& ref2 = ds_SignedInfo.AddElement("ds:Reference");
 			sprintf_s(d, 1000, "#xmldsig-%s-sigprops", id1.c_str());
+			ref2.vv("Id") = "SignedInfoSignedProperties";
 			ref2.vv("URI") = d;
 			ref2.vv("Type") = "http://uri.etsi.org/01903#SignedProperties";
 
 
-			ref2["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+			ref2["ds:Transforms"]["ds:Transform"].vv("Algorithm") = CanonicalizationString;
 
 			// Hash
 			dhash.clear();
@@ -1323,9 +1356,9 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 			auto& ref3 = ds_SignedInfo.AddElement("ds:Reference");
 			sprintf_s(d, 1000, "#xmldsig-%s-keyinfo", id1.c_str());
 			ref3.vv("URI") = d;
-			//ref2.vv("Type") = "http://uri.etsi.org/01903#SignedProperties";
+			ref3.vv("Id") = "SignedInfoKeyProperties";
 
-			ref3["ds:Transforms"]["ds:Transform"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+			ref3["ds:Transforms"]["ds:Transform"].vv("Algorithm") = CanonicalizationString;
 
 			// Hash
 			dhash.clear();
@@ -1342,11 +1375,11 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 				auto& xup = xqp.AddElement("xades:UnsignedProperties");
 				/*<xades:UnsignedSignatureProperties>
 								<xades:SignatureTimeStamp>
-									<ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+									<ds:CanonicalizationMethod Algorithm=CanonicalizationString/>
 									<xades:EncapsulatedTimeStamp>*/
 				auto& xusp = xup.AddElement("xades:UnsignedSignatureProperties");
 				auto& xstt = xusp.AddElement("xades:SignatureTimeStamp");
-				xstt["ds:CanonicalizationMethod"].vv("Algorithm") = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+				xstt["ds:CanonicalizationMethod"].vv("Algorithm") = CanonicalizationString;
 
 				XML3::XMLElement c = "xades:EncapsulatedTimeStamp";
 				tscontent = xstt.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c));
@@ -1435,13 +1468,13 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, cons
 			{
 				for (auto& data : dat)
 				{
-					auto URIRef = std::get<2>(data);
+					auto URIRef = data.ref;
 					XML3::XMLElement enveloping = lev == LEVEL::XMLDSIG ? "Object" : "ds:Object";
 					enveloping.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
 					enveloping.vv("Id") = URIRef;
 
 					XML3::XML x4;
-					x4.Parse((char*)std::get<0>(data), strlen((char*)std::get<0>(data)));
+					x4.Parse((char*)data.data, strlen((char*)data.data));
 
 					enveloping.AddElement(x4.GetRootElement());
 					ds_Signature.AddElement(enveloping);
@@ -2731,7 +2764,7 @@ inline wstring TempFile(wchar_t* x, const wchar_t* prf)
 
 
 
-HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data, std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata)
+HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<FILEREF>& data, std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata)
 {
 	HRESULT hr = E_FAIL;
 	fndata.clear();
@@ -2750,14 +2783,14 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 
 		string mt = "application/vnd.etsi.asic-s+zip";
 		z.PutFile("mimetype", mt.c_str(), (DWORD)mt.length());
-		z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
+		z.PutFile(t.ref, (const char*)t.data, t.sz);
 		//		z.PutDirectory("META-INF");
 
 		if (typ == ATYPE::CADES)
 		{
 			vector<char> S;
 			Params.Attached = AdES::ATTACHTYPE::DETACHED;
-			hr = Sign(lev, (const char*)std::get<0>(t), std::get<1>(t), Certificates, Params, S);
+			hr = Sign(lev, (const char*)t.data, t.sz, Certificates, Params, S);
 			if (FAILED(hr))
 			{
 				DeleteFile(wtempf.c_str());
@@ -2819,7 +2852,7 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 
 		for (auto& t : data)
 		{
-			z.PutFile(std::get<2>(t), (const char*)std::get<0>(t), std::get<1>(t));
+			z.PutFile(t.ref, (const char*)t.data, t.sz);
 		}
 
 
@@ -2834,7 +2867,7 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 		{
 
 			auto& ref = ASiCManifest.GetRootElement().AddElement("DataObjectReference");
-			ref.vv("URI") = std::get<2>(t);
+			ref.vv("URI") = t.ref;
 			// 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_OIWSEC_sha1) == 0)
 			auto& d = ref.AddElement("ns2:DigestMethod");
 			d.vv("Algorithm") = "http://www.w3.org/2001/04/xmlenc#sha256";
@@ -2842,7 +2875,7 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 			auto& d2 = ref.AddElement("ns2:DigestValue");
 
 			HASH h(BCRYPT_SHA256_ALGORITHM);
-			h.hash(std::get<0>(t), std::get<1>(t));
+			h.hash((BYTE*)t.data, t.sz);
 			vector<BYTE> ddd;
 			h.get(ddd);
 
@@ -2874,10 +2907,14 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<std::tuple<cons
 		else
 		{
 		//  s = ASiCManifest.GetRootElement().Serialize(&ser);
-			auto tu = make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)s.data()), 0, 0);
+/*			auto tu = make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)s.data()), 0, 0);
 			std::get<1>(tu) =(DWORD) s.size();
 			std::get<2>(tu) = "META-INF/ASiCManifest.xml";
 			vector<tuple<const BYTE*, DWORD, const char*>> tu2 = { tu };
+			hr = XMLSign(lev, tu2, Certificates, Params, S);
+*/
+			FILEREF tu(s.data(), 0, 0);
+			vector<FILEREF> tu2 = { tu };
 			hr = XMLSign(lev, tu2, Certificates, Params, S);
 			if (FAILED(hr))
 			{

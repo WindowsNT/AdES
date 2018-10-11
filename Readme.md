@@ -1,5 +1,5 @@
 # AdES
-A C++ library for Windows to create CAdES-B,CAdES-T,CAdES-C,CAdES-X,CAdES-XL,XAdES-B,XAdES-T and (experimentally) PAdES-B-T messages. Also supports ASiC-S and ASiC-E with both CAdES and XAdES.
+A C++ library for Windows to create CAdES-B,CAdES-T,CAdES-C,CAdES-X,CAdES-XL,XAdES-B,XAdES-T and (experimentally) PAdES-B-T messages. Also supports ASiC-S and ASiC-E with both CAdES and XAdES. 100% ETSI Compliant.
 
 ## CAdES
 Article at CodeProject: https://www.codeproject.com/script/Articles/ArticleVersion.aspx?waid=267644&aid=1256991
@@ -30,7 +30,14 @@ Article at CodeProject: https://www.codeproject.com/script/Articles/ArticleVersi
 Quick guide:
 
 ```C++
-HRESULT XMLSign(LEVEL lev, std::vector<std::tuple<const BYTE*, DWORD, const char*>>& data,const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
+struct FILEREF
+{
+	const char* data = 0; // pointer to data
+	DWORD sz = 0; // size, or 0 if null terminated XML
+	const char* ref = 0;
+	std::string mime = "application/octet-stream";
+};
+HRESULT XMLSign(LEVEL lev, std::vector<FILEREF>& data,const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
 ```
 
 ## PAdES

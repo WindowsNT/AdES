@@ -1,1 +1,11 @@
-<doc><e2>hohoho</e2><e3 id="elem3" /><e6 a="http://www.w3.org"><e7 b="http://www.ietf.org"><e8 c=""><e9 d="http://www.ietf.org"/></e8></e7></e6></doc>
+<doc>
+	<e2>hohoho</e2>
+	<e3 id="elem3" />
+	<e6 a="http://www.w3.org">
+		<e7 b="http://www.ietf.org">
+			<e8 c="">
+				<e9 d="http://www.ietf.org"/>
+			</e8>
+		</e7>
+	</e6>
+</doc>
