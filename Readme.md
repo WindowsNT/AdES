@@ -1,5 +1,5 @@
 # AdES
-A C++ library for Windows to create CAdES-B,CAdES-T,CAdES-C,CAdES-X,CAdES-XL,XAdES-B,XAdES-T and (experimentally) PAdES-B-T messages. Also supports ASiC-S and ASiC-E with both CAdES and XAdES. 100% ETSI Compliant.
+A C++ library for Windows to create CAdES-B,CAdES-T,CAdES-C,CAdES-X,CAdES-XL,XAdES-B,XAdES-T,XAdES-C and PAdES-B-T messages. Also supports ASiC-S and ASiC-E with both CAdES and XAdES. 100% ETSI Compliant.
 
 ## CAdES
 Article at CodeProject: https://www.codeproject.com/script/Articles/ArticleVersion.aspx?waid=267644&aid=1256991
@@ -55,6 +55,6 @@ Article at CodeProject: https://www.codeproject.com/Articles/1260769/The-AdES-Tr
 Quick guide:
 
 ```C++
-HRESULT ASiC(ALEVEL alev,ATYPE typ, LEVEL lev,std::vector<std::tuple<const BYTE*,DWORD,const char*>>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
+HRESULT ASiC(ALEVEL alev,ATYPE typ, LEVEL lev,std::vector<FILEREF>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
 ```
 

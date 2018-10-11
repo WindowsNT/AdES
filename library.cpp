@@ -990,6 +990,9 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		return x;
 	};
 
+
+
+
 	auto algfrom = [&]() -> string
 	{
 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_OIWSEC_sha1) == 0)
@@ -1053,6 +1056,24 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		string dx = XML3::Char2Base64((char*)dhash3.data(), dhash3.size(), false);
 		xced["ds:DigestValue"].SetContent(dx.c_str());
 	};
+
+	auto putcrl = [&](XML3::XMLElement& r, PCCRL_CONTEXT C)
+	{
+		auto& xce = r.AddElement("xades:CRLRef");
+		auto& xced = xce.AddElement("xades:DigestAlgAndValue");
+		char d[1000];
+		xced["ds:DigestMethod"].vv("Algorithm") = alg2from();
+
+
+		vector<BYTE> dhash3;
+		LPWSTR alg3 = alg3from();
+		HASH hash33(alg3);
+		hash33.hash(C->pbCrlEncoded, C->cbCrlEncoded);
+		hash33.get(dhash3);
+		string dx = XML3::Char2Base64((char*)dhash3.data(), dhash3.size(), false);
+		xced["ds:DigestValue"].SetContent(dx.c_str());
+	};
+
 
 
 	auto hr = E_FAIL;
@@ -1410,12 +1431,14 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 						}
 					}
 					XML3::XMLElement c2 = "xades:CompleteRevocationRefs";
-					auto xcc2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2));
+					auto xcc2a = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2));
+					XML3::XMLElement c2a = "xades:CRLRefs";
+					auto xcc2 = xcc2a->InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2a));
 					for (auto&cert : Certificates)
 					{
 						for (auto&crl : cert.cert.Crls)
 						{
-
+							putcrl(*xcc2,crl);
 						}
 						
 
@@ -1423,7 +1446,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 						{
 							for (auto&crl : cert2.Crls)
 							{
-
+								putcrl(*xcc2,crl);
 							}
 						}
 					}
