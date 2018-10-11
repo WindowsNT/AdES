@@ -1030,6 +1030,29 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 
 	};
 
+	auto putcert = [&](XML3::XMLElement& r,PCCERT_CONTEXT C)
+	{
+		auto& xce = r.AddElement("xades:Cert");
+		auto& xced = xce.AddElement("xades:CertDigest");
+		char d[1000];
+		xced["ds:DigestMethod"].vv("Algorithm") = alg2from();
+
+
+		if (Params.ConformanceLevel != 4)
+		{
+			auto srl = certsrl(C);
+			sprintf_s(d, 1000, "%llu", srl);
+			auto& xces = xce.AddElement("xades:IssuerSerialV2");
+			xces["ds:X509SerialNumber"].SetContent(d);
+		}
+		vector<BYTE> dhash3;
+		LPWSTR alg3 = alg3from();
+		HASH hash33(alg3);
+		hash33.hash(C->pbCertEncoded, C->cbCertEncoded);
+		hash33.get(dhash3);
+		string dx = XML3::Char2Base64((char*)dhash3.data(), dhash3.size(), false);
+		xced["ds:DigestValue"].SetContent(dx.c_str());
+	};
 
 
 	auto hr = E_FAIL;
@@ -1224,23 +1247,9 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			xst.SetContent(d);
 
 			auto& xsc = xssp.AddElement("xades:SigningCertificateV2");
-			auto& xce = xsc.AddElement("xades:Cert");
-			auto& xced = xce.AddElement("xades:CertDigest");
-			auto& xces = xce.AddElement("xades:IssuerSerialV2");
-
-			xced["ds:DigestMethod"].vv("Algorithm") = alg2from();
-
-			auto srl = certsrl(Certificates[iCert].cert.cert);
-			sprintf_s(d, 1000, "%llu", srl);
-			xces["ds:X509SerialNumber"].SetContent(d);
-
-			vector<BYTE> dhash3;
-			LPWSTR alg3 = alg3from();
-			HASH hash33(alg3);
-			hash33.hash(Certificates[iCert].cert.cert->pbCertEncoded, Certificates[iCert].cert.cert->cbCertEncoded);
-			hash33.get(dhash3);
-			string dx = XML3::Char2Base64((char*)dhash3.data(), dhash3.size(), false);
-			xced["ds:DigestValue"].SetContent(dx.c_str());
+			putcert(xsc, Certificates[iCert].cert.cert);
+		
+			
 
 			auto& xsdop = xsp.AddElement("xades:SignedDataObjectProperties");
 
@@ -1373,6 +1382,8 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			if (lev >= LEVEL::T)
 			{
 				auto& xup = xqp.AddElement("xades:UnsignedProperties");
+				xup.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+				xup.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";	
 				/*<xades:UnsignedSignatureProperties>
 								<xades:SignatureTimeStamp>
 									<ds:CanonicalizationMethod Algorithm=CanonicalizationString/>
@@ -1386,11 +1397,37 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 
 				if (lev >= LEVEL::C)
 				{
-					XML3::XMLElement c1 = "xades:CompleteCertificateRefs";
-					cc1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c1));
+					XML3::XMLElement c1 = "xades141:CompleteCertificateRefsV2";
+					auto xcc1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c1));
 
+					for (auto&cert : Certificates)
+					{
+						putcert(*xcc1, cert.cert.cert);
+
+						for (auto& cert2 : cert.More)
+						{
+							putcert(*xcc1, cert2.cert);
+						}
+					}
 					XML3::XMLElement c2 = "xades:CompleteRevocationRefs";
-					cc2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2));
+					auto xcc2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2));
+					for (auto&cert : Certificates)
+					{
+						for (auto&crl : cert.cert.Crls)
+						{
+
+						}
+						
+
+						for (auto& cert2 : cert.More)
+						{
+							for (auto&crl : cert2.Crls)
+							{
+
+							}
+						}
+					}
+
 				}
 
 			}

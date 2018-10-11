@@ -58,6 +58,7 @@ public:
 
 	struct SIGNPARAMETERS
 	{
+		int ConformanceLevel = 0;
 		CRYPT_ALGORITHM_IDENTIFIER HashAlgorithm = { szOID_NIST_sha256 };
 		ATTACHTYPE Attached = ATTACHTYPE::ATTACHED;
 		std::wstring TSServer = L"http://timestamp.comodoca.com/";
@@ -70,6 +71,7 @@ public:
 		bool ASiC = false; // True if this is for ASiC
 		bool Debug = false;
 		bool PAdES = false; // True if PAdES, to eliminate self timestamp
+		
 	};
 
 	struct VERIFYRESULT
