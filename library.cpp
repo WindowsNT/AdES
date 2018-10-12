@@ -1061,7 +1061,6 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 	{
 		auto& xce = r.AddElement("xades:CRLRef");
 		auto& xced = xce.AddElement("xades:DigestAlgAndValue");
-		char d[1000];
 		xced["ds:DigestMethod"].vv("Algorithm") = alg2from();
 
 
@@ -1463,8 +1462,8 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 						auto s1 = xcc1->Serialize(&ser);
 						auto s2 = xcc2a->Serialize(&ser);
 						s1 += s2;
-						XML3::XMLElement c1 = "xades141:RefsOnlyTimeStampV2";
-						auto xcc3 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c1));
+						XML3::XMLElement ccc1 = "xades141:RefsOnlyTimeStampV2";
+						auto xcc3 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(ccc1));
 						(*xcc3)["ds:CanonicalizationMethod"].vv("Algorithm") = CanonicalizationString;
 						auto& h1 = xcc3->AddElement("xades:EncapsulatedTimeStamp");
 
@@ -1473,8 +1472,71 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 						TimeStamp(Params, (char*)s1.data(), (DWORD)s1.size(), tsr, Params.TSServer.c_str());
 						string b = XML3::Char2Base64(tsr.data(), tsr.size(), false);
 						h1.SetContent(b.c_str());
-					}
 
+						if (lev >= LEVEL::XL)
+						{
+							XML3::XMLElement d1 = "xades132:CertificateValues";
+							d1.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+							d1.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+							d1.vv("xmlns:xades132") = "http://uri.etsi.org/01903/v1.3.2#";
+							d1.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+
+
+							auto addcert = [&](PCCERT_CONTEXT c)
+							{
+								XML3::XMLElement f1 = "xades132:EncapsulatedX509Certificate";
+
+								string d3 = XML3::Char2Base64((const char*)c->pbCertEncoded, c->cbCertEncoded, false);
+								f1.SetContent(d3.c_str());
+
+								d1.AddElement(f1);
+
+							};
+
+							for (auto&cert : Certificates)
+							{
+								addcert(cert.cert.cert);
+								for (auto& cert2 : cert.More)
+								{
+									addcert(cert2.cert);
+								}
+							}
+							auto xdd1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(d1));
+
+							XML3::XMLElement dd2 = "xades132:RevocationValues";
+							dd2.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+							dd2.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+							dd2.vv("xmlns:xades132") = "http://uri.etsi.org/01903/v1.3.2#";
+							dd2.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+
+							XML3::XMLElement dx3 = "xades132:CRLValues";
+
+							auto addcrl = [&](PCCRL_CONTEXT c)
+							{
+								XML3::XMLElement f1 = "xades132:EncapsulatedCRLValue";
+
+								string d3 = XML3::Char2Base64((const char*)c->pbCrlEncoded, c->cbCrlEncoded, false);
+								f1.SetContent(d3.c_str());
+								dx3.AddElement(f1);
+
+							};
+
+							for (auto&cert : Certificates)
+							{
+								for (auto& crl : cert.cert.Crls)
+									addcrl(crl);
+
+								for (auto& cert2 : cert.More)
+								{
+									for (auto& crl : cert2.Crls)
+										addcrl(crl);
+								}
+							}
+							dd2.AddElement(dx3);
+							auto xdd2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(dd2));
+
+						}
+					}
 				}
 			}
 		}
