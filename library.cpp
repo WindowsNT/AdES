@@ -1419,6 +1419,10 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 				if (lev >= LEVEL::C)
 				{
 					XML3::XMLElement c1 = "xades141:CompleteCertificateRefsV2";
+					c1.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+					c1.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+					c1.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+				
 					auto xcc1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c1));
 
 					for (auto&cert : Certificates)
@@ -1431,6 +1435,9 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 						}
 					}
 					XML3::XMLElement c2 = "xades:CompleteRevocationRefs";
+					c2.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+					c2.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+					c2.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
 					auto xcc2a = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2));
 					XML3::XMLElement c2a = "xades:CRLRefs";
 					auto xcc2 = xcc2a->InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2a));
@@ -1451,8 +1458,24 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 						}
 					}
 
-				}
+					if (lev >= LEVEL::X)
+					{
+						auto s1 = xcc1->Serialize(&ser);
+						auto s2 = xcc2a->Serialize(&ser);
+						s1 += s2;
+						XML3::XMLElement c1 = "xades141:RefsOnlyTimeStampV2";
+						auto xcc3 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c1));
+						(*xcc3)["ds:CanonicalizationMethod"].vv("Algorithm") = CanonicalizationString;
+						auto& h1 = xcc3->AddElement("xades:EncapsulatedTimeStamp");
 
+						// Find the timestamp
+						vector<char> tsr;
+						TimeStamp(Params, (char*)s1.data(), (DWORD)s1.size(), tsr, Params.TSServer.c_str());
+						string b = XML3::Char2Base64(tsr.data(), tsr.size(), false);
+						h1.SetContent(b.c_str());
+					}
+
+				}
 			}
 		}
 
