@@ -958,6 +958,130 @@ HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT
 	return hr;
 }
 
+tuple<shared_ptr<XML3::XMLElement>, shared_ptr<XML3::XMLElement>> XMLAddC(XML3::XMLElement& xusp,const std::vector<AdES::CERT>& Certificates,std::function<void(XML3::XMLElement& r, PCCERT_CONTEXT C)> putcert, std::function<void(XML3::XMLElement& r, PCCRL_CONTEXT C)> putcrl)
+{
+	XML3::XMLElement c1 = "xades141:CompleteCertificateRefsV2";
+	c1.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+	c1.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+	c1.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+
+	auto xcc1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c1));
+
+	for (auto&cert : Certificates)
+	{
+		putcert(*xcc1, cert.cert.cert);
+
+		for (auto& cert2 : cert.More)
+		{
+			putcert(*xcc1, cert2.cert);
+		}
+	}
+	XML3::XMLElement c2 = "xades:CompleteRevocationRefs";
+	c2.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+	c2.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+	c2.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+	auto xcc2a = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2));
+	XML3::XMLElement c2a = "xades:CRLRefs";
+	auto xcc2 = xcc2a->InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2a));
+	for (auto&cert : Certificates)
+	{
+		for (auto&crl : cert.cert.Crls)
+		{
+			putcrl(*xcc2, crl);
+		}
+
+		for (auto& cert2 : cert.More)
+		{
+			for (auto&crl : cert2.Crls)
+			{
+				putcrl(*xcc2, crl);
+			}
+		}
+	}
+	return make_tuple< shared_ptr<XML3::XMLElement>, shared_ptr<XML3::XMLElement>>(std::forward<shared_ptr<XML3::XMLElement>>(xcc1), std::forward<shared_ptr<XML3::XMLElement>>(xcc2a));
+}
+
+void XMLAddX(AdES& ad,AdES::SIGNPARAMETERS& Params,string& CanonicalizationString,XML3::XMLElement& xusp, XML3::XMLSerialization& ser,shared_ptr<XML3::XMLElement> xcc1, shared_ptr<XML3::XMLElement> xcc2a)
+{
+	auto s1 = xcc1->Serialize(&ser);
+	auto s2 = xcc2a->Serialize(&ser);
+	s1 += s2;
+	XML3::XMLElement ccc1 = "xades141:RefsOnlyTimeStampV2";
+	auto xcc3 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(ccc1));
+	(*xcc3)["ds:CanonicalizationMethod"].vv("Algorithm") = CanonicalizationString;
+	auto& h1 = xcc3->AddElement("xades:EncapsulatedTimeStamp");
+
+	// Find the timestamp
+	vector<char> tsr;
+	ad.TimeStamp(Params, (char*)s1.data(), (DWORD)s1.size(), tsr, Params.TSServer.c_str());
+	string b = XML3::Char2Base64(tsr.data(), tsr.size(), false);
+	h1.SetContent(b.c_str());
+
+}
+
+void XMLAddXL(XML3::XMLElement& xusp, const std::vector<AdES::CERT>& Certificates)
+{
+	XML3::XMLElement d1 = "xades132:CertificateValues";
+	d1.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+	d1.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+	d1.vv("xmlns:xades132") = "http://uri.etsi.org/01903/v1.3.2#";
+	d1.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+
+
+	auto addcert = [&](PCCERT_CONTEXT c)
+	{
+		XML3::XMLElement f1 = "xades132:EncapsulatedX509Certificate";
+
+		string d3 = XML3::Char2Base64((const char*)c->pbCertEncoded, c->cbCertEncoded, false);
+		f1.SetContent(d3.c_str());
+
+		d1.AddElement(f1);
+
+	};
+
+	for (auto&cert : Certificates)
+	{
+		addcert(cert.cert.cert);
+		for (auto& cert2 : cert.More)
+		{
+			addcert(cert2.cert);
+		}
+	}
+	auto xdd1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(d1));
+
+	XML3::XMLElement dd2 = "xades132:RevocationValues";
+	dd2.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+	dd2.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
+	dd2.vv("xmlns:xades132") = "http://uri.etsi.org/01903/v1.3.2#";
+	dd2.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
+
+	XML3::XMLElement dx3 = "xades132:CRLValues";
+
+	auto addcrl = [&](PCCRL_CONTEXT c)
+	{
+		XML3::XMLElement f1 = "xades132:EncapsulatedCRLValue";
+
+		string d3 = XML3::Char2Base64((const char*)c->pbCrlEncoded, c->cbCrlEncoded, false);
+		f1.SetContent(d3.c_str());
+		dx3.AddElement(f1);
+
+	};
+
+	for (auto&cert : Certificates)
+	{
+		for (auto& crl : cert.cert.Crls)
+			addcrl(crl);
+
+		for (auto& cert2 : cert.More)
+		{
+			for (auto& crl : cert2.Crls)
+				addcrl(crl);
+		}
+	}
+	dd2.AddElement(dx3);
+	auto xdd2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(dd2));
+}
+
 HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
 
@@ -990,7 +1114,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		return x;
 	};
 
-
+	vector<XML3::XMLElement*> CollectionForA;
 
 
 	auto algfrom = [&]() -> string
@@ -1189,6 +1313,8 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			hash.get(dhash);
 			d2 = XML3::Char2Base64((const char*)dhash.data(), dhash.size(), false);
 			ref1["ds:DigestValue"].SetContent(d2.c_str());
+
+			CollectionForA.push_back(&ref1);
 		}
 
 
@@ -1257,6 +1383,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			xsp.vv("Id") = d;
 
 			auto& xssp = xsp.AddElement("xades:SignedSignatureProperties");
+
 			auto& xst = xssp.AddElement("xades:SigningTime");
 
 			// Find the time (UTC)
@@ -1417,128 +1544,19 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 
 				if (lev >= LEVEL::C)
 				{
-					XML3::XMLElement c1 = "xades141:CompleteCertificateRefsV2";
-					c1.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-					c1.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
-					c1.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
-				
-					auto xcc1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c1));
-
-					for (auto&cert : Certificates)
-					{
-						putcert(*xcc1, cert.cert.cert);
-
-						for (auto& cert2 : cert.More)
-						{
-							putcert(*xcc1, cert2.cert);
-						}
-					}
-					XML3::XMLElement c2 = "xades:CompleteRevocationRefs";
-					c2.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-					c2.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
-					c2.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
-					auto xcc2a = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2));
-					XML3::XMLElement c2a = "xades:CRLRefs";
-					auto xcc2 = xcc2a->InsertElement((size_t)-1, std::forward<XML3::XMLElement>(c2a));
-					for (auto&cert : Certificates)
-					{
-						for (auto&crl : cert.cert.Crls)
-						{
-							putcrl(*xcc2,crl);
-						}
-						
-
-						for (auto& cert2 : cert.More)
-						{
-							for (auto&crl : cert2.Crls)
-							{
-								putcrl(*xcc2,crl);
-							}
-						}
-					}
-
+					auto [xcc1,xcc2a] = XMLAddC(xusp, Certificates, putcert, putcrl);
 					if (lev >= LEVEL::X)
 					{
-						auto s1 = xcc1->Serialize(&ser);
-						auto s2 = xcc2a->Serialize(&ser);
-						s1 += s2;
-						XML3::XMLElement ccc1 = "xades141:RefsOnlyTimeStampV2";
-						auto xcc3 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(ccc1));
-						(*xcc3)["ds:CanonicalizationMethod"].vv("Algorithm") = CanonicalizationString;
-						auto& h1 = xcc3->AddElement("xades:EncapsulatedTimeStamp");
-
-						// Find the timestamp
-						vector<char> tsr;
-						TimeStamp(Params, (char*)s1.data(), (DWORD)s1.size(), tsr, Params.TSServer.c_str());
-						string b = XML3::Char2Base64(tsr.data(), tsr.size(), false);
-						h1.SetContent(b.c_str());
-
+						XMLAddX(*this, Params, CanonicalizationString, xusp, ser, xcc1, xcc2a);
 						if (lev >= LEVEL::XL)
 						{
-							XML3::XMLElement d1 = "xades132:CertificateValues";
-							d1.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-							d1.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
-							d1.vv("xmlns:xades132") = "http://uri.etsi.org/01903/v1.3.2#";
-							d1.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
-
-
-							auto addcert = [&](PCCERT_CONTEXT c)
-							{
-								XML3::XMLElement f1 = "xades132:EncapsulatedX509Certificate";
-
-								string d3 = XML3::Char2Base64((const char*)c->pbCertEncoded, c->cbCertEncoded, false);
-								f1.SetContent(d3.c_str());
-
-								d1.AddElement(f1);
-
-							};
-
-							for (auto&cert : Certificates)
-							{
-								addcert(cert.cert.cert);
-								for (auto& cert2 : cert.More)
-								{
-									addcert(cert2.cert);
-								}
-							}
-							auto xdd1 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(d1));
-
-							XML3::XMLElement dd2 = "xades132:RevocationValues";
-							dd2.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
-							dd2.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
-							dd2.vv("xmlns:xades132") = "http://uri.etsi.org/01903/v1.3.2#";
-							dd2.vv("xmlns:xades141") = "http://uri.etsi.org/01903/v1.4.1#";
-
-							XML3::XMLElement dx3 = "xades132:CRLValues";
-
-							auto addcrl = [&](PCCRL_CONTEXT c)
-							{
-								XML3::XMLElement f1 = "xades132:EncapsulatedCRLValue";
-
-								string d3 = XML3::Char2Base64((const char*)c->pbCrlEncoded, c->cbCrlEncoded, false);
-								f1.SetContent(d3.c_str());
-								dx3.AddElement(f1);
-
-							};
-
-							for (auto&cert : Certificates)
-							{
-								for (auto& crl : cert.cert.Crls)
-									addcrl(crl);
-
-								for (auto& cert2 : cert.More)
-								{
-									for (auto& crl : cert2.Crls)
-										addcrl(crl);
-								}
-							}
-							dd2.AddElement(dx3);
-							auto xdd2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(dd2));
-
+							XMLAddXL(xusp, Certificates);
 						}
 					}
 				}
 			}
+
+
 		}
 
 		ds_Signature.AddElement(ds_SignedInfo);
@@ -1591,6 +1609,23 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		{
 			ds_Signature.AddElement(o2);
 		}
+
+/*
+		if (lev >= LEVEL::A)
+		{
+			// SignedSignatureProperties 
+			CollectionForA.push_back(&xssp);
+
+			// SignedDataObjectProperties 
+			CollectionForA.push_back(&xsdop);
+
+			// ds:SignatureValue
+			CollectionForA.push_back(&xsdop);
+
+
+			XMLAddA(xusp, dat, Certificates);
+		}
+*/
 
 		// Remove namespaces which we put for hashing
 		ds_Signature.RemoveDuplicateNamespaces(0);
