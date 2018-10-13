@@ -687,6 +687,9 @@ namespace PDF
 			PDFVersion = f;
 
 			auto sss = s;
+
+			unsigned long long PreviousXRefIfXRefIsObject = 0;
+
 			for (;;)
 			{
 				DOC doc;
@@ -703,7 +706,11 @@ namespace PDF
 				f = upoline(ss, i);
 				doc.xref.p = atoll(upoline(ss, i).c_str());
 				if (doc.xref.p == 0)
-					break;
+				{
+					doc.xref.p = PreviousXRefIfXRefIsObject;
+					if (doc.xref.p == 0)
+						break;
+				}
 
 				//sss = doc.xref.p;
 				sss = peof - 1;
@@ -809,6 +816,14 @@ namespace PDF
 						expandobjstm(d, doc, &obj, true);
 				}
 
+
+				// Previous note?
+				auto npr = findname(&doc.xref.if_object, "Prev");
+				if (npr)
+				{
+					PreviousXRefIfXRefIsObject = atoll(npr->Value.c_str());
+				}
+
 				docs.push_back(doc);
 			}
 
@@ -861,10 +876,10 @@ namespace PDF
 			if (r.size() != 3)
 				return E_FAIL;
 
-			// Support [1,2,1] currently
+			// Support [1,X,1] currently up to [1,8,1]
 			if (atoi(r[0].c_str()) != 1)
 				return E_FAIL;
-			if (atoi(r[1].c_str()) != 2)
+			if (atoi(r[1].c_str()) > 8)
 				return E_FAIL;
 			if (atoi(r[2].c_str()) != 1)
 				return E_FAIL;
@@ -893,8 +908,9 @@ namespace PDF
 				dd++;
 
 				long long RefType = 0;
-				unsigned short RefOfs = 0;
+				unsigned long long RefOfs = 0;
 				long long RefGen = 0;
+				int eb;
 
 				for (int row = 0; row < width ; row++)
 				{
@@ -905,20 +921,18 @@ namespace PDF
 
 					if (row == 0)
 					{
+						eb = 8* ( atoi(r[1].c_str()) - 1);
 						RefType = by;
 						RefOfs = 0;
 					}
-					if (row == 1)
+					if (row >= 1 && row < (width - 1))
 					{
-						unsigned short s2 = by;
-						RefOfs |= (s2 << 8);
+						unsigned long long s2 = by;
+						unsigned long long r = eb;
+						RefOfs |= (s2 << r);
+						eb -= 8;
 					}
-					if (row == 2)
-					{
-						unsigned short s2 = by;
-						RefOfs |= s2;
-					}
-					if (row == 3)
+					if (row == (width - 1))
 					{
 						RefGen = by;
 					}

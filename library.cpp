@@ -2245,9 +2245,9 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	if (RefObject->content.Type != PDF::INXTYPE::TYPE_DIC)
 		return E_UNEXPECTED;
 
-	auto lastcnt = pdf.findname(RefObject, "Contents");
-	if (lastcnt == 0)
-		return E_UNEXPECTED;
+//	auto lastcnt = pdf.findname(RefObject, "Contents");
+//	if (lastcnt == 0)
+	//	return E_UNEXPECTED;
 
 	auto& last = pdf.docs[0];
 	auto mxd = pdf.mmax();// +1;
