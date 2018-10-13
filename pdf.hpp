@@ -1,19 +1,5 @@
 
 
-#ifdef _WIN64
-#ifdef _DEBUG
-#pragma comment(lib,"..\\packages\\zlib-msvc14-x64.1.2.11.7795\\build\\native\\lib_debug\\zlibstaticd.lib")
-#else
-#pragma comment(lib,"..\\packages\\zlib-msvc14-x64.1.2.11.7795\\build\\native\\lib_release\\zlibstatic.lib")
-#endif
-
-#else
-#ifdef _DEBUG
-#pragma comment(lib,"..\\packages\\zlib-msvc14-x86.1.2.11.7795\\build\\native\\lib_debug\\zlibstaticd.lib")
-#else
-#pragma comment(lib,"..\\packages\\zlib-msvc14-x86.1.2.11.7795\\build\\native\\lib_release\\zlibstatic.lib")
-#endif
-#endif
 
 #ifdef _WIN64
 #include ".\\packages\\zlib-msvc14-x86.1.2.11.7795\\build\\native\\include\\zlib.h"
@@ -22,11 +8,6 @@
 #endif
 
 
-#ifndef _WIN64
-//#pragma comment(lib,"ucrt.lib")
-#pragma comment(lib,"vcruntime.lib")
-//#pragma comment(lib,"msvcrt.lib")
-#endif
 
 namespace PDF
 {
@@ -800,7 +781,7 @@ namespace PDF
 						doc.objects.push_back(o);
 					}
 
-
+					return true;
 				};
 
 				// And compressed objects by xref
@@ -820,17 +801,15 @@ namespace PDF
 				// And also all objects that have a Type /ObjStm
 				for (auto& obj : doc.objects)
 				{
-					auto n = findname(&obj, "ObjStm");
-					if (!n)
-						continue;
-
-					expandobjstm(d, doc, &obj,true);
-
+					auto n2 = findname(&obj, "XRef");
+					if (n2)
+						expandobjstm(d, doc, &obj, true);
+					auto n1 = findname(&obj, "ObjStm");
+					if (n1)
+						expandobjstm(d, doc, &obj, true);
 				}
 
-
 				docs.push_back(doc);
-
 			}
 
 
