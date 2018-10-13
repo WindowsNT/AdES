@@ -1,4 +1,33 @@
 
+
+#ifdef _WIN64
+#ifdef _DEBUG
+#pragma comment(lib,"..\\packages\\zlib-msvc14-x64.1.2.11.7795\\build\\native\\lib_debug\\zlibstaticd.lib")
+#else
+#pragma comment(lib,"..\\packages\\zlib-msvc14-x64.1.2.11.7795\\build\\native\\lib_release\\zlibstatic.lib")
+#endif
+
+#else
+#ifdef _DEBUG
+#pragma comment(lib,"..\\packages\\zlib-msvc14-x86.1.2.11.7795\\build\\native\\lib_debug\\zlibstaticd.lib")
+#else
+#pragma comment(lib,"..\\packages\\zlib-msvc14-x86.1.2.11.7795\\build\\native\\lib_release\\zlibstatic.lib")
+#endif
+#endif
+
+#ifdef _WIN64
+#include ".\\packages\\zlib-msvc14-x86.1.2.11.7795\\build\\native\\include\\zlib.h"
+#else
+#include ".\\packages\\zlib-vc140-static-64.1.2.11\\lib\\native\\include\\zlib.h"
+#endif
+
+
+#ifndef _WIN64
+//#pragma comment(lib,"ucrt.lib")
+#pragma comment(lib,"vcruntime.lib")
+//#pragma comment(lib,"msvcrt.lib")
+#endif
+
 namespace PDF
 {
 
@@ -143,6 +172,7 @@ namespace PDF
 		astring Value;
 		list<INX> Contents;
 
+
 		void Serialize(vector<char>& d)
 		{
 			if (Type == INXTYPE::TYPE_DIC)
@@ -246,14 +276,23 @@ namespace PDF
 		bool q = false;
 		INX content;
 
-		
+		// For stream
+		unsigned long long str_pos = 0;
+		unsigned long long str_size = 0;
 
-		bool Parse(unsigned long long nu,const char *d)
+
+		bool Parse(unsigned long long nu,const char *d,bool NoUp = false)
 		{
+			auto orgd = d;
 			INX* n = &content;
 			num = nu;
 			unsigned long long i = 0;
-			if (nu != 0) // 0 -> trailer
+			if (nu == (unsigned long long)-1)
+			{
+				nu = atoi(d);
+				num = nu;
+			}
+			if (NoUp == false && nu != 0) // 0 -> trailer
 				upoline(d, i);
 
 			auto EndT2 = [&]()
@@ -265,6 +304,8 @@ namespace PDF
 						n->Name = n->Value;
 						n->Value.clear();
 					}
+					if (n->Name == "Length")
+						str_size = atoll(n->Value.c_str());
 					n = n->Par;
 					if (!n)
 						return false;
@@ -370,6 +411,13 @@ namespace PDF
 				}
 				d++;
 			}
+			// Check stream
+			
+			if (memcmp(d, "stream", 6) == 0)
+			{
+				upoline(d, i);
+				str_pos = d - orgd;
+			}
 			return true;
 		}
 
@@ -380,6 +428,10 @@ namespace PDF
 	public:
 		unsigned long long p = 0;
 		map<unsigned long long, tuple<bool,unsigned long long>> refs;
+		OBJECT if_object;
+
+		vector<tuple<unsigned long long, unsigned long long>> compressedrefs;
+
 
 		unsigned long long mmax()
 		{
@@ -393,25 +445,14 @@ namespace PDF
 			return mm;
 		}
 
-		bool ParseAsObject(const char *d, OBJECT& trl)
-		{
-			UNREFERENCED_PARAMETER(d);
-			UNREFERENCED_PARAMETER(trl);
-			// Nothing currently...
-	/*		OBJECT o;
-			if (!o.Parse(0,d))
-				return false;
-*/
-			return false;
-		}
 
 
-		bool Parse(const char *d,OBJECT& trl)
+		HRESULT XParse(const class DOC& doc,const char *d,OBJECT& trl)
 		{
 			unsigned long long i = 0;
 			string xrtag = upoline(d, i);
 			if (xrtag != "xref")
-				return ParseAsObject(d - i,trl);
+				return E_UNEXPECTED;
 			unsigned long long  WaitN = 0;
 			unsigned long long  Start = 0;
 			for (;;)
@@ -447,7 +488,7 @@ namespace PDF
 					WaitN = 0;
 				}
 			}
-			return true;
+			return S_OK;
 		}
 	};
 
@@ -522,6 +563,15 @@ namespace PDF
 					}
 				}
 			}
+
+			// Check in xref
+			auto fn = findname(&xref.if_object.content, "Root", 0, true);
+			if (fn)
+			{
+				auto r = atoll(fn->Value.c_str());
+				return r;
+
+			}
 			return -1;
 		}
 
@@ -537,6 +587,15 @@ namespace PDF
 						return r;
 					}
 				}
+			}
+
+			// Check in xref
+			auto fn = findname(&xref.if_object.content, "Info", 0, true);
+			if (fn)
+			{
+				auto r = atoll(fn->Value.c_str());
+				return r;
+
 			}
 			return -1;
 		}
@@ -662,31 +721,118 @@ namespace PDF
 				ss = dd + startxref;
 				f = upoline(ss, i);
 				doc.xref.p = atoll(upoline(ss, i).c_str());
+				if (doc.xref.p == 0)
+					break;
 
-				sss = doc.xref.p;
+				//sss = doc.xref.p;
+				sss = peof - 1;
 
-				if (!doc.xref.Parse(dd + doc.xref.p,doc.trailer))
+				bool XrefAsObject = 0;
+				auto hrxref = doc.xref.XParse(doc, dd + doc.xref.p, doc.trailer);
+				if (hrxref == E_UNEXPECTED)
+				{
+					XrefAsObject = 1;
+					hrxref = ParseXrefAsObject(doc, dd + doc.xref.p, doc.trailer);
+				}
+
+				if (hrxref != S_OK)
 					return false;
 
 				for (auto& obj : doc.xref.refs)
 				{
 					auto s2 = obj.second;
+					auto num = obj.first;
 					if (get<0>(s2) == false)
 					{
 						OBJECT o;
 						o.p = 0;
-						o.num = obj.first;
+						o.num = num;
 						doc.objects.push_back(o);
 						continue;
 					}
 					OBJECT o;
+					if (XrefAsObject)
+						num = -1;
 					o.p = get<1>(s2);
-					o.Parse(obj.first, dd + get<1>(s2));
+					o.Parse(num, dd + get<1>(s2));
 					doc.objects.push_back(o);
 				}
 
+				auto expandobjstm = [](const char* d,DOC& doc,OBJECT* obj,bool NoDup = false) -> bool
+				{
+					if (obj->str_size == 0)
+						return false;
+
+					// Decompress Stream
+					vector<char> uncs(1048576);
+					unsigned long destlen = uncs.size();
+					auto ures = uncompress((Bytef*)uncs.data(), &destlen, (Bytef*)d + (obj->p + obj->str_pos), obj->str_size);
+					if (ures != 0)
+						return false;
+					const char* unp = uncs.data();
+
+					map<unsigned long long, unsigned long long> newmaps;
+					for (;;)
+					{
+						int a = atoi(unp);
+						if (a == 0)
+							break;
+						while (unp[0] != ' ')
+							unp++;
+						while (unp[0] == ' ')
+							unp++;
+						int b = atoi(unp);
+						while (unp[0] != ' ')
+							unp++;
+						while (unp[0] == ' ')
+							unp++;
+
+						newmaps[a] = b;
+					}
+
+					for (auto& np : newmaps)
+					{
+						OBJECT o;
+						o.p = 0;
+						if (NoDup && doc.findobject(np.first))
+							continue;
+						o.Parse(np.first, unp + np.second, true);
+						doc.objects.push_back(o);
+					}
+
+
+				};
+
+				// And compressed objects by xref
+				map<int, bool> hasfound;
+				for (auto& dr : doc.xref.compressedrefs)
+				{
+					int num = get<0>(dr);
+					if (hasfound[num])
+						continue;
+					hasfound[num] = true;
+					auto obj = doc.findobject(num);
+					if (!obj)
+						continue;
+					expandobjstm(d, doc,obj);
+				}
+
+				// And also all objects that have a Type /ObjStm
+				for (auto& obj : doc.objects)
+				{
+					auto n = findname(&obj, "ObjStm");
+					if (!n)
+						continue;
+
+					expandobjstm(d, doc, &obj,true);
+
+				}
+
+
 				docs.push_back(doc);
+
 			}
+
 
 			if (docs.empty())
 				return false;
@@ -694,6 +840,131 @@ namespace PDF
 			return true;
 		}
 
+		HRESULT ParseXrefAsObject(DOC& doc, const char *d, OBJECT& trl)
+		{
+			UNREFERENCED_PARAMETER(trl);
+			OBJECT& o = doc.xref.if_object;
+			if (!o.Parse(0, d))
+				return E_FAIL;
+
+
+			if (o.str_size == 0)
+				return E_FAIL;
+
+			// Decompress Stream
+			vector<char> uncs(1048576);
+			unsigned long destlen = uncs.size();
+			auto ures  = uncompress((Bytef*)uncs.data(), &destlen,(Bytef*) d + o.str_pos, o.str_size);
+			if (ures != 0)
+				return E_FAIL;
+
+			// Type PNG support
+
+			auto prd = doc.findname(&o.content, "Predictor",0,true);
+			if (!prd)
+				return E_FAIL;
+
+			int Val = atoi(prd->Value.c_str());
+			if (Val < 10)
+				return E_FAIL;
+
+			// Widths
+			auto cw = doc.findname(&o.content, "W", 0, true);
+			if (!cw)
+				return E_FAIL;
+			if (cw->Contents.size() == 0)
+				return E_FAIL;
+			if (cw->Contents.front().Type != INXTYPE::TYPE_ARRAY)
+				return E_FAIL;
+
+			auto widths = cw->Contents.front().Value;
+			auto r = split(widths.c_str(), ' ');
+			if (r.size() != 3)
+				return E_FAIL;
+
+			// Support [1,2,1] currently
+			if (atoi(r[0].c_str()) != 1)
+				return E_FAIL;
+			if (atoi(r[1].c_str()) != 2)
+				return E_FAIL;
+			if (atoi(r[2].c_str()) != 1)
+				return E_FAIL;
+
+
+			int width = 0;
+			for (auto& rr : r)
+			{
+				width += atoi(rr.c_str());
+			}
+
+			// Strip last 10, is CRC
+			destlen -= 10;
+
+			// Loop rows (width value = width + 1)
+			vector<unsigned char> PrevRow(width);
+			
+			unsigned long long jidx = 0;
+
+			for (size_t p = 0 ; ;)
+			{
+				const char* dd = uncs.data() + p;
+
+				// Strip first \x02.
+				p++;
+				dd++;
+
+				long long RefType = 0;
+				unsigned short RefOfs = 0;
+				long long RefGen = 0;
+
+				for (int row = 0; row < width ; row++)
+				{
+					unsigned char by = dd[row];
+					by += PrevRow[row];
+					PrevRow[row] = by;
+
+
+					if (row == 0)
+					{
+						RefType = by;
+						RefOfs = 0;
+					}
+					if (row == 1)
+					{
+						unsigned short s2 = by;
+						RefOfs |= (s2 << 8);
+					}
+					if (row == 2)
+					{
+						unsigned short s2 = by;
+						RefOfs |= s2;
+					}
+					if (row == 3)
+					{
+						RefGen = by;
+					}
+
+				}
+
+				auto& refs = doc.xref.refs;
+
+				if (RefType == 0)
+					refs[jidx] = make_tuple<>(false, RefOfs);
+				if (RefType == 1)
+					refs[jidx] = make_tuple<>(true, RefOfs);
+				if (RefType == 2)
+					doc.xref.compressedrefs.push_back(make_tuple<>(RefOfs,RefGen));
+
+				jidx++;
+
+				p += width;
+				if (p >= destlen)
+					break;
+			}
+
+			// And the trailer
+			return S_OK;
+		}
 
 
 /*

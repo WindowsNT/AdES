@@ -257,6 +257,7 @@ int main()
 	
 	LoadFile(L"..\\hello.xml", hellox);
 	LoadFile(L"..\\hello.pdf", hellopdf);
+//	LoadFile(L"R:\\DOWNLOAD\\1.pdf", hellopdf);
 	LoadFile(L"..\\hello.xml", helloxz);
 	helloxz.resize(helloxz.size() + 1);
 
@@ -286,7 +287,7 @@ int main()
 	Params.Attached = AdES::ATTACHTYPE::ATTACHED;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
 	Params.commitmentTypeOid = "1.2.840.113549.1.9.16.6.1";
-	auto hr1 = a.Sign(AdES::LEVEL::XL, msg, (DWORD)b, Certs,  Params,Sig);
+	auto hr1 = a.Sign(AdES::LEVEL::B, msg, (DWORD)b, Certs,  Params,Sig);
 	PutFile(L"..\\hello2.p7m", Sig);
 	AdES::LEVEL lev;
 	vector<PCCERT_CONTEXT> CV;
