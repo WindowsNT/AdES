@@ -2250,7 +2250,7 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	//	return E_UNEXPECTED;
 
 	auto& last = pdf.docs[0];
-	auto mxd = pdf.mmax();// +1;
+	auto mxd = pdf.maxobjectnum;// +1;
 	//int iContents = atoll(lastcnt->Value.c_str());
 
 

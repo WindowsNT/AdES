@@ -589,7 +589,7 @@ namespace PDF
 
 		const char* d = 0;
 		unsigned long long sz = 0;
-
+		unsigned long long maxobjectnum = 0;
 		vector<DOC> docs;
 
 
@@ -805,6 +805,9 @@ namespace PDF
 					expandobjstm(d, doc,obj);
 				}
 
+				if (maxobjectnum < doc.xref.mmax())
+					maxobjectnum = doc.xref.mmax();
+
 				// And also all objects that have a Type /ObjStm
 				for (auto& obj : doc.objects)
 				{
@@ -816,12 +819,17 @@ namespace PDF
 						expandobjstm(d, doc, &obj, true);
 				}
 
-
 				// Previous note?
 				auto npr = findname(&doc.xref.if_object, "Prev");
 				if (npr)
 				{
 					PreviousXRefIfXRefIsObject = atoll(npr->Value.c_str());
+				}
+
+				for (auto& obj : doc.objects)
+				{
+					if (obj.num > maxobjectnum)
+						maxobjectnum = obj.num;
 				}
 
 				docs.push_back(doc);
