@@ -2190,15 +2190,30 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 
 	// Count from all revisions
 	long long Count = 0;
+	vector<PDF::OBJECT*> FoundCounts;
 	for (auto& doc : pdf.docs)
 	{
-		for (auto& objj : doc.objects)
+		auto rn = doc.root();
+		auto ro = doc.findobject(rn);
+		if (!ro)
+			continue;
+		auto pobj = doc.findname(&ro->content, "Pages");
+		if (!pobj)
+			continue;
+
+		int iPg = atoi(pobj->Value.c_str());
+		auto p2obj = pdf.findobject(iPg);
+		if (!p2obj)
+			continue;
+
+		if (std::find(FoundCounts.begin(), FoundCounts.end(), p2obj) != FoundCounts.end())
+			continue;
+
+		FoundCounts.push_back(p2obj);
+		auto count = doc.findname(&p2obj->content, "Count");
+		if (count)
 		{
-			auto count = doc.findname(&objj.content, "Count");
-			if (count)
-			{
-				Count += atoll(count->Value.c_str());
-			}
+			Count += atoll(count->Value.c_str());
 		}
 	}
 	if (Count == 0)
