@@ -302,7 +302,15 @@ namespace PDF
 			{
 				nu = atoi(d);
 				num = nu;
+				auto rz = memstr(d, 10, "obj", 3);
+				if (rz == -1)
+					return E_FAIL;
+				d += rz + 3;
+				while (d[0] == '\r' || d[0] == '\n')
+					d++;
+				NoUp = true;
 			}
+
 			if (NoUp == false && nu != 0) // 0 -> trailer
 				upoline(d, i);
 
@@ -799,7 +807,7 @@ namespace PDF
 				}
 
 				if (hrxref != S_OK)
-					return HRESULTERROR(E_UNEXPECTED, "Could not parse XREF entries");
+					break;// return HRESULTERROR(E_UNEXPECTED, "Could not parse XREF entries");
 
 				for (auto& obj : doc.xref.refs)
 				{
@@ -895,11 +903,21 @@ namespace PDF
 				}
 
 				// Previous note?
+				
+				
+				PreviousXRefIfXRefIsObject = 0;
 				auto npr = findname(&doc.xref.if_object, "Prev");
 				if (npr)
 				{
 					PreviousXRefIfXRefIsObject = atoll(npr->Value.c_str());
 				}
+				if (!npr)
+					npr = findname(&doc.trailer, "Prev");
+				if (npr)
+				{
+					PreviousXRefIfXRefIsObject = atoll(npr->Value.c_str());
+				}
+
 
 				for (auto& obj : doc.objects)
 				{
@@ -937,12 +955,14 @@ namespace PDF
 				return HRESULTERROR(E_FAIL, "Could not uncompress compressed XREF");
 
 			// Type PNG support
-			auto prd = doc.findname(&o.content, "Predictor",0,true);
-			if (!prd)
-				return HRESULTERROR(E_FAIL, "Could not find Predictor compressed XREF");
+			int PredVal = 0;
 
-			int Val = atoi(prd->Value.c_str());
-			if (Val < 10)
+			auto prd = doc.findname(&o.content, "Predictor",0,true);
+			if (prd)
+			{
+				PredVal = atoi(prd->Value.c_str());
+			}
+			if (PredVal < 10 && PredVal > 1)
 				return HRESULTERROR(E_FAIL, "Predictor < 10 in compressed XREF");
 
 			// Widths
