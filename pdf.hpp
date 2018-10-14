@@ -292,7 +292,7 @@ namespace PDF
 		unsigned long long str_size = 0;
 
 
-		bool Parse(unsigned long long nu,const char *d,bool NoUp = false)
+		HRESULTERROR Parse2(unsigned long long nu,const char *d,bool NoUp = false)
 		{
 			auto orgd = d;
 			INX* n = &content;
@@ -429,7 +429,7 @@ namespace PDF
 				upoline(d, i);
 				str_pos = d - orgd;
 			}
-			return true;
+			return S_OK;
 		}
 
 	};
@@ -458,12 +458,12 @@ namespace PDF
 
 
 
-		HRESULT XParse(const class DOC&,const char *d,OBJECT& trl)
+		HRESULTERROR XParse(const class DOC&,const char *d,OBJECT& trl)
 		{
 			unsigned long long i = 0;
 			string xrtag = upoline(d, i);
 			if (xrtag != "xref")
-				return E_UNEXPECTED;
+				return HRESULTERROR(E_UNEXPECTED,"No xref tag");
 			unsigned long long  WaitN = 0;
 			unsigned long long  Start = 0;
 			for (;;)
@@ -474,7 +474,7 @@ namespace PDF
 					if (h == "trailer")
 					{
 						trl.p = i;
-						trl.Parse(0, d);
+						trl.Parse2(0, d);
 						break;
 					}
 					auto r = split(h, ' ');
@@ -488,7 +488,7 @@ namespace PDF
 						string t = upoline(d, i);
 						auto rr = split(t, ' ');
 						if (rr.size() != 3)
-							return false;
+							return HRESULTERROR(E_UNEXPECTED, "No 3 size in W");
 
 						auto Ref = atoll(rr[0].c_str());
 						if (rr[2] == "n")
@@ -747,15 +747,15 @@ namespace PDF
 
 
 		string PDFVersion;
-		bool Parse2(const char* dd, unsigned long long s)
+		HRESULTERROR Parse2(const char* dd, unsigned long long s)
 		{
 			if (!dd)
-				return false;
+				return E_POINTER;
 			d = dd;
 			sz = s;
 			const char* ss = dd;
 			if (strncmp(ss, "%PDF-", 5) != 0)
-				return false;
+				return HRESULTERROR(E_UNEXPECTED,"No header");
 			ss += 5;
 			unsigned long long i = 5;
 			string f = upoline(ss, i);
@@ -775,7 +775,7 @@ namespace PDF
 
 				auto startxref = memrstr(dd, peof, "startxref", 9);
 				if (startxref == -1)
-					return false;
+					return HRESULTERROR(E_UNEXPECTED, "No startxref found");
 
 				ss = dd + startxref;
 				f = upoline(ss, i);
@@ -799,7 +799,7 @@ namespace PDF
 				}
 
 				if (hrxref != S_OK)
-					return false;
+					return HRESULTERROR(E_UNEXPECTED, "Could not parse XREF entries");
 
 				for (auto& obj : doc.xref.refs)
 				{
@@ -814,10 +814,10 @@ namespace PDF
 						continue;
 					}
 					OBJECT o;
-					if (XrefAsObject)
+//					if (XrefAsObject)
 						num = (unsigned long long)-1;
 					o.p = get<1>(s2);
-					o.Parse(num, dd + get<1>(s2));
+					o.Parse2(num, dd + get<1>(s2));
 					doc.objects.push_back(o);
 				}
 
@@ -859,7 +859,7 @@ namespace PDF
 						o.p = 0;
 						if (NoDup && doc.findobject(np.first))
 							continue;
-						o.Parse(np.first, unp + np.second, true);
+						o.Parse2(np.first, unp + np.second, true);
 						doc.objects.push_back(o);
 					}
 
@@ -912,59 +912,60 @@ namespace PDF
 
 
 			if (docs.empty())
-				return false;
+				return S_FALSE;
 
-			return true;
+			return S_OK;
 		}
 
-		HRESULT ParseXrefAsObject(DOC& doc, const char *d, OBJECT& trl)
+		HRESULTERROR ParseXrefAsObject(DOC& doc, const char *d, OBJECT& trl)
 		{
 			UNREFERENCED_PARAMETER(trl);
 			OBJECT& o = doc.xref.if_object;
-			if (!o.Parse(0, d))
-				return E_FAIL;
+			auto zr = o.Parse2(0, d);
+			if (FAILED(zr))
+				return zr;
 
 
 			if (o.str_size == 0)
-				return E_FAIL;
+				return HRESULTERROR(E_UNEXPECTED, "No stream in XrefAsObject");
 
 			// Decompress Stream
 			vector<char> uncs(1048576);
 			unsigned long destlen = (uLong)uncs.size();
 			auto ures  = uncompress((Bytef*)uncs.data(), &destlen,(Bytef*) d + o.str_pos, (uLong)o.str_size);
 			if (ures != 0)
-				return E_FAIL;
+				return HRESULTERROR(E_FAIL, "Could not uncompress compressed XREF");
 
 			// Type PNG support
 			auto prd = doc.findname(&o.content, "Predictor",0,true);
 			if (!prd)
-				return E_FAIL;
+				return HRESULTERROR(E_FAIL, "Could not find Predictor compressed XREF");
 
 			int Val = atoi(prd->Value.c_str());
 			if (Val < 10)
-				return E_FAIL;
+				return HRESULTERROR(E_FAIL, "Predictor < 10 in compressed XREF");
 
 			// Widths
 			auto cw = doc.findname(&o.content, "W", 0, true);
 			if (!cw)
-				return E_FAIL;
+				return HRESULTERROR(E_FAIL, "No W found in XREF");
 			if (cw->Contents.size() == 0)
-				return E_FAIL;
+				return HRESULTERROR(E_FAIL, "No W contents in XREF");
 			if (cw->Contents.front().Type != INXTYPE::TYPE_ARRAY)
-				return E_FAIL;
+				return HRESULTERROR(E_FAIL, "No array contect in W");
 
 			auto widths = cw->Contents.front().Value;
 			auto r = split(widths.c_str(), ' ');
 			if (r.size() != 3)
-				return E_FAIL;
+				return HRESULTERROR(E_FAIL, "Invalid W array in XREF");
 
 			// Support [1,X,1] currently up to [1,8,1]
 			if (atoi(r[0].c_str()) != 1)
-				return E_FAIL;
+				return HRESULTERROR(E_FAIL, "Invalid W array in XREF");
 			if (atoi(r[1].c_str()) > 8)
-				return E_FAIL;
+				return HRESULTERROR(E_FAIL, "Invalid W array in XREF");
 			if (atoi(r[2].c_str()) != 1)
-				return E_FAIL;
+				return HRESULTERROR(E_FAIL, "Invalid W array in XREF");
 
 
 			int width = 0;

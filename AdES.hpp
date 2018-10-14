@@ -5,6 +5,25 @@
 #include <tuple>
 
 
+class HRESULTERROR
+{
+public:
+
+	HRESULT hr = 0;
+	std::string err;
+
+	HRESULTERROR(HRESULT hrx, const char* str = "")
+	{
+		hr = hrx;
+		if (str)
+			err = str;
+	}
+
+	operator HRESULT()
+	{
+		return hr;
+	}
+};
 
 class AdES
 {
@@ -128,7 +147,7 @@ public:
 	HRESULT VerifyU(const char* data, DWORD sz, bool Attached = true, int TSServerSignIndex = 0);
 	HRESULT XMLSign(LEVEL lev, std::vector<FILEREF>& data,const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
 
-	HRESULT PDFSign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature);
+	HRESULTERROR PDFSign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature);
 
 	HRESULT ASiC(ALEVEL alev,ATYPE typ, LEVEL lev,std::vector<FILEREF>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
 

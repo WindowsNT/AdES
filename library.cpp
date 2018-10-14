@@ -2163,30 +2163,31 @@ HRESULT AdES::AddCXL(std::vector<char>& Signature, const std::vector<CERT>& Cert
 #include "pdf.hpp"
 
 
-HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res)
+HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res)
 {
 	PDF::PDF pdf;
-	if (!pdf.Parse2(d, sz))
-		return E_UNEXPECTED;
+	auto herr = pdf.Parse2(d, sz);
+	if (FAILED(herr))
+		return herr;
 
 	// We have parsed it...
 	if (pdf.docs.empty())
-		return E_UNEXPECTED;
+		return HRESULTERROR(E_FAIL,"No documents inside PDF");
 
 	auto rootobject = pdf.findobject(pdf.root());
 	if (!rootobject)
-		return E_UNEXPECTED;
+		return HRESULTERROR(E_FAIL, "No root object");
 	auto infoobject = pdf.findobject(pdf.info());
 	auto lastpages = pdf.findname(rootobject, "Pages");
 	if (lastpages == 0)
-		return E_UNEXPECTED;
+		return HRESULTERROR(E_FAIL, "No Pages object");
 	auto iiPage = atoll(lastpages->Value.c_str());
 	auto PageObject = pdf.findobject(iiPage);
 	if (!PageObject)
-		return E_UNEXPECTED;
+		return HRESULTERROR(E_FAIL, "No Page Object");
 	auto lastkids = pdf.findname(PageObject, "Kids");
 	if (lastkids == 0)
-		return E_UNEXPECTED;
+		return HRESULTERROR(E_FAIL, "No Kids in Page");
 
 	auto lastsize = pdf.docs[0].size();
 	auto lastID = pdf.docs[0].GetID();
@@ -2254,14 +2255,14 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 
 	auto iFirstRef = atoll(firstref.c_str());
 	if (iFirstRef == 0)
-		return E_UNEXPECTED;
+		return HRESULTERROR(E_FAIL, "No first reference found");
 	auto RefObject = pdf.findobject(iFirstRef);
 	if (!RefObject)
-		return E_UNEXPECTED;
+		return HRESULTERROR(E_FAIL, "No RefObject");
 
 	// Serialization of this reference
 	if (RefObject->content.Type != PDF::INXTYPE::TYPE_DIC)
-		return E_UNEXPECTED;
+		return HRESULTERROR(E_FAIL, "No contect in RefObject");
 
 //	auto lastcnt = pdf.findname(RefObject, "Contents");
 //	if (lastcnt == 0)
