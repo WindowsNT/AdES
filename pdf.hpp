@@ -306,8 +306,15 @@ namespace PDF
 				if (rz == -1)
 					return E_FAIL;
 				d += rz + 3;
-				while (d[0] == '\r' || d[0] == '\n')
+				while (d[0] == '\r' || d[0] == '\n' || d[0] == ' ')
 					d++;
+				if (d[0] == '%')
+				{
+					while (d[0] != '\r' && d[0] != '\n')
+						d++;
+					while (d[0] == '\r' || d[0] == '\n')
+						d++;
+				}
 				NoUp = true;
 			}
 
