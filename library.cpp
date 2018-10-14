@@ -2501,10 +2501,35 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	vPages.Format("%u 0 obj\n%s\r\nendobj\r\n", iPages, pageser.data());
 	xrefs[iPages] = vafter.size() + res.size() + 1;
 	vafter += vPages;
-	if (!HelvFound)
-		vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
+
+	// Use the same rootobject
+	auto r2 = *rootobject;
+	vector<char> r2ser;
+	if (r2.content.Type == PDF::INXTYPE::TYPE_DIC)
+	{
+		PDF::astring acro;
+		acro.Format("/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>", AnnotFinal.c_str(), iFont, iFont2, iPages);
+		PDF::OBJECT obj;
+		obj.Parse2(0, acro.c_str(), true);
+		r2.content.Contents.push_front(obj.content);
+
+		r2.content.Serialize(r2ser);
+	}
+
+	if (r2ser.size())
+	{
+		r2ser.resize(r2ser.size() + 1);
+		vRoot.Format("%u 0 obj\n%s\nendobj\n",iRoot,r2ser.data());
+
+	}
 	else
-		vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
+	{
+		if (!HelvFound)
+			vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
+		else
+			vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
+	}
+
 	xrefs[iRoot] = vafter.size() + res.size() + 1;
 	vafter += vRoot;
 	vProducer.Format("%u 0 obj\n<</Producer(AdES Tools https://www.turboirc.com)/ModDate(D:%s)>>\nendobj\n", iProducer,dd.c_str());

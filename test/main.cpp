@@ -211,7 +211,7 @@ int main()
 	};
 
 	
-#define PICKBYSUBJECT
+//#define PICKBYSUBJECT
 #ifndef PICKBYSUBJECT
 	// Picker by store
 	for(;;)
@@ -243,7 +243,7 @@ int main()
 
 	// Picker by subject
 #else
-	auto cert = HrGetSigner(L"ch.michael@cyta.gr"); 
+	auto cert = HrGetSigner(L"ch.michael@lol.gr"); 
 	if (!cert)
 		return 0;
 	putin(cert);
@@ -257,7 +257,7 @@ int main()
 	
 	LoadFile(L"..\\hello.xml", hellox);
 	LoadFile(L"..\\hello.pdf", hellopdf);
-	LoadFile(L"R:\\download\\met.pdf", hellopdf);
+//	LoadFile(L"R:\\1.pdf", hellopdf);
 	LoadFile(L"..\\hello.xml", helloxz);
 	helloxz.resize(helloxz.size() + 1);
 
