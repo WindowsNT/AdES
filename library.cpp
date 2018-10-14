@@ -2302,6 +2302,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	auto iFont = mxd + 7;
 	auto iFont2 = mxd + 8;
 	auto iProducer = mxd + 9;
+	auto iObjectXref = mxd + 10;
 
 	bool SwitchReferences =  true;
 
@@ -2543,9 +2544,46 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	if (HelvFound)
 		xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iProducer };
 
+	// Play with ID
+	string id1;
+	string id2;
+	if (lastID != 0 && lastID->Contents.size() == 1 && lastID->Contents.front().Type == PDF::INXTYPE::TYPE_ARRAY)
+	{
+		string& val = lastID->Contents.front().Value;
+		for (size_t j = 0;; j++)
+		{
+			if (val[j] == '<')
+				continue;
+			if (val[j] == '>')
+				break;
+			id1 += val[j];
+		}
+	}
+	else
+	{
+		// Create a new
+		vector<char> b1(16);
+		BCryptGenRandom(NULL, (BYTE*)b1.data(), 16, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+		id1 = PDF::BinToHex((unsigned char*)b1.data(), 16);
+	}
+	vector<char> b2(16);
+	BCryptGenRandom(NULL, (BYTE*)b2.data(), 16, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+	id2 = PDF::BinToHex((unsigned char*)b2.data(), 16);
+
+
+	// xref format if object:
+	// <</Type/XRef/W[x y z]/Root x 0 R/Prev x/ID [<x,y>]/Length x/Info x 0 R/Size x/Filter/FlateDecode>>stream...endstream
+	// Stream is
+	// (No PNG Prediction)
+	// Type (0 or 1)
+	// Index (num)
+	// Offset (num)
+	// CRC at end
+	bool XRefObject = false;
+	vector<char> uncompressedxref;
+	vector<char> compressedxref;
 
 	xrint.insert(xrint.begin(), 0);
-
 	if (SwitchReferences)
 	{
 		std::sort(xrint.begin(), xrint.end());
@@ -2586,9 +2624,30 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 				xrf += xg;
 			}
 			if (j == 0)
-				xg.Format("%010llu 65535 f \n",j);
+			{
+				xg.Format("%010llu 65535 f \n", j);
+
+				vector<char> bx(7);
+				bx[0] = 0;
+				unsigned long b = (unsigned long)j;
+				memcpy(bx.data() + 1, &b, 4);
+				unsigned short c = 0xFFFF;
+				memcpy(bx.data() + 5, &c, 2);
+				uncompressedxref.insert(uncompressedxref.end(),bx.begin(),bx.end());
+
+			}
 			else
+			{
 				xg.Format("%010llu 00000 n \n", j);
+
+				vector<char> bx(7);
+				bx[0] = 1;
+				unsigned long b = (unsigned long)j;
+				memcpy(bx.data() + 1, &b, 4);
+				unsigned short c = 0;
+				memcpy(bx.data() + 5, &c, 2);
+				uncompressedxref.insert(uncompressedxref.end(), bx.begin(), bx.end());
+			}
 			xrf += xg;
 		}
 	}
@@ -2607,37 +2666,34 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		}
 	}
 
-	vafter += xrf;
-//	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R>>\n", iRoot, last.xref.p, iProducer);
+	uncompressedxref.resize(uncompressedxref.size() + 10); // CRC
+	compressedxref.resize(uncompressedxref.size());
+	uLong cxs = uncompressedxref.size();
+	compress((Bytef*)compressedxref.data(), &cxs, (Bytef*)uncompressedxref.data(), uncompressedxref.size());
 
-	// Play with ID
-	string id1;
-	string id2;
-	if (lastID != 0 && lastID->Contents.size() == 1 && lastID->Contents.front().Type == PDF::INXTYPE::TYPE_ARRAY)
+
+	vector<char> uxref;
+	if (XRefObject)
 	{
-		string& val = lastID->Contents.front().Value;
-		for (size_t j = 0 ;; j++)
-		{
-			if (val[j] == '<')
-				continue;
-			if (val[j] == '>')
-				break;
-			id1 += val[j];
-		}
+		PDF::astring objectxref;
+		objectxref.Format("%u 0 obj\n<</Type/XRef/W[1 4 2]/Root %u 0 R/Prev %llu/Info %u 0 R/Size %u/ID[<%s><%s>]/Length %u/Filter/FlateDecode>>stream\n", iObjectXref, iRoot, last.xref.p, iProducer, xrint.size() + lastsize, id1.c_str(), id2.c_str(), compressedxref.size());
+		uxref.resize(objectxref.size());
+		memcpy(uxref.data(), objectxref.data(), objectxref.size());
+		auto cu = uxref.size();
+		uxref.resize(uxref.size() + cxs);
+		memcpy(uxref.data() + cu, compressedxref.data(), compressedxref.size());
+		cu = uxref.size();
+		objectxref.Format("\nendstream\nendobj\n");
+		uxref.resize(cu + objectxref.size());
+		memcpy(uxref.data() + cu, objectxref.data(), objectxref.size());
+		vafter.insert(vafter.end(), uxref.begin(), uxref.end());
 	}
 	else
 	{
-		// Create a new
-		vector<char> b1(16);
-		BCryptGenRandom(NULL,(BYTE*)b1.data(),16,BCRYPT_USE_SYSTEM_PREFERRED_RNG);
-		id1 = PDF::BinToHex((unsigned char*)b1.data(), 16);
+		vafter += xrf;
+		trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R/Size %u/ID[<%s><%s>]>>\n", iRoot, last.xref.p, iProducer, xrint.size() + lastsize, id1.c_str(), id2.c_str());
+		vafter += trl;
 	}
-	vector<char> b2(16);
-	BCryptGenRandom(NULL, (BYTE*)b2.data(), 16, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
-	id2 = PDF::BinToHex((unsigned char*)b2.data(), 16);
-
-	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R/Size %u/ID[<%s><%s>]>>\n", iRoot, last.xref.p, iProducer,xrint.size() + lastsize,id1.c_str(),id2.c_str());
-	vafter += trl;
 	sxref.Format("startxref\n%llu\n", xrefpos);
 	vafter += sxref;
 	vafter += vend;
@@ -2657,8 +2713,15 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	vafter += vPages;
 	vafter += vRoot;
 	vafter += vProducer;
-	vafter += xrf;
-	vafter += trl;
+	if (XRefObject)
+	{
+		vafter.insert(vafter.end(), uxref.begin(), uxref.end());
+	}
+	else
+	{
+		vafter += xrf;
+		vafter += trl;
+	}
 	vafter += sxref;
 	vafter += vend;
 
