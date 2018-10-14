@@ -257,7 +257,7 @@ int main()
 	
 	LoadFile(L"..\\hello.xml", hellox);
 	LoadFile(L"..\\hello.pdf", hellopdf);
-//	LoadFile(L"R:\\DOWNLOAD\\1.pdf", hellopdf);
+//	LoadFile(L"R:\\1.pdf", hellopdf);
 	LoadFile(L"..\\hello.xml", helloxz);
 	helloxz.resize(helloxz.size() + 1);
 
@@ -278,7 +278,7 @@ int main()
 	cattr.pszObjId = "2.25.43.12.1.3452.3356.113117.1";
 	cattr.cValue = 1;
 	CRYPT_INTEGER_BLOB b0;
-	b0.cbData = enc.size();
+	b0.cbData = (DWORD)enc.size();
 	b0.pbData = (BYTE*)enc.data();
 	cattr.rgValue = &b0;
 	Params.cextras.push_back(cattr);

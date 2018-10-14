@@ -2188,6 +2188,9 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	if (lastkids == 0)
 		return E_UNEXPECTED;
 
+	auto lastsize = pdf.docs[0].size();
+	auto lastID = pdf.docs[0].GetID();
+
 	// Count from all revisions
 	long long Count = 0;
 	vector<PDF::OBJECT*> FoundCounts;
@@ -2579,8 +2582,35 @@ HRESULT AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CER
 	}
 
 	vafter += xrf;
-	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R>>\n", iRoot, last.xref.p, iProducer);
-//	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R/Size %u>>\n", iRoot, last.xref.p, iProducer,xrint.size() + 1);
+//	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R>>\n", iRoot, last.xref.p, iProducer);
+
+	// Play with ID
+	string id1;
+	string id2;
+	if (lastID != 0 && lastID->Contents.size() == 1 && lastID->Contents.front().Type == PDF::INXTYPE::TYPE_ARRAY)
+	{
+		string& val = lastID->Contents.front().Value;
+		for (size_t j = 0 ;; j++)
+		{
+			if (val[j] == '<')
+				continue;
+			if (val[j] == '>')
+				break;
+			id1 += val[j];
+		}
+	}
+	else
+	{
+		// Create a new
+		vector<char> b1(16);
+		BCryptGenRandom(NULL,(BYTE*)b1.data(),16,BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+		id1 = PDF::BinToHex((unsigned char*)b1.data(), 16);
+	}
+	vector<char> b2(16);
+	BCryptGenRandom(NULL, (BYTE*)b2.data(), 16, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+	id2 = PDF::BinToHex((unsigned char*)b2.data(), 16);
+
+	trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R/Size %u/ID[<%s><%s>]>>\n", iRoot, last.xref.p, iProducer,xrint.size() + lastsize,id1.c_str(),id2.c_str());
 	vafter += trl;
 	sxref.Format("startxref\n%llu\n", xrefpos);
 	vafter += sxref;

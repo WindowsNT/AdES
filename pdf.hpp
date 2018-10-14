@@ -135,6 +135,36 @@ namespace PDF
 		}
 	}
 
+	inline string BinToHex(const unsigned char* d, size_t sz)
+	{
+		string a;
+		char f[30] = { 0 };
+		for (auto i = 0; i < sz; i++)
+		{
+			sprintf_s(f, 30, "%02X", d[i]);
+			a += f;
+		}
+		return a;
+	}
+
+	inline void HexToBin(string hex, vector<char>& d)
+	{
+		char f[30];
+		d.resize(hex.length() / 2);
+
+		for (auto i = 0; i < hex.length(); i += 2)
+		{
+			int c = 0;
+			f[0] = '0';
+			f[1] = 'x';
+			f[2] = hex[i];
+			f[3] = hex[i + 1];
+			sscanf_s(f, "%02X", &c);
+
+			d[i / 2] = (char)c;
+		}
+	}
+
 	enum class INXTYPE
 	{
 		TYPE_NONE = 0,
@@ -428,7 +458,7 @@ namespace PDF
 
 
 
-		HRESULT XParse(const class DOC& doc,const char *d,OBJECT& trl)
+		HRESULT XParse(const class DOC&,const char *d,OBJECT& trl)
 		{
 			unsigned long long i = 0;
 			string xrtag = upoline(d, i);
@@ -554,6 +584,51 @@ namespace PDF
 
 			}
 			return -1;
+		}
+
+		ssize_t size()
+		{
+			if (trailer.content.Type == INXTYPE::TYPE_DIC)
+			{
+				for (auto& tt : trailer.content.Contents)
+				{
+					if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == "Size")
+					{
+						auto r = atoll(tt.Value.c_str());
+						return r;
+					}
+				}
+			}
+
+			// Check in xref
+			auto fn = findname(&xref.if_object.content, "Size", 0, true);
+			if (fn)
+			{
+				auto r = atoll(fn->Value.c_str());
+				return r;
+
+			}
+			return -1;
+		}
+
+		INX* GetID()
+		{
+			if (trailer.content.Type == INXTYPE::TYPE_DIC)
+			{
+				for (auto& tt : trailer.content.Contents)
+				{
+					if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == "ID")
+					{
+						return &tt;
+					}
+				}
+			}
+
+			// Check in xref
+			auto fn = findname(&xref.if_object.content, "ID", 0, true);
+			if (fn)
+				return fn;
+			return 0;
 		}
 
 		ssize_t info()
@@ -740,7 +815,7 @@ namespace PDF
 					}
 					OBJECT o;
 					if (XrefAsObject)
-						num = -1;
+						num = (unsigned long long)-1;
 					o.p = get<1>(s2);
 					o.Parse(num, dd + get<1>(s2));
 					doc.objects.push_back(o);
@@ -753,8 +828,8 @@ namespace PDF
 
 					// Decompress Stream
 					vector<char> uncs(1048576);
-					unsigned long destlen = uncs.size();
-					auto ures = uncompress((Bytef*)uncs.data(), &destlen, (Bytef*)d + (obj->p + obj->str_pos), obj->str_size);
+					unsigned long destlen = (uLong)uncs.size();
+					auto ures = uncompress((Bytef*)uncs.data(), &destlen, (Bytef*)d + (obj->p + obj->str_pos),(uLong) obj->str_size);
 					if (ures != 0)
 						return false;
 					const char* unp = uncs.data();
@@ -792,10 +867,10 @@ namespace PDF
 				};
 
 				// And compressed objects by xref
-				map<int, bool> hasfound;
+				map<unsigned long long, bool> hasfound;
 				for (auto& dr : doc.xref.compressedrefs)
 				{
-					int num = get<0>(dr);
+					unsigned long long num = get<0>(dr);
 					if (hasfound[num])
 						continue;
 					hasfound[num] = true;
@@ -855,13 +930,12 @@ namespace PDF
 
 			// Decompress Stream
 			vector<char> uncs(1048576);
-			unsigned long destlen = uncs.size();
-			auto ures  = uncompress((Bytef*)uncs.data(), &destlen,(Bytef*) d + o.str_pos, o.str_size);
+			unsigned long destlen = (uLong)uncs.size();
+			auto ures  = uncompress((Bytef*)uncs.data(), &destlen,(Bytef*) d + o.str_pos, (uLong)o.str_size);
 			if (ures != 0)
 				return E_FAIL;
 
 			// Type PNG support
-
 			auto prd = doc.findname(&o.content, "Predictor",0,true);
 			if (!prd)
 				return E_FAIL;
@@ -918,7 +992,7 @@ namespace PDF
 				long long RefType = 0;
 				unsigned long long RefOfs = 0;
 				long long RefGen = 0;
-				int eb;
+				int eb = 0;
 
 				for (int row = 0; row < width ; row++)
 				{
