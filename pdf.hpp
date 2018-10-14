@@ -302,7 +302,7 @@ namespace PDF
 			{
 				nu = atoi(d);
 				num = nu;
-				auto rz = memstr(d, 10, "obj", 3);
+				auto rz = memstr(d, 100, "obj", 3);
 				if (rz == -1)
 					return E_FAIL;
 				d += rz + 3;
@@ -946,7 +946,7 @@ namespace PDF
 		{
 			UNREFERENCED_PARAMETER(trl);
 			OBJECT& o = doc.xref.if_object;
-			auto zr = o.Parse2(0, d);
+			auto zr = o.Parse2(-1, d);
 			if (FAILED(zr))
 				return zr;
 
@@ -987,12 +987,16 @@ namespace PDF
 				return HRESULTERROR(E_FAIL, "Invalid W array in XREF");
 
 			// Support [1,X,1] currently up to [1,8,1]
-			if (atoi(r[0].c_str()) != 1)
+			int wi1 = atoi(r[0].c_str());
+			int wi2 = atoi(r[1].c_str());
+			int wi3 = atoi(r[2].c_str());
+
+			if (wi1 != 1)
 				return HRESULTERROR(E_FAIL, "Invalid W array in XREF");
-			if (atoi(r[1].c_str()) > 8)
+			if (wi2 > 8)
 				return HRESULTERROR(E_FAIL, "Invalid W array in XREF");
-			if (atoi(r[2].c_str()) != 1)
-				return HRESULTERROR(E_FAIL, "Invalid W array in XREF");
+//			if (wi3 != 1)
+	//			return HRESULTERROR(E_FAIL, "Invalid W array in XREF");
 
 
 			int width = 0;
@@ -1014,39 +1018,41 @@ namespace PDF
 				const char* dd = uncs.data() + p;
 
 				// Strip first \x02.
-				p++;
-				dd++;
+				if (PredVal > 10)
+				{
+					p++;
+					dd++;
+				}
 
-				long long RefType = 0;
+				unsigned long long RefType = 0;
 				unsigned long long RefOfs = 0;
-				long long RefGen = 0;
-				int eb = 0;
+				unsigned long long RefGen = 0;
+				int eb1 = 0;
+				int eb2 = 0;
+				int eb3 = 0;
 
 				for (int row = 0; row < width ; row++)
 				{
 					unsigned char by = dd[row];
-					by += PrevRow[row];
-					PrevRow[row] = by;
-
+					if (PredVal > 10)
+					{
+						by += PrevRow[row];
+						PrevRow[row] = by;
+					}
 
 					if (row == 0)
 					{
-						eb = 8* ( atoi(r[1].c_str()) - 1);
+						eb2 = 8* ( wi2 - 1);
 						RefType = by;
 						RefOfs = 0;
 					}
-					if (row >= 1 && row < (width - 1))
+					if (row >= 1 && row < (width - wi3))
 					{
 						unsigned long long s2 = by;
-						unsigned long long r = eb;
+						unsigned long long r = eb2;
 						RefOfs |= (s2 << r);
-						eb -= 8;
+						eb2 -= 8;
 					}
-					if (row == (width - 1))
-					{
-						RefGen = by;
-					}
-
 				}
 
 				auto& refs = doc.xref.refs;
