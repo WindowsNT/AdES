@@ -2165,6 +2165,17 @@ HRESULT AdES::AddCXL(std::vector<char>& Signature, const std::vector<CERT>& Cert
 
 HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res)
 {
+
+	if (false)
+	{
+		// PDF Test
+		vector<char> pdft;
+		LoadFile(L"f:\\tools\\ades\\hello2.pdf", pdft);
+		PDF::PDF pdf;
+		auto hrx = pdf.Parse2(pdft.data(), pdft.size());
+		MessageBox(0, 0, 0, 0);
+	}
+
 	PDF::PDF pdf;
 	auto herr = pdf.Parse2(d, sz);
 	if (FAILED(herr))
@@ -2331,6 +2342,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		iDescribeSignature = mxd + 3;
 		iFont = mxd + 4;
 		iFont2 = mxd + 5;
+		iObjectXref = mxd + 6;
 	}
 
 
@@ -2379,7 +2391,6 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	HelvFound = 0;
 
 	//* Found Helvetica inside
-
 	if (HelvFound)
 	{
 		iFont = 0;
@@ -2543,6 +2554,14 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	vector<unsigned long long> xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iFont, iFont2,iProducer };
 	if (HelvFound)
 		xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iProducer };
+	bool XRefObject = false;
+	if (pdf.XRefAsObject)
+		XRefObject = true;
+	if (XRefObject)
+	{
+		xrint.push_back(iObjectXref);
+		xrefs[iObjectXref] = xrefpos;
+	}
 
 	// Play with ID
 	string id1;
@@ -2579,16 +2598,15 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	// Index (num)
 	// Offset (num)
 	// CRC at end
-	bool XRefObject = false;
 	vector<char> uncompressedxref;
 	vector<char> compressedxref;
 
 	xrint.insert(xrint.begin(), 0);
+	map<long long, long long> need;
 	if (SwitchReferences)
 	{
 		std::sort(xrint.begin(), xrint.end());
 
-		map<long long, long long> need;
 		unsigned long long i = 0;
 		need[0] = 1;
 		
@@ -2643,6 +2661,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 				vector<char> bx(7);
 				bx[0] = 1;
 				unsigned long b = (unsigned long)j;
+				b = _byteswap_ulong(b);
 				memcpy(bx.data() + 1, &b, 4);
 				unsigned short c = 0;
 				memcpy(bx.data() + 5, &c, 2);
@@ -2666,7 +2685,6 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		}
 	}
 
-	uncompressedxref.resize(uncompressedxref.size() + 10); // CRC
 	compressedxref.resize(uncompressedxref.size());
 	uLong cxs = uncompressedxref.size();
 	compress((Bytef*)compressedxref.data(), &cxs, (Bytef*)uncompressedxref.data(), uncompressedxref.size());
@@ -2675,8 +2693,22 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	vector<char> uxref;
 	if (XRefObject)
 	{
+		PDF::astring objectxrefidx = "Index [";
+		for (auto s : xrint)
+		{
+			PDF::astring xg;
+			if (need[s] > 0)
+			{
+				xg.Format("%u %u ", s, need[s]);
+				objectxrefidx += xg;
+			}
+
+
+		}
+		objectxrefidx += "]";
+
 		PDF::astring objectxref;
-		objectxref.Format("%u 0 obj\n<</Type/XRef/W[1 4 2]/Root %u 0 R/Prev %llu/Info %u 0 R/Size %u/ID[<%s><%s>]/Length %u/Filter/FlateDecode>>stream\n", iObjectXref, iRoot, last.xref.p, iProducer, xrint.size() + lastsize, id1.c_str(), id2.c_str(), compressedxref.size());
+		objectxref.Format("%u 0 obj\n<</Type/XRef/%s/W[1 4 2]/Root %u 0 R/Prev %llu/Info %u 0 R/Size %u/ID[<%s><%s>]/Length %u/Filter/FlateDecode>>stream\n", iObjectXref, objectxrefidx.c_str(),iRoot, last.xref.p, iProducer, xrint.size() + lastsize, id1.c_str(), id2.c_str(), compressedxref.size());
 		uxref.resize(objectxref.size());
 		memcpy(uxref.data(), objectxref.data(), objectxref.size());
 		auto cu = uxref.size();

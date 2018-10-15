@@ -681,6 +681,7 @@ namespace PDF
 		unsigned long long sz = 0;
 		unsigned long long maxobjectnum = 0;
 		vector<DOC> docs;
+		bool XRefAsObject = false;
 
 
 		ssize_t root()
@@ -811,6 +812,8 @@ namespace PDF
 				{
 					XrefAsObject = 1;
 					hrxref = ParseXrefAsObject(doc, dd + doc.xref.p, doc.trailer);
+					if (SUCCEEDED(hrxref))
+						XRefAsObject = true;
 				}
 
 				if (hrxref != S_OK)
@@ -1005,8 +1008,9 @@ namespace PDF
 				width += atoi(rr.c_str());
 			}
 
-			// Strip last 10, is CRC
-			destlen -= 10;
+			// Strip last 10, is CRC (if Predictor is used)
+			if (PredVal >= 10)
+				destlen -= 10;
 
 			// Loop rows (width value = width + 1)
 			vector<unsigned char> PrevRow(width);
