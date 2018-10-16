@@ -211,7 +211,7 @@ int main()
 	};
 
 	
-#define PICKBYSUBJECT
+//#define PICKBYSUBJECT
 #ifndef PICKBYSUBJECT
 	// Picker by store
 	for(;;)
@@ -243,7 +243,7 @@ int main()
 
 	// Picker by subject
 #else
-	auto cert = HrGetSigner(L"ch.michael@cyta.gr"); 
+	auto cert = HrGetSigner(L"ch.michael@lol.gr"); 
 	if (!cert)
 		return 0;
 	putin(cert);

@@ -2698,7 +2698,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	xrefs[iXOBject] = vafter.size() + res.size() + 1;
 	vafter += v7;			vafter.resize(vafter.size() + 4);			vafter += v7b;
 */
-	v71.Format("%llu 0 obj\n<</Type/XObject/Resources<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]>>/Subtype/Form/BBox[0 0 0 0]/Matrix [1 0 0 1 0 0]/Length 8/FormType 1/Filter/FlateDecode>>stream", iXOBject);
+	v71.Format("%llu 0 obj\n<</Type/XObject/Resources<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]>>/Subtype/Form/BBox[0 0 0 0]/Matrix [1 0 0 1 0 0]/Length 8/FormType 1/Filter/FlateDecode>>stream\n", iXOBject);
 	v72.resize(8); v72[0] = 0x78; v72[1] = 0x9C; v72[2] = 0x03; v72[7] = 0x1;
 	v73.Format("\nendstream\nendobj\n");
 	vafter += v71;
