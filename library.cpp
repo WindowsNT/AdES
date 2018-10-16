@@ -1127,6 +1127,8 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384";
 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha512) == 0)
 			return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512";
+		if (strcmp(Params.HashAlgorithm.pszObjId, "2.16.840.1.101.3.4.2.8") == 0)
+			return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha3_256";
 		return "";
 	};
 	auto alg2from = [&]() -> string
@@ -1139,6 +1141,8 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			return "http://www.w3.org/2001/04/xmlenc#sha384";
 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha512) == 0)
 			return "http://www.w3.org/2001/04/xmlenc#sha512";
+		if (strcmp(Params.HashAlgorithm.pszObjId, "2.16.840.1.101.3.4.2.8") == 0)
+			return "http://www.w3.org/2001/04/xmlenc#sha3_256";
 		return "";
 	};
 	auto alg3from = [&]() -> LPWSTR
@@ -1151,6 +1155,9 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			return BCRYPT_SHA384_ALGORITHM;
 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha512) == 0)
 			return BCRYPT_SHA512_ALGORITHM;
+		if (strcmp(Params.HashAlgorithm.pszObjId, "2.16.840.1.101.3.4.2.8") == 0)
+			return L"SHA3-256";
+		
 		return L"";
 	};
 
@@ -1180,7 +1187,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		if (Params.ConformanceLevel != 4)
 		{
 			auto srl = certsrl(C);
-			sprintf_s(d, 1000, "%llu", srl);
+			sprintf_s(d, 1000, "%llu", (unsigned long long)srl);
 			auto& xces = xce.AddElement("xades:IssuerSerialV2");
 			xces["ds:X509SerialNumber"].SetContent(d);
 		}
@@ -2175,7 +2182,7 @@ HRESULT AdES::AddCXL(std::vector<char>& Signature, const std::vector<CERT>& Cert
 #include "pdf.hpp"
 
 
-HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, int objnum, vector<vector<char>>& r)
+HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long long objnum, vector<vector<char>>& r)
 {
 	if (Certificates.empty())
 		return E_INVALIDARG;
@@ -2220,7 +2227,7 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, int objn
 
 	*/
 
-	vector<int> certobjs;
+	vector<long long> certobjs;
 	for (auto& c : certs)
 	{
 		vector<char> co(1024 * 1024);
@@ -2231,7 +2238,7 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, int objn
 		co.resize(cxs);
 
 		PDF::astring g1;
-		g1.Format("%u 0 obj\n<</Length %u/Filter/FlateDecode>>stream\n", objnum, cxs);
+		g1.Format("%llu 0 obj\n<</Length %u/Filter/FlateDecode>>stream\n", objnum, cxs);
 		PDF::astring g2;
 		g2.Format("\nendstream\nendobj\n");
 
@@ -2245,7 +2252,7 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, int objn
 	}
 
 
-	vector<int> crlobjs;
+	vector<long long> crlobjs;
 	for (auto& c : crls)
 	{
 		vector<char> co(1024 * 1024);
@@ -2256,7 +2263,7 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, int objn
 		co.resize(cxs);
 
 		PDF::astring g1;
-		g1.Format("%u 0 obj\n<</Length %u/Filter/FlateDecode>>stream\n", objnum,cxs);
+		g1.Format("%llu 0 obj\n<</Length %u/Filter/FlateDecode>>stream\n", objnum,cxs);
 		PDF::astring g2;
 		g2.Format("\nendstream\nendobj\n");
 
@@ -2270,15 +2277,15 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, int objn
 	}
 
 	// Create the Cert index
-	int certobj = objnum;
+	long long certobj = objnum;
 	if (true)
 	{
 		PDF::astring g1;
-		g1.Format("%u 0 obj\n[", objnum);
+		g1.Format("%llu 0 obj\n[", objnum);
 		for (auto& c : certobjs)
 		{
 			PDF::astring g1a;
-			g1a.Format("%u 0 R ", c);
+			g1a.Format("%llu 0 R ", c);
 			g1 += g1a;
 		}
 		g1 += "]\nendobj\n";
@@ -2289,15 +2296,15 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, int objn
 	}
 
 	// Create the CRL index
-	int crlobj = objnum;
+	long long crlobj = objnum;
 	if (true)
 	{
 		PDF::astring g1;
-		g1.Format("%u 0 obj\n[", objnum);
+		g1.Format("%llu 0 obj\n[", objnum);
 		for (auto& c : crlobjs)
 		{
 			PDF::astring g1a;
-			g1a.Format("%u 0 R ", c);
+			g1a.Format("%llu 0 R ", c);
 			g1 += g1a;
 		}
 		g1 += "]\nendobj\n";
@@ -2308,11 +2315,11 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, int objn
 	}
 
 	// Create the DSS object
-	int dssobj = objnum;
+	long long dssobj = objnum;
 	if (true)
 	{
 		PDF::astring g1;
-		g1.Format("%u 0 obj\n<</Type/DSS/Certs %u 0 R/CRLs %u 0 R>>\nendobj\n", objnum,certobj,crlobj);
+		g1.Format("%llu 0 obj\n<</Type/DSS/Certs %llu 0 R/CRLs %llu 0 R>>\nendobj\n", objnum,certobj,crlobj);
 		vector<char> f1;
 		f1.insert(f1.end(), g1.begin(), g1.end());
 		r.push_back(f1);
@@ -2348,7 +2355,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	if (lastkids == 0)
 		return HRESULTERROR(E_FAIL, "No Kids in Page");
 
-	auto lastsize = pdf.docs[0].size();
+	long long lastsize = pdf.docs[0].size();
 	auto lastID = pdf.docs[0].GetID();
 
 	// Count from all revisions
@@ -2412,7 +2419,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		}
 	}
 
-	auto iFirstRef = atoll(firstref.c_str());
+	long long iFirstRef = atoll(firstref.c_str());
 	if (iFirstRef == 0)
 		return HRESULTERROR(E_FAIL, "No first reference found");
 	auto RefObject = pdf.findobject(iFirstRef);
@@ -2428,7 +2435,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	//	return E_UNEXPECTED;
 
 	auto& last = pdf.docs[0];
-	auto mxd = pdf.maxobjectnum;// +1;
+	unsigned long long mxd = pdf.maxobjectnum;// +1;
 	//int iContents = atoll(lastcnt->Value.c_str());
 
 
@@ -2505,12 +2512,12 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		{
 			PDF::astring fx;
 			auto v = cc->Contents.front().Value;
-			fx.Format("%u 0 R", iFirstRef);
+			fx.Format("%llu 0 R", iFirstRef);
 			auto fou = v.find(fx.c_str(), 0);
 			v.erase(fou, fx.length());
-			fx.Format("%u 0 R", iPage);
+			fx.Format("%llu 0 R", iPage);
 			if (v[0] != ' ')
-				fx.Format("%u 0 R ", iPage);
+				fx.Format("%llu 0 R ", iPage);
 			v.insert(0, fx.c_str());
 			//pg.content.Contents.erase(cc)
 			cc->Contents.front().Value = v;
@@ -2518,7 +2525,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		if (cc->Name.trim() == string("Count"))
 		{
 			PDF::astring fx;
-			fx.Format("%u", Count);
+			fx.Format("%llu", Count);
 			//pg.content.Contents.erase(cc)
 			cc->Value = fx;
 		}
@@ -2548,16 +2555,16 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	}
 
 	// Current Anotations
-	size_t current_annot_idx = 0;
+	long long current_annot_idx = 0;
 	auto current_annot = pdf.findname(RefObject, "Annots",&current_annot_idx);
 
 	PDF::astring annot_string;
-	annot_string.Format(" %u 0 R", iDescribeSignature);
+	annot_string.Format(" %llu 0 R", iDescribeSignature);
 	annotsr.Value = annot_string;
 	annots.Contents.push_back(annotsr);
 
 	PDF::astring AnnotFinal;
-	int CountExistingSignatures = 0;
+	long long CountExistingSignatures = 0;
 	if (current_annot == 0)
 	{
 		RefObject->content.Contents.push_back(annots);
@@ -2567,7 +2574,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	{
 		current_annot->Contents.front().Value += annot_string;
 		auto spl = split(current_annot->Contents.front().Value, ' ');
-		CountExistingSignatures = (int)(spl.size() / 3) - 1; // e.g. If 2 signatures, count is 6
+		CountExistingSignatures = (long long )(spl.size() / 3) - 1; // e.g. If 2 signatures, count is 6
 		AnnotFinal = current_annot->Contents.front().Value;
 	}
 
@@ -2575,7 +2582,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	vector<char> strref;
 	auto refp = pdf.findname(RefObject, "Parent");
 	// iPages in Parent
-	refp->Value.Format("%u 0 R", iPages);
+	refp->Value.Format("%llu 0 R", iPages);
 	RefObject->content.Serialize(strref);
 	strref.resize(strref.size() + 1);
 
@@ -2584,29 +2591,29 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	PDF::AddCh(to_sign, "\n");
 	PDF::AddCh(res, "\n");
 	PDF::astring vSignatureDescriptor;
-	vSignatureDescriptor.Format("%u 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[0 0 0 0]/FT/Sig/DR<<>>/T(Signature%u)/V %u 0 R/P %u 0 R/AP<</N %u 0 R>>>>\nendobj\n", iDescribeSignature, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
+	vSignatureDescriptor.Format("%llu 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[0 0 0 0]/FT/Sig/DR<<>>/T(Signature%llu)/V %llu 0 R/P %llu 0 R/AP<</N %llu 0 R>>>>\nendobj\n", iDescribeSignature, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
 	xrefs[iDescribeSignature] = to_sign.size();
 	AddCh(to_sign, vSignatureDescriptor);
 	AddCh(res, vSignatureDescriptor);
 	
 	PDF::astring vSignature;
 	if (InRL)
-		vSignature.Format("%u 0 obj\n<</Contents <", iSignature);
+		vSignature.Format("%llu 0 obj\n<</Contents <", iSignature);
 	else
-		vSignature.Format("%u 0 obj\n<</Contents ", iSignature);
+		vSignature.Format("%llu 0 obj\n<</Contents ", iSignature);
 	xrefs[iSignature] = to_sign.size();
 	PDF::AddCh(to_sign, vSignature);
 	PDF::AddCh(res, vSignature);
 
-	auto u1 = to_sign.size();
+	unsigned long long u1 = to_sign.size();
 
 	string vs;
-	int de = 30000;
+	long long de = 30000;
 	if (!InRL)
 		vs += "<";
 	for (int i = 0; i < de; i++)
 		vs += "00";
-	auto ures = res.size();
+	long long ures = res.size();
 	if (!InRL)
 		vs += ">";
 	PDF::AddCh(res, vs);
@@ -2628,7 +2635,10 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	PDF::astring vRoot;
 	PDF::astring vFont;
 	PDF::astring vFont2;
-	PDF::astring v7, v7b;
+//	PDF::astring v7, v7b;
+	PDF::astring v71, v73;
+	vector<char> v72;
+
 	PDF::astring vProducer;
 	PDF::astring vPage;
 	PDF::astring vPages;
@@ -2669,28 +2679,38 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	}
 
 	if (!InRL)
-		vSignatureAfter.Format("/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(), u1, u1 + vs.length(), 0);
+		vSignatureAfter.Format("/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %llu %llu %03llu]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(), (unsigned long long)u1, (unsigned long long)(u1 + vs.length()), (unsigned long long)0LL);
 	else
-		vSignatureAfter.Format(">/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(),  u1, u1 + vs.length(), 0);
+		vSignatureAfter.Format(">/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %llu %llu %03llu]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(), (unsigned long long) u1, (unsigned long long)(u1 + vs.length()), (unsigned long long)0LL);
 	vafter += vSignatureAfter;
 	if (!HelvFound)
 	{
-		vFont.Format("%u 0 obj\n<</BaseFont/Helvetica/Type/Font/Subtype/Type1/Encoding/WinAnsiEncoding/Name/Helv>>\nendobj\n", iFont);
+		vFont.Format("%llu 0 obj\n<</BaseFont/Helvetica/Type/Font/Subtype/Type1/Encoding/WinAnsiEncoding/Name/Helv>>\nendobj\n", iFont);
 		xrefs[iFont] = vafter.size() + res.size() + 1;
 		vafter += vFont;
 	}
-	vFont2.Format("%u 0 obj\n<</BaseFont/ZapfDingbats/Type/Font/Subtype/Type1/Name/ZaDb>>\nendobj\n", iFont2);
+	vFont2.Format("%llu 0 obj\n<</BaseFont/ZapfDingbats/Type/Font/Subtype/Type1/Name/ZaDb>>\nendobj\n", iFont2);
 	xrefs[iFont2] = vafter.size() + res.size() + 1;
 	vafter += vFont2;
-	v7.Format("%u 0 obj\n<</Type/XObject/Resources<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]>>/Subtype/Form/BBox[0 0 0 0]/Matrix [1 0 0 1 0 0]/Length 8/FormType 1/Filter/FlateDecode>>stream\x0a\x78\x9c\x03", iXOBject); 			v7b.Format("\x01\x0d");			v7b += "endstream\nendobj\n";
+	
+/*
+	v7.Format("%llu 0 obj\n<</Type/XObject/Resources<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]>>/Subtype/Form/BBox[0 0 0 0]/Matrix [1 0 0 1 0 0]/Length 8/FormType 1/Filter/FlateDecode>>stream\x0a\x78\x9c\x03", iXOBject); 			v7b.Format("\x01\x0d");			v7b += "endstream\nendobj\n";
 	xrefs[iXOBject] = vafter.size() + res.size() + 1;
 	vafter += v7;			vafter.resize(vafter.size() + 4);			vafter += v7b;
-	//vPage.Format("%u 0 obj\n<</Parent %u 0 R/Contents %u 0 R/Type/Page/Resources<</Font<</Helv %u 0 R>>>>/MediaBox[0 0 200 200]/Annots[%u 0 R]>>\nendobj\n", iPage, iPages, iContents, iFont, iDescribeSignature);
-	vPage.Format("%u 0 obj\n%s\r\nendobj\r\n", iPage, strref.data());
+*/
+	v71.Format("%llu 0 obj\n<</Type/XObject/Resources<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]>>/Subtype/Form/BBox[0 0 0 0]/Matrix [1 0 0 1 0 0]/Length 8/FormType 1/Filter/FlateDecode>>stream", iXOBject);
+	v72.resize(8); v72[0] = 0x78; v72[1] = 0x9C; v72[2] = 0x03; v72[7] = 0x1;
+	v73.Format("\nendstream\nendobj\n");
+	vafter += v71;
+	vafter.insert(vafter.end(), v72.begin(), v72.end());
+	vafter += v73;
+
+	//vPage.Format("%llu 0 obj\n<</Parent %llu 0 R/Contents %llu 0 R/Type/Page/Resources<</Font<</Helv %llu 0 R>>>>/MediaBox[0 0 200 200]/Annots[%llu 0 R]>>\nendobj\n", iPage, iPages, iContents, iFont, iDescribeSignature);
+	vPage.Format("%llu 0 obj\n%s\r\nendobj\r\n", iPage, strref.data());
 	xrefs[iPage] = vafter.size() + res.size() + 1;
 	vafter += vPage;
-//	vPages.Format("%u 0 obj\n<</Type/Pages/Count %u/Kids[%u 0 R]>>\nendobj\n", iPages,Count, iPage);
-	vPages.Format("%u 0 obj\n%s\r\nendobj\r\n", iPages, pageser.data());
+//	vPages.Format("%llu 0 obj\n<</Type/Pages/Count %llu/Kids[%llu 0 R]>>\nendobj\n", iPages,Count, iPage);
+	vPages.Format("%llu 0 obj\n%s\r\nendobj\r\n", iPages, pageser.data());
 	xrefs[iPages] = vafter.size() + res.size() + 1;
 	vafter += vPages;
 
@@ -2706,7 +2726,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	if (r2.content.Type == PDF::INXTYPE::TYPE_DIC)
 	{
 		PDF::astring acro;
-		acro.Format("/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>", AnnotFinal.c_str(), iFont, iFont2, iPages);
+		acro.Format("/AcroForm<</Fields[%s]/DR<</Font<</Helv %llu 0 R/ZaDb %llu 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>", AnnotFinal.c_str(), iFont, iFont2, iPages);
 		PDF::OBJECT obj;
 		obj.Parse2(0, acro.c_str(), true);
 		r2.content.Contents.push_front(obj.content);
@@ -2714,7 +2734,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		if (!dss.empty())
 		{
 			PDF::astring dsso;
-			dsso.Format("/DSS %u 0 R",  iDSS + dss.size() - 1);
+			dsso.Format("/DSS %llu 0 R", (unsigned long long)( iDSS + dss.size() - 1));
 			PDF::OBJECT obj2;
 			obj2.Parse2(0, dsso.c_str(), true);
 			r2.content.Contents.push_front(obj2.content);
@@ -2726,27 +2746,27 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	if (r2ser.size())
 	{
 		r2ser.resize(r2ser.size() + 1);
-		vRoot.Format("%u 0 obj\n%s\nendobj\n",iRoot,r2ser.data());
+		vRoot.Format("%llu 0 obj\n%s\nendobj\n",iRoot,r2ser.data());
 
 	}
 	else
 	{
 		if (!HelvFound)
-			vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
+			vRoot.Format("%llu 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %llu 0 R/ZaDb %llu 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %llu 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
 		else
-			vRoot.Format("%u 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %u 0 R/ZaDb %u 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %u 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
+			vRoot.Format("%llu 0 obj\n<</Type/Catalog/AcroForm<</Fields[%s]/DR<</Font<</Helv %llu 0 R/ZaDb %llu 0 R>>>>/DA(/Helv 0 Tf 0 g )/SigFlags 3>>/Pages %llu 0 R>>\nendobj\n", iRoot, AnnotFinal.c_str(), iFont, iFont2, iPages);
 	}
 
 	xrefs[iRoot] = vafter.size() + res.size() + 1;
 	vafter += vRoot;
-	vProducer.Format("%u 0 obj\n<</Producer(AdES Tools https://www.turboirc.com)/ModDate(D:%s)>>\nendobj\n", iProducer,dd.c_str());
+	vProducer.Format("%llu 0 obj\n<</Producer(AdES Tools https://www.turboirc.com)/ModDate(D:%s)>>\nendobj\n", iProducer,dd.c_str());
 	xrefs[iProducer] = vafter.size() + res.size() + 1;
 	vafter += vProducer;
 
 	// Dss if there
 	if (!dss.empty())
 	{
-		for (size_t i = 0; i < dss.size(); i++)
+		for (long long i = 0; i < dss.size(); i++)
 		{
 			auto& d = dss[i];
 			vector<char> vDss;
@@ -2765,7 +2785,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	if (HelvFound)
 		xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iProducer };
 
-	for (auto t = 0 ; t < dss.size() ; t++)
+	for (long long t = 0 ; t < dss.size() ; t++)
 	{
 		xrint.push_back(iDSS + t);
 	}
@@ -2786,7 +2806,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	if (lastID != 0 && lastID->Contents.size() == 1 && lastID->Contents.front().Type == PDF::INXTYPE::TYPE_ARRAY)
 	{
 		string& val = lastID->Contents.front().Value;
-		for (size_t j = 0;; j++)
+		for (long long j = 0;; j++)
 		{
 			if (val[j] == '<')
 				continue;
@@ -2845,7 +2865,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 /*		if (need[0] > 0)
 		{
 			PDF::astring xg;
-			xg.Format("%u %u\n", 0, need[0]);
+			xg.Format("%llu %llu\n", 0, need[0]);
 			xrf += xg;
 		}
 */
@@ -2855,7 +2875,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 			auto j = xrefs[s];
 			if (need[s] > 0)
 			{
-				xg.Format("%u %u\n", s,need[s]);
+				xg.Format("%llu %llu\n", s,need[s]);
 				xrf += xg;
 			}
 			if (j == 0)
@@ -2889,7 +2909,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	}
 	else
 	{
-		xrf.Format("xref\n%u %u\n", iRoot, xrint.size());
+		xrf.Format("xref\n%llu %llu\n", iRoot,(unsigned long long) xrint.size());
 		for (auto s : xrint)
 		{
 			PDF::astring xg;
@@ -2916,7 +2936,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 			PDF::astring xg;
 			if (need[s] > 0)
 			{
-				xg.Format("%u %u ", s, need[s]);
+				xg.Format("%llu %llu ", s, need[s]);
 				objectxrefidx += xg;
 			}
 
@@ -2925,10 +2945,10 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		objectxrefidx += "]";
 
 		PDF::astring objectxref;
-		objectxref.Format("%u 0 obj\n<</Type/XRef/%s/W[1 4 2]/Root %u 0 R/Prev %llu/Info %u 0 R/Size %u/ID[<%s><%s>]/Length %u/Filter/FlateDecode>>stream\n", iObjectXref, objectxrefidx.c_str(),iRoot, last.xref.p, iProducer, xrint.size() + lastsize, id1.c_str(), id2.c_str(), compressedxref.size());
+		objectxref.Format("%llu 0 obj\n<</Type/XRef/%s/W[1 4 2]/Root %llu 0 R/Prev %llu/Info %llu 0 R/Size %llu/ID[<%s><%s>]/Length %llu/Filter/FlateDecode>>stream\n", iObjectXref, objectxrefidx.c_str(),iRoot, (unsigned long long)last.xref.p, iProducer, (unsigned long long )(xrint.size() + lastsize), id1.c_str(), id2.c_str(), (unsigned long long)compressedxref.size());
 		uxref.resize(objectxref.size());
 		memcpy(uxref.data(), objectxref.data(), objectxref.size());
-		auto cu = uxref.size();
+		long long cu = uxref.size();
 		uxref.resize(uxref.size() + cxs);
 		memcpy(uxref.data() + cu, compressedxref.data(), compressedxref.size());
 		cu = uxref.size();
@@ -2940,27 +2960,32 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	else
 	{
 		vafter += xrf;
-		trl.Format("trailer\n<</Root %u 0 R/Prev %llu/Info %u 0 R/Size %u/ID[<%s><%s>]>>\n", iRoot, last.xref.p, iProducer, xrint.size() + lastsize, id1.c_str(), id2.c_str());
+		trl.Format("trailer\n<</Root %llu 0 R/Prev %llu/Info %llu 0 R/Size %llu/ID[<%s><%s>]>>\n", (unsigned long long)iRoot, (unsigned long long)last.xref.p, (unsigned long long)iProducer, (unsigned long long)( xrint.size() + lastsize), id1.c_str(), id2.c_str());
 		vafter += trl;
 	}
-	sxref.Format("startxref\n%llu\n", xrefpos);
+	sxref.Format("startxref\n%llu\n", (unsigned long long)xrefpos);
 	vafter += sxref;
 	vafter += vend;
 
-	size_t u2 = vafter.length();
+	unsigned long long u2 = vafter.length();
 	vafter = "";
 
 	
 	if (!InRL)
-		vSignatureAfter.Format("/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(), u1, u1 + vs.length(), u2 + 1);
+		vSignatureAfter.Format("/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %llu %llu %03llu]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(), u1, u1 + vs.length(), u2 + 1);
 	else
-		vSignatureAfter.Format(">/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(), u1, u1 + vs.length(), u2 + 1);
+		vSignatureAfter.Format(">/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %llu %llu %03llu]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(), u1, u1 + vs.length(), u2 + 1);
 
 
 	vafter += vSignatureAfter;
 	vafter += vFont;
 	vafter += vFont2;
-	vafter += v7;			vafter.resize(vafter.size() + 4);			vafter += v7b;
+
+	vafter += v71;
+	vafter.insert(vafter.end(), v72.begin(), v72.end());
+	vafter += v73;
+
+//	vafter += v7;			vafter.resize(vafter.size() + 4);			vafter += v7b;
 	vafter += vPage;
 	vafter += vPages;
 	vafter += vRoot;
@@ -2968,7 +2993,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 
 	if (!dss.empty())
 	{
-		for (size_t i = 0; i < dss.size(); i++)
+		for (long long i = 0; i < dss.size(); i++)
 		{
 			auto& d = dss[i];
 			vector<char> vDss;
@@ -3009,7 +3034,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	char* pv = res.data() + ures;
 	if (!InRL)
 		pv++;
-	for (int i = 0; i < de; i++)
+	for (long long i = 0; i < de; i++)
 	{
 		if (i >= r.size())
 			break;

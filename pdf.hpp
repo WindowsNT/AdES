@@ -12,11 +12,6 @@
 namespace PDF
 {
 
-#ifdef _WIN64
-	typedef signed long long ssize_t;
-#else
-	typedef signed long ssize_t;
-#endif
 
 	// astring class
 	class astring : public std::string
@@ -71,20 +66,20 @@ namespace PDF
 		memcpy(s.data() + os, s2, strlen(s2));
 	}
 
-	inline ssize_t memstr(const char* arr, size_t length, const char* tofind, size_t flength) {
-		for (size_t i = 0; i < length - flength; ++i) {
+	inline long long memstr(const char* arr, long long length, const char* tofind, long long flength) {
+		for (long long i = 0; i < length - flength; ++i) {
 			if (memcmp(arr + i, tofind, flength) == 0)
 				return i;
 		}
-		return (ssize_t)-1;
+		return (long long)-1;
 	}
 
-	inline ssize_t memrstr(const char* arr, size_t length, const char* tofind, size_t flength) {
-		for (ssize_t i = (length - flength); i >= 0; --i) {
+	inline long long memrstr(const char* arr, long long length, const char* tofind, long long flength) {
+		for (long long i = (length - flength); i >= 0; --i) {
 			if (memcmp(arr + i, tofind, flength) == 0)
 				return i;
 		}
-		return (ssize_t)-1;
+		return (long long)-1;
 	}
 
 	inline std::vector<std::string>& split(const std::string &s, char delim, std::vector<std::string> &elems) {
@@ -135,11 +130,11 @@ namespace PDF
 		}
 	}
 
-	inline string BinToHex(const unsigned char* d, size_t sz)
+	inline string BinToHex(const unsigned char* d, long long sz)
 	{
 		string a;
 		char f[30] = { 0 };
-		for (auto i = 0; i < sz; i++)
+		for (long long i = 0; i < sz; i++)
 		{
 			sprintf_s(f, 30, "%02X", d[i]);
 			a += f;
@@ -152,7 +147,7 @@ namespace PDF
 		char f[30];
 		d.resize(hex.length() / 2);
 
-		for (auto i = 0; i < hex.length(); i += 2)
+		for (long long i = 0; i < hex.length(); i += 2)
 		{
 			int c = 0;
 			f[0] = '0';
@@ -357,6 +352,11 @@ namespace PDF
 
 			for (;;)
 			{
+				if (!d)
+					break;
+				if (d[0] == 0)
+					break;
+
 				if (d[0] == '<' && d[1] == '<' &&  n->Type != INXTYPE::TYPE_STRING)
 				{
 					//if (!EndT2()) break;
@@ -528,7 +528,7 @@ namespace PDF
 		OBJECT trailer;
 
 
-		OBJECT* findobject(size_t num)
+		OBJECT* findobject(long long num)
 		{
 			OBJECT* d = 0;
 			for (auto& o : objects)
@@ -542,13 +542,13 @@ namespace PDF
 			return 0;
 		}
 
-		INX* findname(INX*d,string Name, size_t* iIdx = 0, bool R = false)
+		INX* findname(INX*d,string Name, long long* iIdx = 0, bool R = false)
 		{
 			if (!d)
 				return 0;
 			if (d->Type == INXTYPE::TYPE_DIC)
 			{
-				size_t ii = 0;
+				long long ii = 0;
 				for (auto& tt : d->Contents)
 				{
 					if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == Name)
@@ -564,7 +564,7 @@ namespace PDF
 			}
 			if (!R)
 				return 0;
-			size_t jj = 0;
+			long long jj = 0;
 			for (auto& cc : d->Contents)
 			{
 				auto ifo = findname(&cc, Name, iIdx, R);
@@ -576,7 +576,7 @@ namespace PDF
 
 		}
 
-		ssize_t root()
+		long long root()
 		{
 			if (trailer.content.Type == INXTYPE::TYPE_DIC)
 			{
@@ -601,7 +601,7 @@ namespace PDF
 			return -1;
 		}
 
-		ssize_t size()
+		long long size()
 		{
 			if (trailer.content.Type == INXTYPE::TYPE_DIC)
 			{
@@ -646,7 +646,7 @@ namespace PDF
 			return 0;
 		}
 
-		ssize_t info()
+		long long info()
 		{
 			if (trailer.content.Type == INXTYPE::TYPE_DIC)
 			{
@@ -684,7 +684,7 @@ namespace PDF
 		bool XRefAsObject = false;
 
 
-		ssize_t root()
+		long long root()
 		{
 			if (docs.empty())
 				return -1;
@@ -692,7 +692,7 @@ namespace PDF
 			return last.root();
 		}
 
-		ssize_t info()
+		long long info()
 		{
 			if (docs.empty())
 				return -1;
@@ -701,7 +701,7 @@ namespace PDF
 		}
 
 
-		OBJECT* findobject(size_t num)
+		OBJECT* findobject(long long num)
 		{
 			for (auto& doc : docs)
 			{
@@ -712,13 +712,13 @@ namespace PDF
 			return 0;
 		}
 
-		INX* findname(INX* dd, string Name, size_t* iIdx = 0,bool R = false)
+		INX* findname(INX* dd, string Name, long long* iIdx = 0,bool R = false)
 		{
 			if (!dd)
 				return 0;
 			if (dd->Type == INXTYPE::TYPE_DIC)
 			{
-				size_t ii = 0;
+				long long ii = 0;
 				for (auto& tt : dd->Contents)
 				{
 					if (tt.Type == INXTYPE::TYPE_NAME && tt.Name == Name)
@@ -742,7 +742,7 @@ namespace PDF
 		}
 
 
-		INX* findname(OBJECT* dd, string Name,size_t* iIdx = 0,bool R = false)
+		INX* findname(OBJECT* dd, string Name, long long* iIdx = 0,bool R = false)
 		{
 			if (!dd)
 				return 0;
@@ -1017,7 +1017,7 @@ namespace PDF
 			
 			unsigned long long jidx = 0;
 
-			for (size_t p = 0 ; ;)
+			for (long long	 p = 0 ; ;)
 			{
 				const char* dd = uncs.data() + p;
 

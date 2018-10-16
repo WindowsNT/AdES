@@ -168,7 +168,7 @@ public:
 	HRESULT VerifyU(const char* data, DWORD sz, bool Attached = true, int TSServerSignIndex = 0);
 	HRESULT XMLSign(LEVEL lev, vector<FILEREF>& data,const vector<CERT>& Certificates,SIGNPARAMETERS& Params, vector<char>& Signature);
 
-	HRESULTERROR PDFCreateDSSObject(const vector<CERT>& Certificates, int objnum,vector<vector<char>>& r);
+	HRESULTERROR PDFCreateDSSObject(const vector<CERT>& Certificates, long long objnum,vector<vector<char>>& r);
 
 	HRESULTERROR PDFSign(LEVEL lev, const char* data, DWORD sz, const vector<CERT>& Certificates, SIGNPARAMETERS& Params, vector<char>& Signature);
 
