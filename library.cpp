@@ -1128,7 +1128,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha512) == 0)
 			return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512";
 		if (strcmp(Params.HashAlgorithm.pszObjId, "2.16.840.1.101.3.4.2.8") == 0)
-			return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha3_256";
+			return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha3-256";
 		return "";
 	};
 	auto alg2from = [&]() -> string
@@ -1142,7 +1142,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha512) == 0)
 			return "http://www.w3.org/2001/04/xmlenc#sha512";
 		if (strcmp(Params.HashAlgorithm.pszObjId, "2.16.840.1.101.3.4.2.8") == 0)
-			return "http://www.w3.org/2001/04/xmlenc#sha3_256";
+			return "http://www.w3.org/2001/04/xmlenc#sha3-256";
 		return "";
 	};
 	auto alg3from = [&]() -> LPWSTR
