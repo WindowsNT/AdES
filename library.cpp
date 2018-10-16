@@ -1123,6 +1123,10 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			return "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha256) == 0)
 			return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha384) == 0)
+			return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384";
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha512) == 0)
+			return "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512";
 		return "";
 	};
 	auto alg2from = [&]() -> string
@@ -1131,6 +1135,10 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			return "http://www.w3.org/2000/09/xmldsig#sha1";
 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha256) == 0)
 			return "http://www.w3.org/2001/04/xmlenc#sha256";
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha384) == 0)
+			return "http://www.w3.org/2001/04/xmlenc#sha384";
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha512) == 0)
+			return "http://www.w3.org/2001/04/xmlenc#sha512";
 		return "";
 	};
 	auto alg3from = [&]() -> LPWSTR
@@ -1139,6 +1147,10 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			return BCRYPT_SHA1_ALGORITHM;
 		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha256) == 0)
 			return BCRYPT_SHA256_ALGORITHM;
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha384) == 0)
+			return BCRYPT_SHA384_ALGORITHM;
+		if (strcmp(Params.HashAlgorithm.pszObjId, szOID_NIST_sha512) == 0)
+			return BCRYPT_SHA512_ALGORITHM;
 		return L"";
 	};
 
@@ -2163,19 +2175,155 @@ HRESULT AdES::AddCXL(std::vector<char>& Signature, const std::vector<CERT>& Cert
 #include "pdf.hpp"
 
 
-HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res)
+HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, int objnum, vector<vector<char>>& r)
 {
+	if (Certificates.empty())
+		return E_INVALIDARG;
 
-	if (false)
+	// Get the CRLs
+	vector<PCCRL_CONTEXT> crls;
+	vector<PCCERT_CONTEXT> certs;
+
+	for (auto& c : Certificates)
 	{
-		// PDF Test
-		vector<char> pdft;
-		LoadFile(L"f:\\tools\\ades\\hello2.pdf", pdft);
-		PDF::PDF pdf;
-		auto hrx = pdf.Parse2(pdft.data(), pdft.size());
-		MessageBox(0, 0, 0, 0);
+		for (auto& cc : c.cert.Crls)
+		{
+			crls.push_back(cc);
+		}
+
+		for (auto& cc : c.More)
+		{
+			for (auto& ccc : cc.Crls)
+			{
+				crls.push_back(ccc);
+			}
+		}
 	}
 
+	for (auto& c : Certificates)
+	{
+		certs.push_back(c.cert.cert);
+		for (auto& cc : c.More)
+		{
+			certs.push_back(cc.cert);
+		}
+	}
+
+	if (crls.empty() || certs.empty())
+		return E_INVALIDARG;
+
+	/*
+	399 0 obj
+<</Length 749/Filter/FlateDecode>>stream
+	endstream
+	endobj
+
+	*/
+
+	vector<int> certobjs;
+	for (auto& c : certs)
+	{
+		vector<char> co(1024 * 1024);
+		uLong cxs = 1024 * 1024;
+		int u = compress((Bytef*)co.data(), &cxs, (Bytef*)c->pbCertEncoded, c->cbCertEncoded);
+		if (u != 0)
+			return E_FAIL;
+		co.resize(cxs);
+
+		PDF::astring g1;
+		g1.Format("%u 0 obj\n<</Length %u/Filter/FlateDecode>>stream\n", objnum, cxs);
+		PDF::astring g2;
+		g2.Format("\nendstream\nendobj\n");
+
+		vector<char> f;
+		f.insert(f.end(), g1.begin(), g1.end());
+		f.insert(f.end(), co.begin(), co.end());
+		f.insert(f.end(), g2.begin(), g2.end());
+
+		r.push_back(f);
+		certobjs.push_back(objnum++);
+	}
+
+
+	vector<int> crlobjs;
+	for (auto& c : crls)
+	{
+		vector<char> co(1024 * 1024);
+		uLong cxs = 1024*1024;
+		int u = compress((Bytef*)co.data(), &cxs, (Bytef*)c->pbCrlEncoded, c->cbCrlEncoded);
+		if (u != 0)
+			return E_FAIL;
+		co.resize(cxs);
+
+		PDF::astring g1;
+		g1.Format("%u 0 obj\n<</Length %u/Filter/FlateDecode>>stream\n", objnum,cxs);
+		PDF::astring g2;
+		g2.Format("\nendstream\nendobj\n");
+
+		vector<char> f;
+		f.insert(f.end(), g1.begin(), g1.end());
+		f.insert(f.end(), co.begin(), co.end());
+		f.insert(f.end(), g2.begin(), g2.end());
+
+		r.push_back(f);
+		crlobjs.push_back(objnum++);
+	}
+
+	// Create the Cert index
+	int certobj = objnum;
+	if (true)
+	{
+		PDF::astring g1;
+		g1.Format("%u 0 obj\n[", objnum);
+		for (auto& c : certobjs)
+		{
+			PDF::astring g1a;
+			g1a.Format("%u 0 R ", c);
+			g1 += g1a;
+		}
+		g1 += "]\nendobj\n";
+		vector<char> f1;
+		f1.insert(f1.end(), g1.begin(), g1.end());
+		r.push_back(f1);
+		objnum++;
+	}
+
+	// Create the CRL index
+	int crlobj = objnum;
+	if (true)
+	{
+		PDF::astring g1;
+		g1.Format("%u 0 obj\n[", objnum);
+		for (auto& c : crlobjs)
+		{
+			PDF::astring g1a;
+			g1a.Format("%u 0 R ", c);
+			g1 += g1a;
+		}
+		g1 += "]\nendobj\n";
+		vector<char> f1;
+		f1.insert(f1.end(), g1.begin(), g1.end());
+		r.push_back(f1);
+		objnum++;
+	}
+
+	// Create the DSS object
+	int dssobj = objnum;
+	if (true)
+	{
+		PDF::astring g1;
+		g1.Format("%u 0 obj\n<</Type/DSS/Certs %u 0 R/CRLs %u 0 R>>\nendobj\n", objnum,certobj,crlobj);
+		vector<char> f1;
+		f1.insert(f1.end(), g1.begin(), g1.end());
+		r.push_back(f1);
+		objnum++;
+	}
+
+	return S_OK;
+}
+
+HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res)
+{
 	PDF::PDF pdf;
 	auto herr = pdf.Parse2(d, sz);
 	if (FAILED(herr))
@@ -2314,6 +2462,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	auto iFont2 = mxd + 8;
 	auto iProducer = mxd + 9;
 	auto iObjectXref = mxd + 10;
+	auto iDSS = mxd + 11;
 
 	bool SwitchReferences =  true;
 
@@ -2343,6 +2492,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		iFont = mxd + 4;
 		iFont2 = mxd + 5;
 		iObjectXref = mxd + 6;
+		iDSS = mxd + 7;
 	}
 
 
@@ -2488,10 +2638,40 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	PDF::astring sxref;
 	vend += "%%EOF\x0a";
 
+	PDF::astring extrainsign;
+	if (Params.pdfparams.Name.length())
+	{
+		PDF::astring e;
+		Params.pdfparams.ClearPars(Params.pdfparams.Name);
+		e.Format("/Name(%s)", Params.pdfparams.Name.c_str());
+		extrainsign += e;
+	}
+	if (Params.pdfparams.Contact.length())
+	{
+		PDF::astring e;
+		Params.pdfparams.ClearPars(Params.pdfparams.Contact);
+		e.Format("/ContactInfo(%s)", Params.pdfparams.Contact.c_str());
+		extrainsign += e;
+	}
+	if (Params.pdfparams.Reason.length() && Params.commitmentTypeOid == string(""))
+	{
+		PDF::astring e;
+		Params.pdfparams.ClearPars(Params.pdfparams.Reason);
+		e.Format("/Reason(%s)", Params.pdfparams.Reason.c_str());
+		extrainsign += e;
+	}
+	if (Params.pdfparams.Location.length())
+	{
+		PDF::astring e;
+		Params.pdfparams.ClearPars(Params.pdfparams.Location);
+		e.Format("/Location(%s)", Params.pdfparams.Location.c_str());
+		extrainsign += e;
+	}
+
 	if (!InRL)
-		vSignatureAfter.Format("/Type/Sig/SubFilter/%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), dd.c_str(), u1, u1 + vs.length(), 0);
+		vSignatureAfter.Format("/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(), u1, u1 + vs.length(), 0);
 	else
-		vSignatureAfter.Format(">/Type/Sig/SubFilter/%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), dd.c_str(), u1, u1 + vs.length(), 0);
+		vSignatureAfter.Format(">/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(),  u1, u1 + vs.length(), 0);
 	vafter += vSignatureAfter;
 	if (!HelvFound)
 	{
@@ -2514,6 +2694,12 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	xrefs[iPages] = vafter.size() + res.size() + 1;
 	vafter += vPages;
 
+
+	// Build DSS if level > XL
+	vector<vector<char>> dss;
+	if (levx >= LEVEL::XL)
+		PDFCreateDSSObject(Certificates, iDSS,dss);
+
 	// Use the same rootobject
 	auto r2 = *rootobject;
 	vector<char> r2ser;
@@ -2525,6 +2711,15 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		obj.Parse2(0, acro.c_str(), true);
 		r2.content.Contents.push_front(obj.content);
 
+		if (!dss.empty())
+		{
+			PDF::astring dsso;
+			dsso.Format("/DSS %u 0 R",  iDSS + dss.size() - 1);
+			PDF::OBJECT obj2;
+			obj2.Parse2(0, dsso.c_str(), true);
+			r2.content.Contents.push_front(obj2.content);
+		}
+		
 		r2.content.Serialize(r2ser);
 	}
 
@@ -2547,6 +2742,21 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	vProducer.Format("%u 0 obj\n<</Producer(AdES Tools https://www.turboirc.com)/ModDate(D:%s)>>\nendobj\n", iProducer,dd.c_str());
 	xrefs[iProducer] = vafter.size() + res.size() + 1;
 	vafter += vProducer;
+
+	// Dss if there
+	if (!dss.empty())
+	{
+		for (size_t i = 0; i < dss.size(); i++)
+		{
+			auto& d = dss[i];
+			vector<char> vDss;
+			vDss.insert(vDss.end(), d.begin(), d.end());
+
+			xrefs[iDSS + i] = vafter.size() + res.size() + 1;
+			vafter.insert(vafter.end(), vDss.begin(), vDss.end());
+		}
+	}
+
 	// build xref
 	unsigned long long xrefpos = vafter.size() + res.size() + 1;
 
@@ -2554,6 +2764,13 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	vector<unsigned long long> xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iFont, iFont2,iProducer };
 	if (HelvFound)
 		xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iProducer };
+
+	for (auto t = 0 ; t < dss.size() ; t++)
+	{
+		xrint.push_back(iDSS + t);
+	}
+
+
 	bool XRefObject = false;
 	if (pdf.XRefAsObject)
 		XRefObject = true;
@@ -2733,10 +2950,13 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	size_t u2 = vafter.length();
 	vafter = "";
 
+	
 	if (!InRL)
-		vSignatureAfter.Format("/Type/Sig/SubFilter/%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), dd.c_str(), u1, u1 + vs.length(), u2 + 1);
+		vSignatureAfter.Format("/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(), u1, u1 + vs.length(), u2 + 1);
 	else
-		vSignatureAfter.Format(">/Type/Sig/SubFilter/%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), dd.c_str(), u1, u1 + vs.length(), u2 + 1);
+		vSignatureAfter.Format(">/Type/Sig/SubFilter/%s%s/M(D:%s)/ByteRange [0 %u %u %03u]/Filter/Adobe.PPKLite>>\nendobj\n", de3.c_str(), extrainsign.c_str(), dd.c_str(), u1, u1 + vs.length(), u2 + 1);
+
+
 	vafter += vSignatureAfter;
 	vafter += vFont;
 	vafter += vFont2;
@@ -2745,6 +2965,18 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	vafter += vPages;
 	vafter += vRoot;
 	vafter += vProducer;
+
+	if (!dss.empty())
+	{
+		for (size_t i = 0; i < dss.size(); i++)
+		{
+			auto& d = dss[i];
+			vector<char> vDss;
+			vDss.insert(vDss.end(), d.begin(), d.end());
+			vafter.insert(vafter.end(), vDss.begin(), vDss.end());
+		}
+	}
+
 	if (XRefObject)
 	{
 		vafter.insert(vafter.end(), uxref.begin(), uxref.end());

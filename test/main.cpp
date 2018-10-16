@@ -287,7 +287,7 @@ int main()
 	Params.Attached = AdES::ATTACHTYPE::ATTACHED;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
 	Params.commitmentTypeOid = "1.2.840.113549.1.9.16.6.1";
-	auto hr1 = a.Sign(AdES::LEVEL::B, msg, (DWORD)b, Certs,  Params,Sig);
+	auto hr1 = a.Sign(AdES::LEVEL::T, msg, (DWORD)b, Certs,  Params,Sig);
 	PutFile(L"..\\hello2.p7m", Sig);
 	AdES::LEVEL lev;
 	vector<PCCERT_CONTEXT> CV;
@@ -299,6 +299,10 @@ int main()
 	// PDF Try
 	std::vector<char> PDFSig;
 	Params.Attached = AdES::ATTACHTYPE::DETACHED;
+	Params.pdfparams.Name = "YooHoo";
+	Params.pdfparams.Location = "Here";
+	Params.pdfparams.Reason = "Because I want to";
+	Params.pdfparams.Contact = "Heaven";
 	Sig.clear();
 	auto hr6 = a.PDFSign(AdES::LEVEL::T, hellopdf.data(), (DWORD)hellopdf.size(), Certs, Params, Sig);
 	PutFile(L"..\\hello2.pdf", Sig);
