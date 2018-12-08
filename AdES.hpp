@@ -77,12 +77,21 @@ public:
 		ENVELOPED = 2,
 	};
 
+	struct PDFSIGNVISIBLE
+	{
+		string t;
+		int left = 1;
+		int top = 15;
+		int fs = 6;
+	};
+
 	struct PDFSIGNPARAMETERS
 	{
 		string Name;
 		string Location;
 		string Reason;
 		string Contact;
+		PDFSIGNVISIBLE Visible;
 
 		void ClearPars(string& s)
 		{
