@@ -82,7 +82,7 @@ public:
 		string t;
 		int left = 1;
 		int top = 15;
-		int fs = 6;
+		int fs = 3;
 	};
 
 	struct PDFSIGNPARAMETERS
@@ -121,6 +121,7 @@ public:
 		bool Debug = false;
 		bool PAdES = false; // True if PAdES, to eliminate self timestamp
 		PDFSIGNPARAMETERS pdfparams;
+		bool XMLComments = false;
 		
 	};
 

@@ -1019,6 +1019,26 @@ void XMLAddX(AdES& ad,AdES::SIGNPARAMETERS& Params,string& CanonicalizationStrin
 
 }
 
+void XMLRemoveComments(XML3::XMLElement& el)
+{
+	for (auto& ee : el)
+	{
+		XMLRemoveComments(ee);
+	}
+
+	el.GetComments().clear();
+}
+void XMLRemoveCDatas(XML3::XMLElement& el)
+{
+	for (auto& ee : el)
+	{
+		XMLRemoveCDatas(ee);
+	}
+
+	el.GetCDatas().clear();
+}
+
+
 void XMLAddXL(XML3::XMLElement& xusp, const std::vector<AdES::CERT>& Certificates)
 {
 	XML3::XMLElement d1 = "xades132:CertificateValues";
@@ -1084,8 +1104,11 @@ void XMLAddXL(XML3::XMLElement& xusp, const std::vector<AdES::CERT>& Certificate
 
 HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
+//	Params.XMLComments = true;
 
 	string CanonicalizationString = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+	if (Params.XMLComments)
+		CanonicalizationString = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments";
 
 	auto guidcr = []() -> string
 	{
@@ -1289,6 +1312,11 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 				auto xp = x.Parse((char*)data.data, strlen((char*)data.data));
 				if (xp != XML3::XML_PARSE::OK)
 					return E_UNEXPECTED;
+
+				// Remove comments
+				if (!Params.XMLComments)
+					XMLRemoveComments(x.GetRootElement());
+				XMLRemoveCDatas(x.GetRootElement());
 
 				if (Params.Attached == ATTACHTYPE::ENVELOPING)
 				{
@@ -2618,7 +2646,16 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	PDF::AddCh(to_sign, "\n");
 	PDF::AddCh(res, "\n");
 	PDF::astring vSignatureDescriptor;
-	vSignatureDescriptor.Format("%llu 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[0 0 0 0]/FT/Sig/DR<<>>/T(Signature%llu)/V %llu 0 R/P %llu 0 R/AP<</N %llu 0 R>>>>\nendobj\n", iDescribeSignature, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
+
+
+	if (!Params.pdfparams.Visible.t.empty())
+	{
+		vSignatureDescriptor.Format("%llu 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[%i %i 70 20]/FT/Sig/DR<<>>/T(Signature%llu)/V %llu 0 R/P %llu 0 R/AP<</N %llu 0 R>>>>\nendobj\n", iDescribeSignature, (int)Params.pdfparams.Visible.left, (int)Params.pdfparams.Visible.top, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
+	}
+	else
+		vSignatureDescriptor.Format("%llu 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[0 0 0 0]/FT/Sig/DR<<>>/T(Signature%llu)/V %llu 0 R/P %llu 0 R/AP<</N %llu 0 R>>>>\nendobj\n", iDescribeSignature, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
+
+
 	xrefs[iDescribeSignature] = to_sign.size();
 	AddCh(to_sign, vSignatureDescriptor);
 	AddCh(res, vSignatureDescriptor);
@@ -2723,6 +2760,27 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 
 	if (!Params.pdfparams.Visible.t.empty())
 	{
+
+		// Auto
+		if (Params.pdfparams.Visible.t == "auto" && Certificates.size() > 0)
+		{
+			vector<char> di(1000);
+			CertGetNameStringA(
+				Certificates[0].cert.cert,
+				CERT_NAME_SIMPLE_DISPLAY_TYPE,
+				0,
+				NULL,
+				di.data(),
+				1000);
+			if (!strlen(di.data()))
+				Params.pdfparams.Visible.t = "PAdES Signature";
+			else
+			{
+				Params.pdfparams.Visible.t = "PAdES Signature: "; 
+				Params.pdfparams.Visible.t  += di.data();
+			}
+		}
+
 		PDF::astring vv1;
 		vv1.Format("BT\n%i %i TD\n/Helv %i Tf\n(%s) Tj\nET\n", Params.pdfparams.Visible.left, Params.pdfparams.Visible.top, Params.pdfparams.Visible.fs,Params.pdfparams.Visible.t.c_str());
 		long long lele = vv1.length();
