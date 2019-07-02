@@ -2486,7 +2486,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	//			int iFont2 = mxd + 10;
 	//			int iProducer = mxd + 11;
 
-
+	
 	auto iRoot = mxd + 1;
 	auto iPages = mxd + 2;
 	auto iPage = mxd + 3;
@@ -2498,7 +2498,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	auto iProducer = mxd + 9;
 	auto iObjectXref = mxd + 10;
 	auto iVis1 = mxd + 11;
-	auto iDSS = mxd + 12;
+	auto iDSS = mxd + 15;
 
 	bool SwitchReferences =  true;
 
@@ -2528,13 +2528,13 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		iFont = mxd + 4;
 		iFont2 = mxd + 5;
 		iObjectXref = mxd + 6;
-		iVis1 = mxd + 7;
-		iDSS = mxd + 8;
+		iVis1 = mxd + 10;
+		iDSS = mxd + 11;
 	}
 
 
 	if (Params.pdfparams.Visible.t.empty())
-		iDSS --;
+		iDSS -= 4;
 
 	vector<char> pageser;
 	auto pg = *PageObject;
@@ -2635,11 +2635,29 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 			return HRESULTERROR(E_FAIL, "Contents in first page is array");
 		}
 
+/*		// Also push the reference to our new font reousrce
+		PDF::INX rr2;
+		rr2.Type = PDF::INXTYPE::TYPE_NAME;
+		rr2.Name = "Resources";
+		PDF::astring rr2s;
+		rr2s.Format(" %llu 0 R", iVis1 - 3);
+		rr2.Value = rr2s;
+		RefObject->content.Contents.push_back(rr2);
+*/
 		PDF::OBJECT obj;
 	//	refc->Contents.push_back();
+
+
+
 	}
 	RefObject->content.Serialize(strref);
 	strref.resize(strref.size() + 1);
+
+	// A Test
+/*	char* a55 = "<</Type/Page/Parent 2 0 R/Resources<</Font<</F1 4 0 R/FAdESFont 14 0 R>>>>/Contents [15 0 R 5 0 R]/Annots[8 0 R]>>";
+	strref.resize(strlen(a55) + 1);
+	strcpy_s(strref.data(), strref.size() + 1, a55);
+	*/
 
 	map<unsigned long long, unsigned long long> xrefs;
 
@@ -2700,7 +2718,10 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	PDF::astring vFont;
 	PDF::astring vFont2;
 	PDF::astring vVis1;
-//	PDF::astring v7, v7b;
+	PDF::astring vVisA1;
+	PDF::astring vVisA2;
+	PDF::astring vVisA3;
+	//	PDF::astring v7, v7b;
 	PDF::astring v71, v73;
 	vector<char> v72;
 
@@ -2779,21 +2800,32 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 				Params.pdfparams.Visible.t = "PAdES Signature: "; 
 				Params.pdfparams.Visible.t  += di.data();
 			}
+
+			// Find Width
 		}
+
+
+		// Create the 3 entries before iVis1
+		vVisA1.Format("%llu 0 obj<</Font %llu 0 R>>\nendobj\n", iVis1 - 3, iVis1 - 2);
+		xrefs[iVis1 - 3] = vafter.size() + res.size() + 1;
+		vafter += vVisA1;
+
+		vVisA2.Format("%llu 0 obj<</FAdESFont %llu 0 R>>\nendobj\n", iVis1 - 2, iVis1 - 1);
+		xrefs[iVis1 - 2] = vafter.size() + res.size() + 1;
+		vafter += vVisA2;
+
+		vVisA3.Format("%llu 0 obj<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>\nendobj\n", iVis1 - 1);
+		xrefs[iVis1 - 1] = vafter.size() + res.size() + 1;
+		vafter += vVisA3;
 
 		PDF::astring vv1;
 		vv1.Format("BT\n%i %i TD\n/F1 %i Tf\n(%s) Tj\nET\n", Params.pdfparams.Visible.left, Params.pdfparams.Visible.top, Params.pdfparams.Visible.fs,Params.pdfparams.Visible.t.c_str());
-//		vv1.Format("BT\n1 0 0 1 %i %i Tm\n/Helv %i Tf\n(%s) Tj\nET\n", Params.pdfparams.Visible.left, Params.pdfparams.Visible.top, Params.pdfparams.Visible.fs, Params.pdfparams.Visible.t.c_str());
 		long long lele = vv1.length();
 		vVis1.Format("%llu 0 obj\n<</Length %llu>>stream\n%s\nendstream\nendobj\n", iVis1, lele,vv1.c_str());
 		xrefs[iVis1] = vafter.size() + res.size() + 1;
 		vafter += vVis1;
 	}
-/*
-	v7.Format("%llu 0 obj\n<</Type/XObject/Resources<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]>>/Subtype/Form/BBox[0 0 0 0]/Matrix [1 0 0 1 0 0]/Length 8/FormType 1/Filter/FlateDecode>>stream\x0a\x78\x9c\x03", iXOBject); 			v7b.Format("\x01\x0d");			v7b += "endstream\nendobj\n";
-	xrefs[iXOBject] = vafter.size() + res.size() + 1;
-	vafter += v7;			vafter.resize(vafter.size() + 4);			vafter += v7b;
-*/
+
 	v71.Format("%llu 0 obj\n<</Type/XObject/Resources<</ProcSet [/PDF /Text /ImageB /ImageC /ImageI]>>/Subtype/Form/BBox[0 0 0 0]/Matrix [1 0 0 1 0 0]/Length 8/FormType 1/Filter/FlateDecode>>stream\n", iXOBject);
 	v72.resize(8); v72[0] = 0x78; v72[1] = 0x9C; v72[2] = 0x03; v72[7] = 0x1;
 	v73.Format("\nendstream\nendobj\n");
@@ -2882,7 +2914,12 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iProducer };
 
 	if (!Params.pdfparams.Visible.t.empty())
+	{
+		xrint.push_back(iVis1 - 3);
+		xrint.push_back(iVis1 - 2);
+		xrint.push_back(iVis1 - 1);
 		xrint.push_back(iVis1);
+	}
 
 	for (long long t = 0 ; t < dss.size() ; t++)
 	{
@@ -3081,7 +3118,12 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	vafter += vFont2;
 
 	if (!Params.pdfparams.Visible.t.empty())
+	{
+		vafter += vVisA1;
+		vafter += vVisA2;
+		vafter += vVisA3;
 		vafter += vVis1;
+	}
 
 	vafter += v71;
 	vafter.insert(vafter.end(), v72.begin(), v72.end());
