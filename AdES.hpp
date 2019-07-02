@@ -82,7 +82,8 @@ public:
 		string t;
 		int left = 1;
 		int top = 15;
-		int fs = 3;
+		int fs = 5;
+		int wi = 70;
 	};
 
 	struct PDFSIGNPARAMETERS

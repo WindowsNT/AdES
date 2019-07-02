@@ -2650,7 +2650,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 
 	if (!Params.pdfparams.Visible.t.empty())
 	{
-		vSignatureDescriptor.Format("%llu 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[%i %i 70 20]/FT/Sig/DR<<>>/T(Signature%llu)/V %llu 0 R/P %llu 0 R/AP<</N %llu 0 R>>>>\nendobj\n", iDescribeSignature, (int)Params.pdfparams.Visible.left, (int)Params.pdfparams.Visible.top, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
+		vSignatureDescriptor.Format("%llu 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[%i %i %i %i]/FT/Sig/DR<<>>/T(Signature%llu)/V %llu 0 R/P %llu 0 R/AP<</N %llu 0 R>>>>\nendobj\n", iDescribeSignature, (int)Params.pdfparams.Visible.left, (int)Params.pdfparams.Visible.top - 2, (int)Params.pdfparams.Visible.left + (int)Params.pdfparams.Visible.wi, (int)Params.pdfparams.Visible.top + (int)Params.pdfparams.Visible.fs + 2, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
 	}
 	else
 		vSignatureDescriptor.Format("%llu 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[0 0 0 0]/FT/Sig/DR<<>>/T(Signature%llu)/V %llu 0 R/P %llu 0 R/AP<</N %llu 0 R>>>>\nendobj\n", iDescribeSignature, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
@@ -2782,7 +2782,8 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		}
 
 		PDF::astring vv1;
-		vv1.Format("BT\n%i %i TD\n/Helv %i Tf\n(%s) Tj\nET\n", Params.pdfparams.Visible.left, Params.pdfparams.Visible.top, Params.pdfparams.Visible.fs,Params.pdfparams.Visible.t.c_str());
+		vv1.Format("BT\n%i %i TD\n/F1 %i Tf\n(%s) Tj\nET\n", Params.pdfparams.Visible.left, Params.pdfparams.Visible.top, Params.pdfparams.Visible.fs,Params.pdfparams.Visible.t.c_str());
+//		vv1.Format("BT\n1 0 0 1 %i %i Tm\n/Helv %i Tf\n(%s) Tj\nET\n", Params.pdfparams.Visible.left, Params.pdfparams.Visible.top, Params.pdfparams.Visible.fs, Params.pdfparams.Visible.t.c_str());
 		long long lele = vv1.length();
 		vVis1.Format("%llu 0 obj\n<</Length %llu>>stream\n%s\nendstream\nendobj\n", iVis1, lele,vv1.c_str());
 		xrefs[iVis1] = vafter.size() + res.size() + 1;
