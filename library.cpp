@@ -2357,7 +2357,52 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long lon
 	return S_OK;
 }
 
-HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res)
+
+HRESULT AdES::GreekVerifyCertificate(PCCERT_CONTEXT a, GREEKRESULTS& r)
+{
+	HRESULT rx = E_FAIL;
+	if (!a)
+		return rx;
+	r.Type = 0;
+	PCERT_EXTENSION policyExt = CertFindExtension(szOID_CERT_POLICIES,
+		a->pCertInfo->cExtension, a->pCertInfo->rgExtension);
+	if (!policyExt)
+		return rx;
+	CERT_POLICIES_INFO* policies = 0;
+	DWORD size;
+
+	if (CryptDecodeObjectEx(X509_ASN_ENCODING, X509_CERT_POLICIES,
+		policyExt->Value.pbData, policyExt->Value.cbData,
+		CRYPT_DECODE_ALLOC_FLAG, NULL, &policies, &size))
+	{
+		for (DWORD i = 0; i < policies->cPolicyInfo; i++)
+		{
+			auto& ji = policies->rgPolicyInfo[i];
+			if (string(ji.pszPolicyIdentifier) == string("1.2.300.0.110001.1.7.1.1.1"))
+			{
+				LocalFree(policies);
+				r.Type = 2;
+				rx = S_OK;
+			}
+			if (string(ji.pszPolicyIdentifier) == string("1.2.300.0.110001.1.7.1.1.3"))
+			{
+				LocalFree(policies);
+				r.Type = 1;
+				rx = S_OK;
+			}
+			for (DWORD j = 0; j < ji.cPolicyQualifier; j++)
+			{
+				auto& p = ji.rgPolicyQualifier[j];
+				//							MessageBeep(0);
+			}
+		}
+		LocalFree(policies);
+	}
+	return rx;
+}
+
+
+HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res,vector<PDFVERIFY>* VerifyX)
 {
 	PDF::PDF pdf;
 	auto herr = pdf.Parse2(d, sz);
@@ -2599,11 +2644,117 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	long long CountExistingSignatures = 0;
 	if (current_annot == 0)
 	{
+		if (VerifyX)
+			return HRESULTERROR(E_FAIL, "No Signature found");
+
 		RefObject->content.Contents.push_back(annots);
 		AnnotFinal = annot_string;
 	}
 	else
 	{
+
+		if (VerifyX)
+		{
+			// We verify the signature
+			for (auto& annot : current_annot->Contents)
+			{
+				PDFVERIFY pv;
+				pv.S = HRESULTERROR(E_FAIL, "No Signature found");
+
+				if (annot.Type != PDF::INXTYPE::TYPE_ARRAY)
+				{
+					VerifyX->push_back(pv);
+					continue;
+				}
+				long long RefSigObj = atoll(annot.Value.c_str());
+				auto* obj = pdf.findobject(RefSigObj);
+				if (!obj)
+				{
+					VerifyX->push_back(pv);
+					continue;
+				}
+				if (obj->content.Type != PDF::INXTYPE::TYPE_DIC)
+				{
+					VerifyX->push_back(pv);
+					continue;
+				}
+				
+				// We find the /V
+				vector<long long>  br;
+				vector<char> sig;
+				unsigned long long SigStartsAt = 0;
+				for (auto& cc : obj->content.Contents)
+				{
+					if (cc.Type == PDF::INXTYPE::TYPE_NAME)
+					{
+						if (cc.Name == "V")
+						{
+							long long iSig = atoll(cc.Value.c_str());
+							auto* obj2 = pdf.findobject(iSig);
+							if (!obj2)
+								break;
+							if (obj2->content.Type != PDF::INXTYPE::TYPE_DIC)
+								break;
+							// Find ByteRange and Content
+							for (auto& cc2 : obj2->content.Contents)
+							{
+								if (cc2.Type == PDF::INXTYPE::TYPE_NAME)
+								{
+									if (cc2.Name == "Contents")
+									{
+										SigStartsAt = cc2.pp + 10 + obj2->p; // To add /Contents stuff
+										for (unsigned long long i = 1 ; i < cc2.Value.length() - 1 ; i += 2) 
+										{
+											std::string byteString = cc2.Value.substr(i, 2);
+											char byte = (char)strtol(byteString.c_str(), NULL, 16);
+											sig.push_back(byte);
+										}
+									}
+									if (cc2.Name == "ByteRange")
+									{
+										if (cc2.Contents.size() != 1)
+											break;
+										auto co = cc2.Contents.begin();
+										if (co->Type != PDF::INXTYPE::TYPE_ARRAY)
+											break;
+
+										std::stringstream stream(co->Value);
+										while (1) {
+											long long n = 0;
+											stream >> n;
+											if (!stream)
+												break;
+											br.push_back(n);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				if (br.size() != 4 || sig.empty())
+				{
+					VerifyX->push_back(pv);
+					continue;
+				}
+				vector<char> dx;
+				dx.resize(br[1] + br[3]);
+				memcpy(dx.data(), d + br[0], br[1]);
+				memcpy(dx.data() + br[1], d + br[2], br[3]);
+				pv.S = Verify(sig.data(), sig.size(), pv.l, dx.data(), dx.size(), 0, &pv.Certs, &pv.vr);
+				pv.Full = false;
+				if (br[0] == 0)
+				{
+					if (br[1] == SigStartsAt)
+					{
+						pv.Full = true;
+					}
+				}
+				VerifyX->push_back(pv);
+			}
+			return S_OK;
+		}
+
 		current_annot->Contents.front().Value += annot_string;
 		auto spl = split(current_annot->Contents.front().Value, ' ');
 		CountExistingSignatures = (long long )(spl.size() / 3) - 1; // e.g. If 2 signatures, count is 6

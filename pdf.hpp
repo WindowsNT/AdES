@@ -177,6 +177,7 @@ namespace PDF
 		astring Name;
 		astring Value;
 		list<INX> Contents;
+		unsigned long long  pp = 0;
 
 
 		void Serialize(vector<char>& d)
@@ -334,7 +335,7 @@ namespace PDF
 				return true;
 			};
 
-			auto Add = [&](INXTYPE Ty)
+			auto Add = [&](INXTYPE Ty,unsigned long long pos)
 			{
 				if (n == &content && n->Type == INXTYPE::TYPE_NONE)
 				{
@@ -343,6 +344,7 @@ namespace PDF
 				else
 				{
 					INX n2;
+					n2.pp = pos;
 					n2.Type = Ty;
 					n2.Par = n;
 					n->Contents.push_back(n2);
@@ -361,7 +363,7 @@ namespace PDF
 				{
 					//if (!EndT2()) break;
 					d += 2;
-					Add(INXTYPE::TYPE_DIC);
+					Add(INXTYPE::TYPE_DIC,(d - orgd) - 2);
 					continue;
 				}
 
@@ -380,7 +382,7 @@ namespace PDF
 				if (d[0] == '[' && n->Type != INXTYPE::TYPE_STRING)
 				{
 					d += 1;
-					Add(INXTYPE::TYPE_ARRAY);
+					Add(INXTYPE::TYPE_ARRAY, (d - orgd) - 1);
 					continue;
 				}
 
@@ -400,7 +402,7 @@ namespace PDF
 				if (d[0] == '(' && *(d - 1) != '\\')
 				{
 					d += 1;
-					Add(INXTYPE::TYPE_STRING);
+					Add(INXTYPE::TYPE_STRING, (d - orgd) - 1);
 					continue;
 				}
 
@@ -420,7 +422,7 @@ namespace PDF
 				{
 					if (!EndT2()) break;
 					d += 1;
-					Add(INXTYPE::TYPE_NAME);
+					Add(INXTYPE::TYPE_NAME, (d - orgd) - 1);
 					continue;
 				}
 /*				if (d[0] == '\r' || d[0] == '\n')

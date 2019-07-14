@@ -13,7 +13,7 @@ public:
 	HRESULT hr = 0;
 	string err;
 
-	HRESULTERROR(HRESULT hrx, const char* str = "")
+	HRESULTERROR(HRESULT hrx = E_FAIL, const char* str = "")
 	{
 		hr = hrx;
 		if (str)
@@ -166,6 +166,23 @@ public:
 		}
 	};
 
+
+	struct GREEKRESULTS
+	{
+		int Type = 0; // 0 none ,1 soft, 2 hard
+	};
+	HRESULT GreekVerifyCertificate(PCCERT_CONTEXT c, GREEKRESULTS& r);
+
+	struct PDFVERIFY
+	{
+		HRESULTERROR S;
+		bool Full = false;
+		LEVEL l;
+		vector<PCCERT_CONTEXT> Certs;
+		VERIFYRESULTS vr;
+	};
+
+
 	HRESULT AddCT(vector<char>& Signature, const vector<CERT>& Certificates, SIGNPARAMETERS& Params);
 	tuple<HRESULT,vector<char>,vector<char>> AddCC(vector<char>& Signature, const vector<CERT>& Certificates,SIGNPARAMETERS& Params);
 	HRESULT AddCX(vector<char>& Signature, const vector<CERT>& Certificates, SIGNPARAMETERS& Params, vector<char>& full1, vector<char >&full2);
@@ -181,8 +198,8 @@ public:
 
 	HRESULTERROR PDFCreateDSSObject(const vector<CERT>& Certificates, long long objnum,vector<vector<char>>& r);
 
-	HRESULTERROR PDFSign(LEVEL lev, const char* data, DWORD sz, const vector<CERT>& Certificates, SIGNPARAMETERS& Params, vector<char>& Signature);
-
+	HRESULTERROR PDFSign(LEVEL lev, const char* data, DWORD sz, const vector<CERT>& Certificates, SIGNPARAMETERS& Params, vector<char>& Signature,vector<PDFVERIFY>* = 0);
+	
 	HRESULT ASiC(ALEVEL alev,ATYPE typ, LEVEL lev,vector<FILEREF>& data,vector<CERT>& Certificates, SIGNPARAMETERS& Params, vector<char>& fndata);
 
 };
