@@ -170,11 +170,16 @@ public:
 	struct GREEKRESULTS
 	{
 		int Type = 0; // 0 none ,1 soft, 2 hard
+		int TSThere = 0; // 0 none, 1 generic, 2 greek TSA with policy
+		int Level = 0; // Equal to PADES levels
 	};
-	HRESULT GreekVerifyCertificate(PCCERT_CONTEXT c, GREEKRESULTS& r);
+	HRESULT GreekVerifyCertificate(PCCERT_CONTEXT c, const char* sig,DWORD sigsize,GREEKRESULTS& r);
+	HRESULT GreekVerifyTimestamp(PCCERT_CONTEXT c, PCRYPT_TIMESTAMP_CONTEXT tc, GREEKRESULTS& r);
 
 	struct PDFVERIFY
 	{
+		vector<char> dx;
+		vector<char> sig;
 		HRESULTERROR S;
 		bool Full = false;
 		LEVEL l;
@@ -190,16 +195,17 @@ public:
 
 	HRESULT TimeStamp(SIGNPARAMETERS& params,const char* data, DWORD sz, vector<char>& CR, const wchar_t* url = L"http://timestamp.comodoca.com/", const char* alg = szOID_NIST_sha256);
 	HRESULT Sign(LEVEL lev,const char* data,DWORD sz,const vector<CERT>& Certificates, SIGNPARAMETERS& Params,vector<char>& Signature);
-	HRESULT Verify(const char* data, DWORD sz, LEVEL& lev,const char* omsg = 0,DWORD len = 0,vector<char>* msg = 0,vector<PCCERT_CONTEXT>* Certs = 0,VERIFYRESULTS* vr = 0);
-	HRESULT VerifyB(const char* data, DWORD sz, int sidx = 0,bool Attached = true,PCCERT_CONTEXT c = 0);
-	HRESULT VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX = 0, bool Attached = true, int TSServerSignIndex = 0, FILETIME* ft = 0);
+	HRESULT Verify(const char* data, DWORD sz, LEVEL& lev,const char* omsg = 0,DWORD len = 0,vector<char>* msg = 0,vector<PCCERT_CONTEXT>* Certs = 0,VERIFYRESULTS* vr = 0,bool WasPDF = false);
+	HRESULT VerifyB(const char* data, DWORD sz, int sidx = 0,bool Attached = true,PCCERT_CONTEXT c = 0,bool WasPDF = false);
+	HRESULT VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX = 0, bool Attached = true, int TSServerSignIndex = 0, FILETIME* ft = 0, PCRYPT_TIMESTAMP_CONTEXT* ptc = 0);
 	HRESULT VerifyU(const char* data, DWORD sz, bool Attached = true, int TSServerSignIndex = 0);
 	HRESULT XMLSign(LEVEL lev, vector<FILEREF>& data,const vector<CERT>& Certificates,SIGNPARAMETERS& Params, vector<char>& Signature);
 
 	HRESULTERROR PDFCreateDSSObject(const vector<CERT>& Certificates, long long objnum,vector<vector<char>>& r);
 
 	HRESULTERROR PDFSign(LEVEL lev, const char* data, DWORD sz, const vector<CERT>& Certificates, SIGNPARAMETERS& Params, vector<char>& Signature,vector<PDFVERIFY>* = 0);
-	
+	HRESULTERROR PDFVerify(const char* d, DWORD sz, vector<PDFVERIFY>& VerifyX);
+
 	HRESULT ASiC(ALEVEL alev,ATYPE typ, LEVEL lev,vector<FILEREF>& data,vector<CERT>& Certificates, SIGNPARAMETERS& Params, vector<char>& fndata);
 
 };

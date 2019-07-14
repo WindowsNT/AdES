@@ -461,7 +461,7 @@ AdES::AdES()
 
 }
 
-HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx, bool Attached, PCCERT_CONTEXT c)
+HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx, bool Attached, PCCERT_CONTEXT c, bool WasPDF)
 {
 	HRESULT hr = E_FAIL;
 	bool CTFound = false;
@@ -549,6 +549,8 @@ HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx, bool Attached, PCCER
 		CryptMsgClose(hMsg);
 		hMsg = 0;
 	}
+	if (WasPDF)
+		TSFound = true;
 
 	if (CTFound && MDFound && TSFound && CHFound)
 		hr = S_OK;
@@ -579,7 +581,7 @@ HRESULT AdES::VerifyU(const char* data, DWORD sz, bool Attached, int TSServerSig
 	return hr;
 }
 
-HRESULT AdES::VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX, bool Attached, int TSServerSignIndex, FILETIME* ft)
+HRESULT AdES::VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX, bool Attached, int TSServerSignIndex, FILETIME* ft, PCRYPT_TIMESTAMP_CONTEXT* ptc)
 {
 	HRESULT hr = E_FAIL;
 
@@ -641,7 +643,10 @@ HRESULT AdES::VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX, bool Attac
 										{
 											if (ft)
 												*ft = re->pTimeStamp->ftTime;
-											CryptMemFree(re);
+											if (ptc)
+												*ptc = re;
+											else
+												CryptMemFree(re);
 											hr = S_OK;
 											break;
 										}
@@ -681,7 +686,7 @@ HRESULT AdES::TimeStamp(SIGNPARAMETERS& sparams, const char* data, DWORD sz, vec
 	return S_OK;
 }
 
-HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev, const char* omsg, DWORD len, std::vector<char>* msg, std::vector<PCCERT_CONTEXT>* Certs, VERIFYRESULTS* vr)
+HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev, const char* omsg, DWORD len, std::vector<char>* msg, std::vector<PCCERT_CONTEXT>* Certs, VERIFYRESULTS* vr, bool WasPDF)
 {
 	auto hr = E_FAIL;
 
@@ -722,7 +727,7 @@ HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev, const char* omsg, D
 			lev = LEVEL::CMS;
 
 			// Check now BES
-			auto hr1 = VerifyB(data, sz, i, omsg ? false : true, c);
+			auto hr1 = VerifyB(data, sz, i, omsg ? false : true, c,WasPDF);
 			if (SUCCEEDED(hr1))
 			{
 				lev = LEVEL::B;
@@ -2358,7 +2363,46 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long lon
 }
 
 
-HRESULT AdES::GreekVerifyCertificate(PCCERT_CONTEXT a, GREEKRESULTS& r)
+HRESULT AdES::GreekVerifyTimestamp(PCCERT_CONTEXT a, PCRYPT_TIMESTAMP_CONTEXT tc, GREEKRESULTS& r)
+{
+	HRESULT rx = E_FAIL;
+	if (!a || !tc)
+		return rx;
+
+	// The certificate
+	PCERT_EXTENSION policyExt = CertFindExtension(szOID_ENHANCED_KEY_USAGE,
+		a->pCertInfo->cExtension, a->pCertInfo->rgExtension);
+	if (!policyExt)
+		return rx;
+	CERT_ENHKEY_USAGE* ku = 0;
+	DWORD size;
+
+	if (CryptDecodeObjectEx(X509_ASN_ENCODING, X509_ENHANCED_KEY_USAGE,
+		policyExt->Value.pbData, policyExt->Value.cbData,
+		CRYPT_DECODE_ALLOC_FLAG, NULL, &ku, &size))
+	{
+		if (ku->rgpszUsageIdentifier && strcmp(*ku->rgpszUsageIdentifier, "1.3.6.1.5.5.7.3.8") == 0)
+		{
+			r.TSThere = 1;
+			vector<wchar_t> name(1000);
+			CertGetNameString(a,
+				CERT_NAME_SIMPLE_DISPLAY_TYPE,
+				CERT_NAME_ISSUER_FLAG,
+				NULL,
+				name.data(),1000);
+			wchar_t* a1 = name.data();
+			if (wcscmp(a1, L"HPARCA Time Stamping Services CA") == 0)
+			{
+				// Policy
+				if (strcmp(tc->pTimeStamp->pszTSAPolicyId,"1.3.6.1.4.1.601.10.3.1") == 0)
+					r.TSThere = 2;
+			}
+		}
+		LocalFree(ku);
+	}
+}
+
+HRESULT AdES::GreekVerifyCertificate(PCCERT_CONTEXT a, const char* sig, DWORD sigsize, GREEKRESULTS& r)
 {
 	HRESULT rx = E_FAIL;
 	if (!a)
@@ -2398,9 +2442,33 @@ HRESULT AdES::GreekVerifyCertificate(PCCERT_CONTEXT a, GREEKRESULTS& r)
 		}
 		LocalFree(policies);
 	}
+
+	// Check the timestamp
+	r.Level = 0;
+	PCCERT_CONTEXT ce = 0;
+	PCRYPT_TIMESTAMP_CONTEXT ptc = 0;
+	auto hr2 = VerifyT(sig, sigsize, &ce, false, 0, 0, &ptc);
+	if (SUCCEEDED(hr2))
+	{
+		r.Level = (int)LEVEL::T;
+		GreekVerifyTimestamp(ce, ptc, r);
+		if (ptc)
+			CryptMemFree(ptc);
+		if (ce)
+			CertFreeCertificateContext(ce);
+	}
+
 	return rx;
 }
 
+HRESULTERROR AdES::PDFVerify(const char* d, DWORD sz, vector<PDFVERIFY>& VerifyX)
+{
+	AdES::SIGNPARAMETERS Params;
+	vector<AdES::CERT> Certs;
+	LEVEL levx = LEVEL::CMS;
+	vector<char> res;
+	return PDFSign(levx, d, sz, Certs, Params, res, &VerifyX);
+}
 
 HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res,vector<PDFVERIFY>* VerifyX)
 {
@@ -2741,7 +2809,9 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 				dx.resize(br[1] + br[3]);
 				memcpy(dx.data(), d + br[0], br[1]);
 				memcpy(dx.data() + br[1], d + br[2], br[3]);
-				pv.S = Verify(sig.data(), sig.size(), pv.l, dx.data(), dx.size(), 0, &pv.Certs, &pv.vr);
+				pv.S = Verify(sig.data(), sig.size(), pv.l, dx.data(), dx.size(), 0, &pv.Certs, &pv.vr,true);
+				pv.dx = dx;
+				pv.sig = sig;
 				pv.Full = false;
 				if (br[0] == 0)
 				{
