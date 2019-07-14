@@ -2424,13 +2424,11 @@ HRESULT AdES::GreekVerifyCertificate(PCCERT_CONTEXT a, const char* sig, DWORD si
 			auto& ji = policies->rgPolicyInfo[i];
 			if (string(ji.pszPolicyIdentifier) == string("1.2.300.0.110001.1.7.1.1.1"))
 			{
-				LocalFree(policies);
 				r.Type = 2;
 				rx = S_OK;
 			}
 			if (string(ji.pszPolicyIdentifier) == string("1.2.300.0.110001.1.7.1.1.3"))
 			{
-				LocalFree(policies);
 				r.Type = 1;
 				rx = S_OK;
 			}
@@ -2440,7 +2438,8 @@ HRESULT AdES::GreekVerifyCertificate(PCCERT_CONTEXT a, const char* sig, DWORD si
 				//							MessageBeep(0);
 			}
 		}
-		LocalFree(policies);
+		if (policies)
+			LocalFree(policies);
 	}
 
 	// Check the timestamp
@@ -2726,101 +2725,132 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 			// We verify the signature
 			for (auto& annot : current_annot->Contents)
 			{
-				PDFVERIFY pv;
-				pv.S = HRESULTERROR(E_FAIL, "No Signature found");
-
 				if (annot.Type != PDF::INXTYPE::TYPE_ARRAY)
 				{
-					VerifyX->push_back(pv);
-					continue;
-				}
-				long long RefSigObj = atoll(annot.Value.c_str());
-				auto* obj = pdf.findobject(RefSigObj);
-				if (!obj)
-				{
-					VerifyX->push_back(pv);
-					continue;
-				}
-				if (obj->content.Type != PDF::INXTYPE::TYPE_DIC)
-				{
-					VerifyX->push_back(pv);
-					continue;
-				}
-				
-				// We find the /V
-				vector<long long>  br;
-				vector<char> sig;
-				unsigned long long SigStartsAt = 0;
-				for (auto& cc : obj->content.Contents)
-				{
-					if (cc.Type == PDF::INXTYPE::TYPE_NAME)
-					{
-						if (cc.Name == "V")
-						{
-							long long iSig = atoll(cc.Value.c_str());
-							auto* obj2 = pdf.findobject(iSig);
-							if (!obj2)
-								break;
-							if (obj2->content.Type != PDF::INXTYPE::TYPE_DIC)
-								break;
-							// Find ByteRange and Content
-							for (auto& cc2 : obj2->content.Contents)
-							{
-								if (cc2.Type == PDF::INXTYPE::TYPE_NAME)
-								{
-									if (cc2.Name == "Contents")
-									{
-										SigStartsAt = cc2.pp + 10 + obj2->p; // To add /Contents stuff
-										for (unsigned long long i = 1 ; i < cc2.Value.length() - 1 ; i += 2) 
-										{
-											std::string byteString = cc2.Value.substr(i, 2);
-											char byte = (char)strtol(byteString.c_str(), NULL, 16);
-											sig.push_back(byte);
-										}
-									}
-									if (cc2.Name == "ByteRange")
-									{
-										if (cc2.Contents.size() != 1)
-											break;
-										auto co = cc2.Contents.begin();
-										if (co->Type != PDF::INXTYPE::TYPE_ARRAY)
-											break;
+					PDFVERIFY pv;
+					pv.S = HRESULTERROR(E_FAIL, "No Signature found");
 
-										std::stringstream stream(co->Value);
-										while (1) {
-											long long n = 0;
-											stream >> n;
-											if (!stream)
+					VerifyX->push_back(pv);
+					continue;
+				}
+
+
+				// Check values, may be obj 0 R obj 0 R etc
+				std::stringstream stream(annot.Value);
+				vector<unsigned long long> ObjectsToLook;
+				for(int jji = 0 ;jji < 3 ;jji++) {
+					long long n = 0;
+					string f;
+					if (jji == 2)
+						stream >> f;
+					else
+						stream >> n;
+					if (!stream)
+						break;
+					if (n != 0)
+						ObjectsToLook.push_back(n);
+					if (jji == 2)
+						jji = 0;
+				}
+
+				for (auto& ObjectToLook : ObjectsToLook)
+				{
+					PDFVERIFY pv;
+					pv.S = HRESULTERROR(E_FAIL, "No Signature found");
+
+
+					long long RefSigObj = ObjectToLook;
+					auto* obj = pdf.findobject(RefSigObj);
+					if (!obj)
+					{
+						VerifyX->push_back(pv);
+						continue;
+					}
+					if (obj->content.Type != PDF::INXTYPE::TYPE_DIC)
+					{
+						VerifyX->push_back(pv);
+						continue;
+					}
+
+					// We find the /V
+					vector<long long>  br;
+					vector<char> sig;
+					unsigned long long SigStartsAt = 0;
+					for (auto& cc : obj->content.Contents)
+					{
+						if (cc.Type == PDF::INXTYPE::TYPE_NAME)
+						{
+							if (cc.Name == "V")
+							{
+								long long iSig = atoll(cc.Value.c_str());
+								auto* obj2 = pdf.findobject(iSig);
+								if (!obj2)
+									break;
+								if (obj2->content.Type != PDF::INXTYPE::TYPE_DIC)
+									break;
+								// Find ByteRange and Content
+								for (auto& cc2 : obj2->content.Contents)
+								{
+									if (cc2.Type == PDF::INXTYPE::TYPE_NAME)
+									{
+										if (cc2.Name == "Contents")
+										{
+											SigStartsAt = cc2.pp + 10 + obj2->p; // To add /Contents stuff
+											for (unsigned long long i = 1; i < cc2.Value.length() - 1; i += 2)
+											{
+												std::string byteString = cc2.Value.substr(i, 2);
+												char byte = (char)strtol(byteString.c_str(), NULL, 16);
+												sig.push_back(byte);
+											}
+										}
+										if (cc2.Name == "ByteRange")
+										{
+											if (cc2.Contents.size() != 1)
 												break;
-											br.push_back(n);
+											auto co = cc2.Contents.begin();
+											if (co->Type != PDF::INXTYPE::TYPE_ARRAY)
+												break;
+
+											std::stringstream stream(co->Value);
+											while (1) {
+												long long n = 0;
+												stream >> n;
+												if (!stream)
+													break;
+												br.push_back(n);
+											}
 										}
 									}
 								}
 							}
 						}
 					}
-				}
-				if (br.size() != 4 || sig.empty())
-				{
-					VerifyX->push_back(pv);
-					continue;
-				}
-				vector<char> dx;
-				dx.resize(br[1] + br[3]);
-				memcpy(dx.data(), d + br[0], br[1]);
-				memcpy(dx.data() + br[1], d + br[2], br[3]);
-				pv.S = Verify(sig.data(), sig.size(), pv.l, dx.data(), dx.size(), 0, &pv.Certs, &pv.vr,true);
-				pv.dx = dx;
-				pv.sig = sig;
-				pv.Full = false;
-				if (br[0] == 0)
-				{
-					if (br[1] == SigStartsAt)
+
+
+
+
+					if (br.size() != 4 || sig.empty())
 					{
-						pv.Full = true;
+						//VerifyX->push_back(pv);
+						continue;
 					}
+					vector<char> dx;
+					dx.resize(br[1] + br[3]);
+					memcpy(dx.data(), d + br[0], br[1]);
+					memcpy(dx.data() + br[1], d + br[2], br[3]);
+					pv.S = Verify(sig.data(), sig.size(), pv.l, dx.data(), dx.size(), 0, &pv.Certs, &pv.vr, true);
+					pv.dx = dx;
+					pv.sig = sig;
+					pv.Full = false;
+					if (br[0] == 0)
+					{
+						if (br[1] == SigStartsAt)
+						{
+							pv.Full = true;
+						}
+					}
+					VerifyX->push_back(pv);
 				}
-				VerifyX->push_back(pv);
 			}
 			return S_OK;
 		}
