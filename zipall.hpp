@@ -4937,7 +4937,7 @@ namespace ZIPUTILS
 		{
 		private:
 
-			string fil;
+			std::string fil;
 			const char* mem = 0;
 			size_t mems = 0;
 		public:
@@ -4962,7 +4962,7 @@ namespace ZIPUTILS
 					return E_INVALIDARG;
 				if (!strlen(name))
 					return E_INVALIDARG;
-				string n = name;
+				std::string n = name;
 				if (n[n.length() - 1] != '/')
 					n += '/';
 				if (!mz_zip_add_mem_to_archive_file_in_place(fil.c_str(), n.c_str(), 0, 0, 0, 0, MZ_BEST_COMPRESSION))
@@ -4982,7 +4982,7 @@ namespace ZIPUTILS
 
 
 			template <typename T = unsigned char>
-			HRESULT Extract(const char* fn, vector<T>& d)
+			HRESULT Extract(const char* fn, std::vector<T>& d)
 				{
 				mz_zip_archive zip_archive = { 0 };
 				auto status = InitFromReader(&zip_archive);
@@ -5039,7 +5039,7 @@ namespace ZIPUTILS
 				return S_OK;
 				}
 
-			HRESULT EnumFiles(vector<mz_zip_archive_file_stat>& f)
+			HRESULT EnumFiles(std::vector<mz_zip_archive_file_stat>& f)
 				{
 				mz_zip_archive zip_archive = { 0 };
 				auto status = InitFromReader(&zip_archive);
@@ -5068,7 +5068,7 @@ namespace ZIPUTILS
 				}
 
 			template <typename T = unsigned char>
-			static HRESULT MemCompress(const T* d, mz_ulong sz, vector<T>& r)
+			static HRESULT MemCompress(const T* d, mz_ulong sz, std::vector<T>& r)
 				{
 				if (!d || !sz)
 					return E_FAIL;
@@ -5083,7 +5083,7 @@ namespace ZIPUTILS
 				}
 
 			template <typename T = unsigned char>
-			static HRESULT MemUncompress(const T* d, mz_ulong sz, vector<T>& r)
+			static HRESULT MemUncompress(const T* d, mz_ulong sz, std::vector<T>& r)
 				{
 				if (!d || !sz)
 					return E_FAIL;

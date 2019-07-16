@@ -3771,7 +3771,7 @@ inline std::wstring TempFile(wchar_t* x, const wchar_t* prf)
 }
 
 
-#define USE_XZIP
+//#define USE_XZIP
 #ifdef USE_XZIP
 #include "xzip.hpp"
 namespace ZIPUTILS
@@ -3798,7 +3798,9 @@ namespace ZIPUTILS
 		bool PutFile(const char* ref, const char* d, size_t sz)
 		{
 			std::wstring fi = XML3::XMLU(ref);
-			ZipAdd(zz, fi.c_str(),(void*) d, sz, ZIP_FILENAME);
+			int iz = ZipAdd(zz, fi.c_str(),(void*) d, sz, ZIP_MEMORY);
+			if (iz == 0)
+				return true;
 			return false;
 		}
 	};
