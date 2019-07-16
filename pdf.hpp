@@ -11,6 +11,7 @@
 
 namespace PDF
 {
+	using namespace std;
 
 
 	// astring class

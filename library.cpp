@@ -26,7 +26,7 @@
 #include "CompleteCertificateRefs.h"
 #include "CompleteRevocationRefs.h"
 
-using namespace std;
+//using namespace std;
 
 #include "xml\\xml3all.h"
 
@@ -45,7 +45,7 @@ inline bool PutFile(const wchar_t* f, T2& d)
 }
 
 template <typename T = char>
-inline bool LoadFile(const wchar_t* f, vector<T>& d)
+inline bool LoadFile(const wchar_t* f, std::vector<T>& d)
 {
 	HANDLE hX = CreateFile(f, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
 	if (hX == INVALID_HANDLE_VALUE)
@@ -67,7 +67,7 @@ class OID
 public:
 
 
-	vector<unsigned char>abBinary;
+	std::vector<unsigned char>abBinary;
 
 
 	void MakeBase128(unsigned long l, int first) {
@@ -282,7 +282,7 @@ public:
 		return (nt == 0) ? true : false;
 	}
 
-	bool get(vector<BYTE>& b)
+	bool get(std::vector<BYTE>& b)
 	{
 		DWORD hl;
 		ULONG rs;
@@ -309,9 +309,9 @@ public:
 	}
 };
 
-inline vector<char> StripASNTagLength(vector<char>& d)
+inline std::vector<char> StripASNTagLength(std::vector<char>& d)
 {
-	vector<char> x = d;
+	std::vector<char> x = d;
 
 	// Strip Tag
 	x.erase(x.begin());
@@ -334,7 +334,7 @@ inline vector<char> StripASNTagLength(vector<char>& d)
 }
 
 
-inline void LenPush(unsigned char s, vector<char>& x, DWORD sz)
+inline void LenPush(unsigned char s, std::vector<char>& x, DWORD sz)
 {
 	x.push_back(s);
 	if (sz <= 127)
@@ -360,10 +360,10 @@ inline void LenPush(unsigned char s, vector<char>& x, DWORD sz)
 	}
 }
 
-inline vector<char> EncodeCertList(vector<PCCERT_CONTEXT>& d)
+inline std::vector<char> EncodeCertList(std::vector<PCCERT_CONTEXT>& d)
 {
 	// 	CertificateValues :: = SEQUENCE OF Certificate
-	vector<char> x;
+	std::vector<char> x;
 	DWORD sz = 0;
 	for (auto& dd : d)
 	{
@@ -372,7 +372,7 @@ inline vector<char> EncodeCertList(vector<PCCERT_CONTEXT>& d)
 	LenPush(0x30, x, sz);
 	for (auto& dd : d)
 	{
-		vector<char> dz(dd->cbCertEncoded);
+		std::vector<char> dz(dd->cbCertEncoded);
 		memcpy(dz.data(), dd->pbCertEncoded, dd->cbCertEncoded);
 		x.insert(x.end(), dz.begin(), dz.end());
 	}
@@ -380,7 +380,7 @@ inline vector<char> EncodeCertList(vector<PCCERT_CONTEXT>& d)
 	return x;
 }
 
-inline vector<char> EncodeCRLList(vector<PCCRL_CONTEXT>& d)
+inline std::vector<char> EncodeCRLList(std::vector<PCCRL_CONTEXT>& d)
 {
 	/*
 		TestTest tt = { 0 };
@@ -399,11 +399,11 @@ inline vector<char> EncodeCRLList(vector<PCCRL_CONTEXT>& d)
 		tt.testdummy2->buf[0] = 0x77;
 
 		// Encode it as DER
-		vector<char> buff3;
+		std::vector<char> buff3;
 		auto ec2 = der_encode(&asn_DEF_TestTest,
 			&tt, [](const void *buffer, size_t size, void *app_key) ->int
 		{
-			vector<char>* x = (vector<char>*)app_key;
+			std::vector<char>* x = (std::vector<char>*)app_key;
 			auto es = x->size();
 			x->resize(x->size() + size);
 			memcpy(x->data() + es, buffer, size);
@@ -411,7 +411,7 @@ inline vector<char> EncodeCRLList(vector<PCCRL_CONTEXT>& d)
 		}, (void*)&buff3);
 	*/
 
-	vector<char> x;
+	std::vector<char> x;
 
 	/*
 
@@ -437,7 +437,7 @@ inline vector<char> EncodeCRLList(vector<PCCRL_CONTEXT>& d)
 	LenPush(0x30, x, sz);
 	for (auto& dd : d)
 	{
-		vector<char> dz(dd->cbCrlEncoded);
+		std::vector<char> dz(dd->cbCrlEncoded);
 		memcpy(dz.data(), dd->pbCrlEncoded, dd->cbCrlEncoded);
 		x.insert(x.end(), dz.begin(), dz.end());
 	}
@@ -446,11 +446,11 @@ inline vector<char> EncodeCRLList(vector<PCCRL_CONTEXT>& d)
 	// x has the seq of CRLs
 
 	// We must also put the explicit tag 0xa0 <length>
-	vector<char> x3;
+	std::vector<char> x3;
 	LenPush(0xa0, x3,(DWORD) x.size());
 	x3.insert(x3.end(), x.begin(), x.end());
 
-	vector<char> x2;
+	std::vector<char> x2;
 	LenPush(0x30, x2, (DWORD)x3.size());
 	x2.insert(x2.end(), x3.begin(), x3.end());
 	return x2;
@@ -490,7 +490,7 @@ HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx, bool Attached, PCCER
 			DWORD da = 0;
 			if (CryptMsgGetParam(hMsg, CMSG_SIGNER_AUTH_ATTR_PARAM, sidx, 0, &da))
 			{
-				vector<char> ca;
+				std::vector<char> ca;
 				ca.resize(da);
 				if (CryptMsgGetParam(hMsg, CMSG_SIGNER_AUTH_ATTR_PARAM, sidx, ca.data(), &da))
 				{
@@ -508,7 +508,7 @@ HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx, bool Attached, PCCER
 						}
 						if (strcmp(attr.pszObjId, "1.2.840.113549.1.9.5") == 0 && attr.cValue == 1) // Timestamp
 						{
-							vector<char> bu(10000);
+							std::vector<char> bu(10000);
 							DWORD xd = 10000;
 							if (CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, szOID_RSA_signingTime, attr.rgValue[0].pbData, attr.rgValue[0].cbData, 0, 0, (void*)bu.data(), &xd))
 							{
@@ -525,7 +525,7 @@ HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx, bool Attached, PCCER
 							if (v)
 							{
 								// Check the certificate hash
-								vector<BYTE> dhash;
+								std::vector<BYTE> dhash;
 								HASH hash(BCRYPT_SHA256_ALGORITHM);
 								hash.hash(c->pbCertEncoded, c->cbCertEncoded);
 								hash.get(dhash);
@@ -567,7 +567,7 @@ HRESULT AdES::VerifyU(const char* data, DWORD sz, bool Attached, int TSServerSig
 	{
 		if (CryptMsgUpdate(hMsg, (BYTE*)data, (DWORD)sz, TRUE))
 		{
-			vector<char> ca;
+			std::vector<char> ca;
 			DWORD da = 0;
 			if (CryptMsgGetParam(hMsg, CMSG_SIGNER_UNAUTH_ATTR_PARAM, TSServerSignIndex, 0, &da))
 			{
@@ -600,7 +600,7 @@ HRESULT AdES::VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX, bool Attac
 			(DWORD)sz,   // Size of the encoded BLOB
 			TRUE))           // Last call
 		{
-			vector<char> ca;
+			std::vector<char> ca;
 			DWORD da = 0;
 
 			if (CryptMsgGetParam(
@@ -610,7 +610,7 @@ HRESULT AdES::VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX, bool Attac
 				NULL,                  // Address for returned information
 				&da))       // Size of the returned information
 			{
-				vector<char> EH(da);
+				std::vector<char> EH(da);
 				if (CryptMsgGetParam(
 					hMsg,                  // Handle to the message
 					CMSG_ENCRYPTED_DIGEST,  // Parameter type
@@ -668,7 +668,7 @@ HRESULT AdES::VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX, bool Attac
 	return hr;
 }
 
-HRESULT AdES::TimeStamp(SIGNPARAMETERS& sparams, const char* data, DWORD sz, vector<char>& Result, const wchar_t* url, const char* alg)
+HRESULT AdES::TimeStamp(SIGNPARAMETERS& sparams, const char* data, DWORD sz, std::vector<char>& Result, const wchar_t* url, const char* alg)
 {
 	CRYPT_TIMESTAMP_PARA params = { 0,TRUE,{},0,0 };
 	if (sparams.TSPolicy.length())
@@ -679,7 +679,7 @@ HRESULT AdES::TimeStamp(SIGNPARAMETERS& sparams, const char* data, DWORD sz, vec
 
 	if (!CryptRetrieveTimeStamp(url, flg, 0, alg, &params, (BYTE*)data, (DWORD)sz, &re, 0, 0))
 		return E_FAIL;
-	vector<char>& CR = Result;
+	std::vector<char>& CR = Result;
 	CR.resize(re->cbEncoded);
 	memcpy(CR.data(), re->pbEncoded, re->cbEncoded);
 	CryptMemFree(re);
@@ -689,6 +689,7 @@ HRESULT AdES::TimeStamp(SIGNPARAMETERS& sparams, const char* data, DWORD sz, vec
 HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev, const char* omsg, DWORD len, std::vector<char>* msg, std::vector<PCCERT_CONTEXT>* Certs, VERIFYRESULTS* vr, bool WasPDF)
 {
 	auto hr = E_FAIL;
+	using namespace std;
 
 	CRYPT_VERIFY_MESSAGE_PARA VerifyParams = { 0 };
 	VerifyParams.cbSize = sizeof(CRYPT_VERIFY_MESSAGE_PARA);
@@ -696,7 +697,7 @@ HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev, const char* omsg, D
 	VerifyParams.hCryptProv = 0;
 	VerifyParams.pfnGetSignerCertificate = NULL;
 	VerifyParams.pvGetArg = NULL;
-	vector<char> zud;
+	std::vector<char> zud;
 	DWORD pzud = 100000;
 	int NumVer = 0;
 
@@ -768,7 +769,7 @@ HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev, const char* omsg, D
 					VERIFYRESULT vrs;
 					if (CryptMsgGetParam(hMsg, CMSG_SIGNER_AUTH_ATTR_PARAM, sidx, 0, &da))
 					{
-						vector<char> ca;
+						std::vector<char> ca;
 						ca.resize(da);
 						if (CryptMsgGetParam(hMsg, CMSG_SIGNER_AUTH_ATTR_PARAM, sidx, ca.data(), &da))
 						{
@@ -785,7 +786,7 @@ HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev, const char* omsg, D
 										attr.rgValue[0].pbData, attr.rgValue[0].cbData, 0);
 									if (v)
 									{
-										vector<char> sp(v->choice.signaturePolicyId.sigPolicyId.size + 1);
+										std::vector<char> sp(v->choice.signaturePolicyId.sigPolicyId.size + 1);
 										memcpy_s(sp.data(), v->choice.signaturePolicyId.sigPolicyId.size + 1, v->choice.signaturePolicyId.sigPolicyId.buf, v->choice.signaturePolicyId.sigPolicyId.size);
 										OID oid;
 										string sdec = oid.dec(sp.data(), v->choice.signaturePolicyId.sigPolicyId.size);
@@ -803,7 +804,7 @@ HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev, const char* omsg, D
 										attr.rgValue[0].pbData, attr.rgValue[0].cbData, 0);
 									if (v)
 									{
-										vector<char> sp(v->commitmentTypeId.size + 1);
+										std::vector<char> sp(v->commitmentTypeId.size + 1);
 										memcpy_s(sp.data(), v->commitmentTypeId.size + 1, v->commitmentTypeId.buf, v->commitmentTypeId.size);
 										OID oid;
 										string sdec = oid.dec(sp.data(), v->commitmentTypeId.size);
@@ -829,8 +830,9 @@ HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev, const char* omsg, D
 }
 
 
-HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT_ALGORITHM_IDENTIFIER hash, vector<char>& rs)
+HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT_ALGORITHM_IDENTIFIER hash, std::vector<char>& rs)
 {
+	using namespace std;
 
 	/*
 	_CRYPT_SIGN_MESSAGE_PARA spar = { 0 };
@@ -845,14 +847,14 @@ HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT
 
 	const BYTE* MessageArray[] = { (BYTE*)s.data() };
 	CryptSignMessage(&spar, true, 1, MessageArray, rbs, 0, &blb);
-	vector<char> Sig(blb);
+	std::vector<char> Sig(blb);
 	CryptSignMessage(&spar, true, 1, MessageArray, rbs, (BYTE*)Sig.data(), &blb);
 	Sig.resize(blb);
 	string dss = XML3::Char2Base64((const char*)Sig.data(), Sig.size(), false);
 	sv.SetContent(dss.c_str());
 */
 	HRESULT hr = E_FAIL;
-	vector<HCRYPTPROV_OR_NCRYPT_KEY_HANDLE> PrivateKeys;
+	std::vector<HCRYPTPROV_OR_NCRYPT_KEY_HANDLE> PrivateKeys;
 	CMSG_SIGNER_ENCODE_INFO Signer = { 0 };
 	HCRYPTPROV_OR_NCRYPT_KEY_HANDLE a = 0;
 	DWORD ks = 0;
@@ -898,7 +900,7 @@ HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT
 		if (hMsg)
 		{
 			// Add the signature
-			vector<char> Sig2(cbEncodedBlob);
+			std::vector<char> Sig2(cbEncodedBlob);
 			if (CryptMsgUpdate(hMsg, (BYTE*)d, (DWORD)sz, true))
 			{
 				if (CryptMsgGetParam(
@@ -963,8 +965,9 @@ HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT
 	return hr;
 }
 
-tuple<shared_ptr<XML3::XMLElement>, shared_ptr<XML3::XMLElement>> XMLAddC(XML3::XMLElement& xusp,const std::vector<AdES::CERT>& Certificates,std::function<void(XML3::XMLElement& r, PCCERT_CONTEXT C)> putcert, std::function<void(XML3::XMLElement& r, PCCRL_CONTEXT C)> putcrl)
+std::tuple<std::shared_ptr<XML3::XMLElement>, std::shared_ptr<XML3::XMLElement>> XMLAddC(XML3::XMLElement& xusp,const std::vector<AdES::CERT>& Certificates,std::function<void(XML3::XMLElement& r, PCCERT_CONTEXT C)> putcert, std::function<void(XML3::XMLElement& r, PCCRL_CONTEXT C)> putcrl)
 {
+	using namespace std;
 	XML3::XMLElement c1 = "xades141:CompleteCertificateRefsV2";
 	c1.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
 	c1.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
@@ -1006,8 +1009,9 @@ tuple<shared_ptr<XML3::XMLElement>, shared_ptr<XML3::XMLElement>> XMLAddC(XML3::
 	return make_tuple< shared_ptr<XML3::XMLElement>, shared_ptr<XML3::XMLElement>>(std::forward<shared_ptr<XML3::XMLElement>>(xcc1), std::forward<shared_ptr<XML3::XMLElement>>(xcc2a));
 }
 
-void XMLAddX(AdES& ad,AdES::SIGNPARAMETERS& Params,string& CanonicalizationString,XML3::XMLElement& xusp, XML3::XMLSerialization& ser,shared_ptr<XML3::XMLElement> xcc1, shared_ptr<XML3::XMLElement> xcc2a)
+void XMLAddX(AdES& ad,AdES::SIGNPARAMETERS& Params,std::string& CanonicalizationString,XML3::XMLElement& xusp, XML3::XMLSerialization& ser,std::shared_ptr<XML3::XMLElement> xcc1, std::shared_ptr<XML3::XMLElement> xcc2a)
 {
+	using namespace std;
 	auto s1 = xcc1->Serialize(&ser);
 	auto s2 = xcc2a->Serialize(&ser);
 	s1 += s2;
@@ -1017,7 +1021,7 @@ void XMLAddX(AdES& ad,AdES::SIGNPARAMETERS& Params,string& CanonicalizationStrin
 	auto& h1 = xcc3->AddElement("xades:EncapsulatedTimeStamp");
 
 	// Find the timestamp
-	vector<char> tsr;
+	std::vector<char> tsr;
 	ad.TimeStamp(Params, (char*)s1.data(), (DWORD)s1.size(), tsr, Params.TSServer.c_str());
 	string b = XML3::Char2Base64(tsr.data(), tsr.size(), false);
 	h1.SetContent(b.c_str());
@@ -1046,6 +1050,7 @@ void XMLRemoveCDatas(XML3::XMLElement& el)
 
 void XMLAddXL(XML3::XMLElement& xusp, const std::vector<AdES::CERT>& Certificates)
 {
+	using namespace std;
 	XML3::XMLElement d1 = "xades132:CertificateValues";
 	d1.vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
 	d1.vv("xmlns:xades") = "http://uri.etsi.org/01903/v1.3.2#";
@@ -1110,6 +1115,7 @@ void XMLAddXL(XML3::XMLElement& xusp, const std::vector<AdES::CERT>& Certificate
 HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
 //	Params.XMLComments = true;
+	using namespace std;
 
 	string CanonicalizationString = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
 	if (Params.XMLComments)
@@ -1142,7 +1148,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		return x;
 	};
 
-	vector<XML3::XMLElement*> CollectionForA;
+	std::vector<XML3::XMLElement*> CollectionForA;
 
 
 	auto algfrom = [&]() -> string
@@ -1191,7 +1197,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 
 	auto remprefix = [](XML3::XMLElement& r)
 	{
-		vector<shared_ptr<XML3::XMLElement>> allc;
+		std::vector<shared_ptr<XML3::XMLElement>> allc;
 		r.GetAllChildren(allc);
 		for (auto a : allc)
 		{
@@ -1219,7 +1225,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 			auto& xces = xce.AddElement("xades:IssuerSerialV2");
 			xces["ds:X509SerialNumber"].SetContent(d);
 		}
-		vector<BYTE> dhash3;
+		std::vector<BYTE> dhash3;
 		LPWSTR alg3 = alg3from();
 		HASH hash33(alg3);
 		hash33.hash(C->pbCertEncoded, C->cbCertEncoded);
@@ -1235,7 +1241,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		xced["ds:DigestMethod"].vv("Algorithm") = alg2from();
 
 
-		vector<BYTE> dhash3;
+		std::vector<BYTE> dhash3;
 		LPWSTR alg3 = alg3from();
 		HASH hash33(alg3);
 		hash33.hash(C->pbCrlEncoded, C->cbCrlEncoded);
@@ -1269,7 +1275,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 
 	XML3::XMLSerialization ser;
 	ser.Canonical = true;
-	vector<BYTE> dhash;
+	std::vector<BYTE> dhash;
 	XML3::XML x;
 	LPWSTR alg = alg3from();
 	string d2;
@@ -1491,7 +1497,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 				xspolid3["ds:DigestMethod"].vv("Algorithm") = alg2from();
 				HASH hb(alg3from());
 				hb.hash((BYTE*)Params.Policy.data(), (DWORD)Params.Policy.size());
-				vector<BYTE> hbb;
+				std::vector<BYTE> hbb;
 				hb.get(hbb);
 				string dd2 = XML3::Char2Base64((char*)hbb.data(), hbb.size(), false);
 				xspolid3["ds:DigestValue"].SetContent(dd2.c_str());
@@ -1639,7 +1645,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		string sf = ds_SignedInfo.Serialize(&ser);
 
 
-		vector<char> Sig;
+		std::vector<char> Sig;
 		hr = GetEncryptedHash(sf.data(), (DWORD)sf.size(), Certificates[iCert].cert.cert, Params.HashAlgorithm, Sig);
 		string dss = XML3::Char2Base64((const char*)Sig.data(), Sig.size(), false);
 		sv.SetContent(dss.c_str());
@@ -1647,7 +1653,7 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 		if (lev >= LEVEL::T)
 		{
 			string svs = sv.Serialize(&ser);
-			vector<char> tsr;
+			std::vector<char> tsr;
 			TimeStamp(Params, (char*)svs.data(), (DWORD)svs.size(), tsr, Params.TSServer.c_str());
 			string b = XML3::Char2Base64(tsr.data(), tsr.size(), false);
 			tscontent->SetContent(b.c_str());
@@ -1732,8 +1738,9 @@ HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CER
 	return hr;
 }
 
-void hd(vector<char> d)
+void hd(std::vector<char> d)
 {
+	using namespace std;
 	string e;
 	char ee[10];
 	for (auto c : d)
@@ -1744,7 +1751,7 @@ void hd(vector<char> d)
 	MessageBoxA(0, e.c_str(), 0, 0);
 }
 
-HRESULT AdES::AddCT(vector<char>& Signature, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params)
+HRESULT AdES::AddCT(std::vector<char>& Signature, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params)
 {
 	HRESULT hr = E_FAIL;
 	DWORD dflg = 0;
@@ -1752,7 +1759,7 @@ HRESULT AdES::AddCT(vector<char>& Signature, const std::vector<CERT>& Certificat
 		dflg = CMSG_DETACHED_FLAG;
 	DWORD cbEncodedBlob = 0;
 
-	vector<char> EH;
+	std::vector<char> EH;
 	auto hMsg = CryptMsgOpenToDecode(MY_ENCODING_TYPE, dflg, 0, 0, 0, 0);
 	if (hMsg)
 	{
@@ -1769,7 +1776,7 @@ HRESULT AdES::AddCT(vector<char>& Signature, const std::vector<CERT>& Certificat
 					{
 						EH.resize(cbEncodedBlob);
 
-						vector<char> CR;
+						std::vector<char> CR;
 						auto hrx = TimeStamp(Params, EH.data(), (DWORD)EH.size(), CR, Params.TSServer.c_str());
 						if (FAILED(hrx))
 						{
@@ -1788,7 +1795,7 @@ HRESULT AdES::AddCT(vector<char>& Signature, const std::vector<CERT>& Certificat
 							cat.pszObjId = "1.2.840.113549.1.9.16.2.14";
 							DWORD aa;
 							CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
-							vector<char> enc(aa);
+							std::vector<char> enc(aa);
 							CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
 							enc.resize(aa);
 
@@ -1830,22 +1837,23 @@ HRESULT AdES::AddCT(vector<char>& Signature, const std::vector<CERT>& Certificat
 
 
 
-std::tuple<HRESULT, vector<char>, vector<char>>  AdES::AddCC(vector<char>& Signature, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params)
+std::tuple<HRESULT, std::vector<char>, std::vector<char>>  AdES::AddCC(std::vector<char>& Signature, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params)
 {
+	using namespace std;
 	HRESULT hr = E_FAIL;
 	DWORD dflg = 0;
 	if (Params.Attached == ATTACHTYPE::DETACHED)
 		dflg = CMSG_DETACHED_FLAG;
-	vector <shared_ptr<vector<char>>> mem;
+	vector <shared_ptr<std::vector<char>>> mem;
 	DWORD cbEncodedBlob = 0;
 
 
-	vector<char> buff3;
-	vector<char> buff5;
-	vector<char> full1;
-	vector<char> full2;
+	std::vector<char> buff3;
+	std::vector<char> buff5;
+	std::vector<char> full1;
+	std::vector<char> full2;
 
-	vector<char> EH;
+	std::vector<char> EH;
 	auto hMsg = CryptMsgOpenToDecode(MY_ENCODING_TYPE, dflg, 0, 0, 0, 0);
 	if (hMsg)
 	{
@@ -1866,7 +1874,7 @@ std::tuple<HRESULT, vector<char>, vector<char>>  AdES::AddCC(vector<char>& Signa
 				{
 					auto& c = cert.More[i5];
 					// Hash of the cert
-					vector<BYTE> dhash;
+					std::vector<BYTE> dhash;
 					HASH hash(BCRYPT_SHA1_ALGORITHM);
 					hash.hash(c.cert->pbCertEncoded, c.cert->cbCertEncoded);
 					hash.get(dhash);
@@ -1882,7 +1890,7 @@ std::tuple<HRESULT, vector<char>, vector<char>>  AdES::AddCC(vector<char>& Signa
 				auto ec2 = der_encode(&asn_DEF_CompleteCertificateRefs,
 					v2, [](const void *buffer, size_t size, void *app_key) ->int
 				{
-					vector<char>* x = (vector<char>*)app_key;
+					std::vector<char>* x = (std::vector<char>*)app_key;
 					auto es = x->size();
 					x->resize(x->size() + size);
 					memcpy(x->data() + es, buffer, size);
@@ -1902,7 +1910,7 @@ std::tuple<HRESULT, vector<char>, vector<char>>  AdES::AddCC(vector<char>& Signa
 					cat.pszObjId = "1.2.840.113549.1.9.16.2.21";
 					DWORD aa;
 					CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
-					vector<char> enc(aa);
+					std::vector<char> enc(aa);
 					CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
 					enc.resize(aa);
 
@@ -1936,7 +1944,7 @@ std::tuple<HRESULT, vector<char>, vector<char>>  AdES::AddCC(vector<char>& Signa
 					{
 						auto& crl = c[iii];
 						// Hash of the cert
-						vector<BYTE> dhash;
+						std::vector<BYTE> dhash;
 						HASH hash(BCRYPT_SHA1_ALGORITHM);
 						hash.hash(crl->pbCrlEncoded, crl->cbCrlEncoded);
 						hash.get(dhash);
@@ -1954,7 +1962,7 @@ std::tuple<HRESULT, vector<char>, vector<char>>  AdES::AddCC(vector<char>& Signa
 				auto ec3 = der_encode(&asn_DEF_CompleteRevocationRefs,
 					v3, [](const void *buffer, size_t size, void *app_key) ->int
 				{
-					vector<char>* x = (vector<char>*)app_key;
+					std::vector<char>* x = (std::vector<char>*)app_key;
 					auto es = x->size();
 					x->resize(x->size() + size);
 					memcpy(x->data() + es, buffer, size);
@@ -1975,7 +1983,7 @@ std::tuple<HRESULT, vector<char>, vector<char>>  AdES::AddCC(vector<char>& Signa
 					cat.pszObjId = "1.2.840.113549.1.9.16.2.22";
 					DWORD aa;
 					CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
-					vector<char> enc(aa);
+					std::vector<char> enc(aa);
 					CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
 					enc.resize(aa);
 
@@ -2024,7 +2032,7 @@ HRESULT AdES::AddCX(std::vector<char>& Signature, const std::vector<CERT>& Certi
 		dflg = CMSG_DETACHED_FLAG;
 	DWORD cbEncodedBlob = 0;
 
-	vector<char> EH;
+	std::vector<char> EH;
 	auto hMsg = CryptMsgOpenToDecode(MY_ENCODING_TYPE, dflg, 0, 0, 0, 0);
 	if (hMsg)
 	{
@@ -2035,16 +2043,16 @@ HRESULT AdES::AddCX(std::vector<char>& Signature, const std::vector<CERT>& Certi
 			for (DWORD i = 0; i < Certificates.size(); i++)
 			{
 				// cert + rev but without tag-length
-				vector<char> EH2 = StripASNTagLength(full1);
-				vector<char> EH3 = StripASNTagLength(full2);
+				std::vector<char> EH2 = StripASNTagLength(full1);
+				std::vector<char> EH3 = StripASNTagLength(full2);
 				EH2.insert(EH2.end(), EH3.begin(), EH3.end());
 
-				vector<BYTE> dhash;
+				std::vector<BYTE> dhash;
 				HASH hash(BCRYPT_SHA256_ALGORITHM);
 				hash.hash((BYTE*)EH2.data(), (DWORD)EH2.size());
 				hash.get(dhash);
 
-				vector<char> CR;
+				std::vector<char> CR;
 				auto hrx = TimeStamp(Params, EH2.data(), (DWORD)EH2.size(), CR, Params.TSServer.c_str());
 				if (FAILED(hrx))
 				{
@@ -2062,7 +2070,7 @@ HRESULT AdES::AddCX(std::vector<char>& Signature, const std::vector<CERT>& Certi
 					cat.pszObjId = "1.2.840.113549.1.9.16.2.26";
 					DWORD aa;
 					CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
-					vector<char> enc(aa);
+					std::vector<char> enc(aa);
 					CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
 					enc.resize(aa);
 
@@ -2110,7 +2118,7 @@ HRESULT AdES::AddCXL(std::vector<char>& Signature, const std::vector<CERT>& Cert
 		dflg = CMSG_DETACHED_FLAG;
 	DWORD cbEncodedBlob = 0;
 
-	vector<char> EH;
+	std::vector<char> EH;
 	auto hMsg = CryptMsgOpenToDecode(MY_ENCODING_TYPE, dflg, 0, 0, 0, 0);
 	if (hMsg)
 	{
@@ -2120,8 +2128,8 @@ HRESULT AdES::AddCXL(std::vector<char>& Signature, const std::vector<CERT>& Cert
 			bool S = true;
 			for (DWORD i = 0; i < Certificates.size(); i++)
 			{
-				vector<PCCERT_CONTEXT> ve;
-				vector<PCCRL_CONTEXT> vcrls;
+				std::vector<PCCERT_CONTEXT> ve;
+				std::vector<PCCRL_CONTEXT> vcrls;
 				auto& c = Certificates[i];
 				ve.push_back(c.cert.cert);
 				for (auto& cc : c.cert.Crls)
@@ -2148,7 +2156,7 @@ HRESULT AdES::AddCXL(std::vector<char>& Signature, const std::vector<CERT>& Cert
 					cat.pszObjId = "1.2.840.113549.1.9.16.2.23";
 					DWORD aa;
 					CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
-					vector<char> enc(aa);
+					std::vector<char> enc(aa);
 					CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
 					enc.resize(aa);
 
@@ -2174,7 +2182,7 @@ HRESULT AdES::AddCXL(std::vector<char>& Signature, const std::vector<CERT>& Cert
 					cat.pszObjId = "1.2.840.113549.1.9.16.2.24";
 					DWORD aa;
 					CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, 0, &aa);
-					vector<char> enc(aa);
+					std::vector<char> enc(aa);
 					CryptEncodeObject(MY_ENCODING_TYPE, PKCS_ATTRIBUTE, (void*)&cat, (BYTE*)enc.data(), &aa);
 					enc.resize(aa);
 
@@ -2215,14 +2223,14 @@ HRESULT AdES::AddCXL(std::vector<char>& Signature, const std::vector<CERT>& Cert
 #include "pdf.hpp"
 
 
-HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long long objnum, vector<vector<char>>& r)
+HRESULTERROR AdES::PDFCreateDSSObject(const std::vector<CERT>& Certificates, long long objnum, std::vector<std::vector<char>>& r)
 {
 	if (Certificates.empty())
 		return E_INVALIDARG;
 
 	// Get the CRLs
-	vector<PCCRL_CONTEXT> crls;
-	vector<PCCERT_CONTEXT> certs;
+	std::vector<PCCRL_CONTEXT> crls;
+	std::vector<PCCERT_CONTEXT> certs;
 
 	for (auto& c : Certificates)
 	{
@@ -2260,10 +2268,10 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long lon
 
 	*/
 
-	vector<long long> certobjs;
+	std::vector<long long> certobjs;
 	for (auto& c : certs)
 	{
-		vector<char> co(1024 * 1024);
+		std::vector<char> co(1024 * 1024);
 		uLong cxs = 1024 * 1024;
 		int u = compress((Bytef*)co.data(), &cxs, (Bytef*)c->pbCertEncoded, c->cbCertEncoded);
 		if (u != 0)
@@ -2275,7 +2283,7 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long lon
 		PDF::astring g2;
 		g2.Format("\nendstream\nendobj\n");
 
-		vector<char> f;
+		std::vector<char> f;
 		f.insert(f.end(), g1.begin(), g1.end());
 		f.insert(f.end(), co.begin(), co.end());
 		f.insert(f.end(), g2.begin(), g2.end());
@@ -2285,10 +2293,10 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long lon
 	}
 
 
-	vector<long long> crlobjs;
+	std::vector<long long> crlobjs;
 	for (auto& c : crls)
 	{
-		vector<char> co(1024 * 1024);
+		std::vector<char> co(1024 * 1024);
 		uLong cxs = 1024*1024;
 		int u = compress((Bytef*)co.data(), &cxs, (Bytef*)c->pbCrlEncoded, c->cbCrlEncoded);
 		if (u != 0)
@@ -2300,7 +2308,7 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long lon
 		PDF::astring g2;
 		g2.Format("\nendstream\nendobj\n");
 
-		vector<char> f;
+		std::vector<char> f;
 		f.insert(f.end(), g1.begin(), g1.end());
 		f.insert(f.end(), co.begin(), co.end());
 		f.insert(f.end(), g2.begin(), g2.end());
@@ -2322,7 +2330,7 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long lon
 			g1 += g1a;
 		}
 		g1 += "]\nendobj\n";
-		vector<char> f1;
+		std::vector<char> f1;
 		f1.insert(f1.end(), g1.begin(), g1.end());
 		r.push_back(f1);
 		objnum++;
@@ -2341,7 +2349,7 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long lon
 			g1 += g1a;
 		}
 		g1 += "]\nendobj\n";
-		vector<char> f1;
+		std::vector<char> f1;
 		f1.insert(f1.end(), g1.begin(), g1.end());
 		r.push_back(f1);
 		objnum++;
@@ -2353,7 +2361,7 @@ HRESULTERROR AdES::PDFCreateDSSObject(const vector<CERT>& Certificates, long lon
 	{
 		PDF::astring g1;
 		g1.Format("%llu 0 obj\n<</Type/DSS/Certs %llu 0 R/CRLs %llu 0 R>>\nendobj\n", objnum,certobj,crlobj);
-		vector<char> f1;
+		std::vector<char> f1;
 		f1.insert(f1.end(), g1.begin(), g1.end());
 		r.push_back(f1);
 		objnum++;
@@ -2384,7 +2392,7 @@ HRESULT AdES::GreekVerifyTimestamp(PCCERT_CONTEXT a, PCRYPT_TIMESTAMP_CONTEXT tc
 		if (ku->rgpszUsageIdentifier && strcmp(*ku->rgpszUsageIdentifier, "1.3.6.1.5.5.7.3.8") == 0)
 		{
 			r.TSThere = 1;
-			vector<wchar_t> name(1000);
+			std::vector<wchar_t> name(1000);
 			CertGetNameString(a,
 				CERT_NAME_SIMPLE_DISPLAY_TYPE,
 				CERT_NAME_ISSUER_FLAG,
@@ -2404,6 +2412,7 @@ HRESULT AdES::GreekVerifyTimestamp(PCCERT_CONTEXT a, PCRYPT_TIMESTAMP_CONTEXT tc
 
 HRESULT AdES::GreekVerifyCertificate(PCCERT_CONTEXT a, const char* sig, DWORD sigsize, GREEKRESULTS& r)
 {
+	using namespace std;
 	HRESULT rx = E_FAIL;
 	if (!a)
 		return rx;
@@ -2460,17 +2469,18 @@ HRESULT AdES::GreekVerifyCertificate(PCCERT_CONTEXT a, const char* sig, DWORD si
 	return rx;
 }
 
-HRESULTERROR AdES::PDFVerify(const char* d, DWORD sz, vector<PDFVERIFY>& VerifyX)
+HRESULTERROR AdES::PDFVerify(const char* d, DWORD sz, std::vector<PDFVERIFY>& VerifyX)
 {
 	AdES::SIGNPARAMETERS Params;
-	vector<AdES::CERT> Certs;
+	std::vector<AdES::CERT> Certs;
 	LEVEL levx = LEVEL::CMS;
-	vector<char> res;
+	std::vector<char> res;
 	return PDFSign(levx, d, sz, Certs, Params, res, &VerifyX);
 }
 
-HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res,vector<PDFVERIFY>* VerifyX)
+HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res,std::vector<PDFVERIFY>* VerifyX)
 {
+	using namespace std;
 	PDF::PDF pdf;
 	auto herr = pdf.Parse2(d, sz);
 	if (FAILED(herr))
@@ -2500,7 +2510,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 
 	// Count from all revisions
 	long long Count = 0;
-	vector<PDF::OBJECT*> FoundCounts;
+	std::vector<PDF::OBJECT*> FoundCounts;
 	for (auto& doc : pdf.docs)
 	{
 		auto rn = doc.root();
@@ -2580,7 +2590,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 
 
 	bool InRL = false;
-	vector<char> to_sign;
+	std::vector<char> to_sign;
 	char* ps = to_sign.data();
 	char* ps2 = res.data();
 	to_sign.resize(sz);
@@ -2648,7 +2658,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	if (Params.pdfparams.Visible.t.empty())
 		iDSS -= 4;
 
-	vector<char> pageser;
+	std::vector<char> pageser;
 	auto pg = *PageObject;
 	for (auto cc = pg.content.Contents.begin(); cc != pg.content.Contents.end(); cc++)
 	{
@@ -2737,7 +2747,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 
 				// Check values, may be obj 0 R obj 0 R etc
 				std::stringstream stream(annot.Value);
-				vector<unsigned long long> ObjectsToLook;
+				std::vector<unsigned long long> ObjectsToLook;
 				for(int jji = 0 ;jji < 3 ;jji++) {
 					long long n = 0;
 					string f;
@@ -2773,8 +2783,8 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 					}
 
 					// We find the /V
-					vector<long long>  br;
-					vector<char> sig;
+					std::vector<long long>  br;
+					std::vector<char> sig;
 					unsigned long long SigStartsAt = 0;
 					for (auto& cc : obj->content.Contents)
 					{
@@ -2834,7 +2844,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 						//VerifyX->push_back(pv);
 						continue;
 					}
-					vector<char> dx;
+					std::vector<char> dx;
 					dx.resize(br[1] + br[3]);
 					memcpy(dx.data(), d + br[0], br[1]);
 					memcpy(dx.data() + br[1], d + br[2], br[3]);
@@ -2862,7 +2872,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	}
 
 
-	vector<char> strref;
+	std::vector<char> strref;
 	auto refp = pdf.findname(RefObject, "Parent");
 	// iPages in Parent
 	refp->Value.Format("%llu 0 R", iPages);
@@ -2974,7 +2984,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	PDF::astring vVisA3;
 	//	PDF::astring v7, v7b;
 	PDF::astring v71, v73;
-	vector<char> v72;
+	std::vector<char> v72;
 
 	PDF::astring vProducer;
 	PDF::astring vPage;
@@ -3036,7 +3046,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		// Auto
 		if (Params.pdfparams.Visible.t == "auto" && Certificates.size() > 0)
 		{
-			vector<char> di(1000);
+			std::vector<char> di(1000);
 			CertGetNameStringA(
 				Certificates[0].cert.cert,
 				CERT_NAME_SIMPLE_DISPLAY_TYPE,
@@ -3095,13 +3105,13 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 
 
 	// Build DSS if level > XL
-	vector<vector<char>> dss;
+	std::vector<std::vector<char>> dss;
 	if (levx >= LEVEL::XL)
 		PDFCreateDSSObject(Certificates, iDSS,dss);
 
 	// Use the same rootobject
 	auto r2 = *rootobject;
-	vector<char> r2ser;
+	std::vector<char> r2ser;
 	if (r2.content.Type == PDF::INXTYPE::TYPE_DIC)
 	{
 		PDF::astring acro;
@@ -3148,7 +3158,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		for (long long i = 0; i < dss.size(); i++)
 		{
 			auto& d = dss[i];
-			vector<char> vDss;
+			std::vector<char> vDss;
 			vDss.insert(vDss.end(), d.begin(), d.end());
 
 			xrefs[iDSS + i] = vafter.size() + res.size() + 1;
@@ -3160,7 +3170,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	unsigned long long xrefpos = vafter.size() + res.size() + 1;
 
 	// Build xrefs
-	vector<unsigned long long> xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iFont, iFont2,iProducer };
+	std::vector<unsigned long long> xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iFont, iFont2,iProducer };
 	if (HelvFound)
 		xrint = { iRoot ,iPages, iPage, iSignature, iXOBject, iDescribeSignature, iProducer };
 
@@ -3205,11 +3215,11 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	else
 	{
 		// Create a new
-		vector<char> b1(16);
+		std::vector<char> b1(16);
 		BCryptGenRandom(NULL, (BYTE*)b1.data(), 16, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
 		id1 = PDF::BinToHex((unsigned char*)b1.data(), 16);
 	}
-	vector<char> b2(16);
+	std::vector<char> b2(16);
 	BCryptGenRandom(NULL, (BYTE*)b2.data(), 16, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
 	id2 = PDF::BinToHex((unsigned char*)b2.data(), 16);
 
@@ -3222,8 +3232,8 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	// Index (num)
 	// Offset (num)
 	// CRC at end
-	vector<char> uncompressedxref;
-	vector<char> compressedxref;
+	std::vector<char> uncompressedxref;
+	std::vector<char> compressedxref;
 
 	xrint.insert(xrint.begin(), 0);
 	map<long long, long long> need;
@@ -3269,7 +3279,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 			{
 				xg.Format("%010llu 65535 f \n", j);
 
-				vector<char> bx(7);
+				std::vector<char> bx(7);
 				bx[0] = 0;
 				unsigned long b = (unsigned long)j;
 				memcpy(bx.data() + 1, &b, 4);
@@ -3282,7 +3292,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 			{
 				xg.Format("%010llu 00000 n \n", j);
 
-				vector<char> bx(7);
+				std::vector<char> bx(7);
 				bx[0] = 1;
 				unsigned long b = (unsigned long)j;
 				b = _byteswap_ulong(b);
@@ -3314,7 +3324,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	compress((Bytef*)compressedxref.data(), &cxs, (Bytef*)uncompressedxref.data(), uncompressedxref.size());
 
 
-	vector<char> uxref;
+	std::vector<char> uxref;
 	if (XRefObject)
 	{
 		PDF::astring objectxrefidx = "Index [";
@@ -3391,7 +3401,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		for (long long i = 0; i < dss.size(); i++)
 		{
 			auto& d = dss[i];
-			vector<char> vDss;
+			std::vector<char> vDss;
 			vDss.insert(vDss.end(), d.begin(), d.end());
 			vafter.insert(vafter.end(), vDss.begin(), vDss.end());
 		}
@@ -3417,12 +3427,12 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 
 	Params.PAdES = true;
 	Params.Attached = AdES::ATTACHTYPE::DETACHED;
-	vector<char> r;
+	std::vector<char> r;
 	auto hrx = Sign(levx, to_sign.data(), (DWORD)to_sign.size(), Certificates, Params, r);
 	if (FAILED(hrx))
 		return hrx;
 	//			AdES::LEVEL lev;
-	//			vector<char> org;
+	//			std::vector<char> org;
 	//			ad.Verify(r.data(), r.size(), lev, 0, 0, &org);
 	//			char* a2 = (char*)org.data();
 
@@ -3445,20 +3455,21 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 
 HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
+	using namespace std;
 	auto hr = E_FAIL;
 	if (!data || !sz)
 		return E_INVALIDARG;
 	if (Certificates.empty())
 		return E_INVALIDARG;
 
-	vector<HCRYPTPROV_OR_NCRYPT_KEY_HANDLE> PrivateKeys;
-	vector<CERT_BLOB> CertsIncluded;
-	vector<CMSG_SIGNER_ENCODE_INFO> Signers;
+	std::vector<HCRYPTPROV_OR_NCRYPT_KEY_HANDLE> PrivateKeys;
+	std::vector<CERT_BLOB> CertsIncluded;
+	std::vector<CMSG_SIGNER_ENCODE_INFO> Signers;
 	int AuthAttr = CMSG_AUTHENTICATED_ATTRIBUTES_FLAG;
 	if (lev == LEVEL::CMS)
 		AuthAttr = 0;
 
-	vector <shared_ptr<vector<char>>> mem;
+	vector <shared_ptr<std::vector<char>>> mem;
 	for (auto& c : Certificates)
 	{
 		if (Params.Debug) printf("Using new certificate...\r\n");
@@ -3512,7 +3523,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 
 			// Hash of the cert
 			if (Params.Debug) printf("Adding certificate...\r\n");
-			vector<BYTE> dhash;
+			std::vector<BYTE> dhash;
 			HASH hash(BCRYPT_SHA256_ALGORITHM);
 			hash.hash(c.cert.cert->pbCertEncoded, c.cert.cert->cbCertEncoded);
 			hash.get(dhash);
@@ -3529,11 +3540,11 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 			// SHA-256 is the default
 
 			// Encode it as DER
-			vector<char> buff3;
+			std::vector<char> buff3;
 			auto ec2 = der_encode(&asn_DEF_SigningCertificateV2,
 				v, [](const void *buffer, size_t size, void *app_key) ->int
 			{
-				vector<char>* x = (vector<char>*)app_key;
+				std::vector<char>* x = (std::vector<char>*)app_key;
 				auto es = x->size();
 				x->resize(x->size() + size);
 				memcpy(x->data() + es, buffer, size);
@@ -3554,19 +3565,19 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 			if (Params.commitmentTypeOid.length())
 			{
 				if (Params.Debug) printf("Adding commitment type...\r\n");
-				vector<char> ctt(strlen(Params.commitmentTypeOid.c_str()) + 1);
+				std::vector<char> ctt(strlen(Params.commitmentTypeOid.c_str()) + 1);
 				memcpy(ctt.data(), Params.commitmentTypeOid.c_str(), strlen(Params.commitmentTypeOid.c_str()));
 				OID oid;
-				vector<unsigned char> cttbin = oid.enc(ctt.data());
+				std::vector<unsigned char> cttbin = oid.enc(ctt.data());
 				CommitmentTypeIndication* ct = AddMem<CommitmentTypeIndication>(mem, sizeof(CommitmentTypeIndication));
 				ct->commitmentTypeId.buf = (uint8_t*)cttbin.data();
 				ct->commitmentTypeId.size = (DWORD)cttbin.size();
 
-				vector<char> ooo;
+				std::vector<char> ooo;
 				auto ec = der_encode(&asn_DEF_CommitmentTypeIndication,
 					ct, [](const void *buffer, size_t size, void *app_key) ->int
 				{
-					vector<char>* x = (vector<char>*)app_key;
+					std::vector<char>* x = (std::vector<char>*)app_key;
 					auto es = x->size();
 					x->resize(x->size() + size);
 					memcpy(x->data() + es, buffer, size);
@@ -3587,10 +3598,10 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 			if (Params.Policy.length() > 0)
 			{
 				if (Params.Debug) printf("Adding policy...\r\n");
-				vector<char> Polx(Params.Policy.size() + 1);
+				std::vector<char> Polx(Params.Policy.size() + 1);
 				memcpy(Polx.data(), Params.Policy.c_str(), Params.Policy.size());
 				OID oid;
-				vector<unsigned char> PolBinary = oid.enc(Polx.data());
+				std::vector<unsigned char> PolBinary = oid.enc(Polx.data());
 				SignaturePolicyIdentifier* v2 = AddMem<SignaturePolicyIdentifier>(mem, sizeof(SignaturePolicyIdentifier));
 				v2->present = SignaturePolicyIdentifier_PR_signaturePolicyId;
 				v2->choice.signaturePolicyId.sigPolicyId.buf = (uint8_t*)PolBinary.data();
@@ -3602,17 +3613,17 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 
 				HASH hb(BCRYPT_SHA1_ALGORITHM);
 				hb.hash(v2->choice.signaturePolicyId.sigPolicyId.buf, v2->choice.signaturePolicyId.sigPolicyId.size);
-				vector<BYTE> hbb;
+				std::vector<BYTE> hbb;
 				hb.get(hbb);
 				v2->choice.signaturePolicyId.sigPolicyHash.hashValue.buf = hbb.data();
 				v2->choice.signaturePolicyId.sigPolicyHash.hashValue.size = (DWORD)hbb.size();
 
 
-				vector<char> ooo;
+				std::vector<char> ooo;
 				auto ec = der_encode(&asn_DEF_SignaturePolicyIdentifier,
 					v2, [](const void *buffer, size_t size, void *app_key) ->int
 				{
-					vector<char>* x = (vector<char>*)app_key;
+					std::vector<char>* x = (std::vector<char>*)app_key;
 					auto es = x->size();
 					x->resize(x->size() + size);
 					memcpy(x->data() + es, buffer, size);
@@ -3750,20 +3761,55 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 }
 
 
-#include "zipall.hpp"
 
-inline wstring TempFile(wchar_t* x, const wchar_t* prf)
+inline std::wstring TempFile(wchar_t* x, const wchar_t* prf)
 {
-	vector<wchar_t> td(1000);
+	std::vector<wchar_t> td(1000);
 	GetTempPathW(1000, td.data());
 	GetTempFileNameW(td.data(), prf, 0, x);
 	return x;
 }
 
 
+#define USE_XZIP
+#ifdef USE_XZIP
+#include "xzip.hpp"
+namespace ZIPUTILS
+{
+	class ZIP
+	{
+		HZIP zz = 0;
+	public:
+
+
+		~ZIP()
+		{
+			if (zz)
+				CloseZip(zz);
+			zz = 0;
+		}
+
+		ZIP(const char* fn)
+		{
+			std::wstring fi = XML3::XMLU(fn);
+			zz = CreateZip((void*)fi.c_str(), 0, ZIP_FILENAME);
+		}
+
+		bool PutFile(const char* ref, const char* d, size_t sz)
+		{
+			std::wstring fi = XML3::XMLU(ref);
+			ZipAdd(zz, fi.c_str(),(void*) d, sz, ZIP_FILENAME);
+			return false;
+		}
+	};
+}
+#else
+#include "zipall.hpp"
+#endif
 
 HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<FILEREF>& data, std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata)
 {
+	using namespace std;
 	HRESULT hr = E_FAIL;
 	fndata.clear();
 
@@ -3786,7 +3832,7 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<FILEREF>& data,
 
 		if (typ == ATYPE::CADES)
 		{
-			vector<char> S;
+			std::vector<char> S;
 			Params.Attached = AdES::ATTACHTYPE::DETACHED;
 			hr = Sign(lev, (const char*)t.data, t.sz, Certificates, Params, S);
 			if (FAILED(hr))
@@ -3800,7 +3846,7 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<FILEREF>& data,
 		}
 		else
 		{
-			vector<char> S;
+			std::vector<char> S;
 			Params.Attached = AdES::ATTACHTYPE::DETACHED;
 			Params.ASiC = true;
 
@@ -3874,7 +3920,7 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<FILEREF>& data,
 
 			HASH h(BCRYPT_SHA256_ALGORITHM);
 			h.hash((BYTE*)t.data, t.sz);
-			vector<BYTE> ddd;
+			std::vector<BYTE> ddd;
 			h.get(ddd);
 
 			string a = XML3::Char2Base64((char*)ddd.data(), ddd.size(), false);
@@ -3886,7 +3932,7 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<FILEREF>& data,
 		string s = ASiCManifest.Serialize(&ser);
 		z.PutFile("META-INF/ASiCManifest.xml", (const char*)s.data(), (DWORD)s.size());
 
-		vector<char> S;
+		std::vector<char> S;
 		Params.Attached = AdES::ATTACHTYPE::DETACHED;
 		Params.ASiC = true;
 	
@@ -3908,11 +3954,11 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<FILEREF>& data,
 /*			auto tu = make_tuple<const BYTE*, DWORD, const char*>(std::forward<const BYTE*>((BYTE*)s.data()), 0, 0);
 			std::get<1>(tu) =(DWORD) s.size();
 			std::get<2>(tu) = "META-INF/ASiCManifest.xml";
-			vector<tuple<const BYTE*, DWORD, const char*>> tu2 = { tu };
+			std::vector<tuple<const BYTE*, DWORD, const char*>> tu2 = { tu };
 			hr = XMLSign(lev, tu2, Certificates, Params, S);
 */
 			FILEREF tu(s.data(), 0, 0);
-			vector<FILEREF> tu2 = { tu };
+			std::vector<FILEREF> tu2 = { tu };
 			hr = XMLSign(lev, tu2, Certificates, Params, S);
 			if (FAILED(hr))
 			{
@@ -3944,3 +3990,4 @@ HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<FILEREF>& data,
 
 	return hr;
 }
+
