@@ -1112,6 +1112,29 @@ void XMLAddXL(XML3::XMLElement& xusp, const std::vector<AdES::CERT>& Certificate
 	auto xdd2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(dd2));
 }
 
+HRESULT AdES::XMLVerify(const char* xmldata, LEVEL& lev, ATTACHTYPE& att, const char* omsg, DWORD len, std::vector<PCCERT_CONTEXT> * Certs, VERIFYRESULTS * vr)
+{
+	using namespace std;
+	HRESULT hr = E_FAIL;
+	if (!xmldata)
+		return hr;
+	if (omsg && len)
+	{
+		// Detached
+		att = ATTACHTYPE::DETACHED;
+		XML3::XML x(xmldata, strlen(xmldata));
+
+		// Find 	<ds:SignedInfo> <dS:Reference> to data0
+
+
+
+	}
+
+	hr = E_NOTIMPL;
+	return hr;
+}
+
+
 HRESULT AdES::XMLSign(LEVEL lev, std::vector<FILEREF>& dat,const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature)
 {
 //	Params.XMLComments = true;

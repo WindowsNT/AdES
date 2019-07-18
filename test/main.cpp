@@ -198,6 +198,18 @@ int main()
 	LoadFile(L"..\\hello2.asics", asic2);
 	a.VerifyASiC(asic2.data(), asic2.size(), av);
 	*/
+	// test
+	if (true)
+	{
+		vector<char> x1;
+		vector<char> x2;
+		LoadFile(L"..\\hello.xml", x1);
+		LoadFile(L"..\\hello3.xml", x2);
+		AdES::LEVEL lev;
+		AdES::ATTACHTYPE att;
+		x2.resize(x2.size() + 1);
+		a.XMLVerify(x2.data(),lev,att,x1.data(), x1.size(),0);
+	}
 
 
 	std::vector<AdES::CERT> Certs;
@@ -255,7 +267,7 @@ int main()
 
 	// Picker by subject
 #else
-	auto cert = HrGetSigner(L"ch.michael@lol.gr"); 
+	auto cert = HrGetSigner(L"m.chourdakis@lol.gr"); 
 	if (!cert)
 		return 0;
 	putin(cert);
@@ -299,7 +311,7 @@ int main()
 	Params.Attached = AdES::ATTACHTYPE::ATTACHED;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
 	Params.commitmentTypeOid = "1.2.840.113549.1.9.16.6.1";
-	Params.HashAlgorithm.pszObjId = "2.16.840.1.101.3.4.2.8";
+	//Params.HashAlgorithm.pszObjId = "2.16.840.1.101.3.4.2.8";
 	auto hr1 = a.Sign(AdES::LEVEL::T, msg, (DWORD)b, Certs,  Params,Sig);
 	PutFile(L"..\\hello2.p7m", Sig);
 	AdES::LEVEL lev;
@@ -316,6 +328,7 @@ int main()
 	Params.pdfparams.Location = "Here";
 	Params.pdfparams.Reason = "Because I want to";
 	Params.pdfparams.Contact = "Heaven";
+	
 	Sig.clear();
 	auto hr6 = a.PDFSign(AdES::LEVEL::T, hellopdf.data(), (DWORD)hellopdf.size(), Certs, Params, Sig);
 	PutFile(L"..\\hello2.pdf", Sig);
@@ -341,6 +354,16 @@ int main()
 		auto hr2 = a.XMLSign(AdES::LEVEL::T, ax, Certs, Params, Sig);
 	}
 	PutFile(L"..\\hello2.xml", Sig);
+
+	// Some detached XML
+	if (true)
+	{
+		Params.Attached = AdES::ATTACHTYPE::DETACHED;
+		AdES::FILEREF a1(helloxz.data(), 0, "blahblah1");
+		vector<AdES::FILEREF> ax = { a1 };
+		auto hr2 = a.XMLSign(AdES::LEVEL::T, ax, Certs, Params, Sig);
+		PutFile(L"..\\hello3.xml", Sig);
+	}
 
 	// ASiC Try
 	AdES::FILEREF t1(hello.data(), (DWORD)hello.size(), "hello.txt");
