@@ -177,6 +177,9 @@ vector<PCCERT_CONTEXT> GetChain(PCCERT_CONTEXT cert)
 
 int main()
 {
+
+	// Test
+
 	vector<char> hellox;
 	vector<char> hellopdf;
 	vector<char> helloxz;
@@ -188,6 +191,15 @@ int main()
 	char* msg = hello.data();
 	size_t b = hello.size();
 	AdES a;
+
+	// test
+/*	AdES::ASICVERIFY av;
+	vector<char> asic2;
+	LoadFile(L"..\\hello2.asics", asic2);
+	a.VerifyASiC(asic2.data(), asic2.size(), av);
+	*/
+
+
 	std::vector<AdES::CERT> Certs;
 	AdES::SIGNPARAMETERS Params;
 	Params.Debug = true;

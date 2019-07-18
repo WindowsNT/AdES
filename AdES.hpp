@@ -207,7 +207,17 @@ public:
 	HRESULTERROR PDFVerify(const char* d, DWORD sz, std::vector<PDFVERIFY>& VerifyX);
 
 	HRESULT ASiC(ALEVEL alev,ATYPE typ, LEVEL lev,std::vector<FILEREF>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
-
+	struct ASICVERIFY
+	{
+		bool Full = false;
+		ALEVEL alev = ALEVEL::S;
+		LEVEL lev = LEVEL::CMS;
+		ATYPE atyp = ATYPE::CADES;
+		std::vector<PCCERT_CONTEXT> Certs;
+		VERIFYRESULTS vr;
+		std::vector<std::tuple<std::wstring,HRESULT>> items;
+	};
+	HRESULT VerifyASiC(const char* data,size_t sz,ASICVERIFY& av);
 };
 
 

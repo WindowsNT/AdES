@@ -3809,6 +3809,222 @@ namespace ZIPUTILS
 #include "zipall.hpp"
 #endif
 
+
+HRESULT AdES::VerifyASiC(const char* data, size_t sz, ASICVERIFY& av)
+{
+	using namespace std;
+	HRESULT hr = E_FAIL;
+
+	ZIPUTILS::ZIP z(data,sz);
+	vector<ZIPUTILS::mz_zip_archive_file_stat> fi;
+	z.EnumFiles(fi);
+	if (fi.empty())
+		return hr;
+
+	vector<char> dd;
+	av.alev = ALEVEL::E;
+	// If S
+	for (auto& ff : fi)
+	{
+		if (strcmp(ff.m_filename,"mimetype") == 0)
+		{
+			z.Extract("mimetype", dd);
+			if (strstr(dd.data(), "application/vnd.etsi.asic-s+zip") != 0)
+				av.alev = ALEVEL::S;
+		}
+	}
+
+
+
+
+	map<string, vector<char>> ManifestFiles;
+	map<string, vector<char>> XadESSignatues;
+	map<string, vector<char>> CadESSignatues;
+	for (auto& ff : fi)
+	{
+		if (strstr(ff.m_filename, "META-INF/") != 0)
+		{
+			// Check if this is a manifest
+			for (int i = 0; i < 10; i++)
+			{
+				char ii[100] = { 0 };
+				if (i == 0)
+					sprintf_s(ii, 100, "META-INF/ASiCManifest.xml");
+				else
+					sprintf_s(ii, 100, "META-INF/ASiCManifest%u.xml", i);
+
+				if (strcmp(ff.m_filename, ii) == 0)
+				{
+					dd.clear();
+					z.Extract(ii, dd);
+					ManifestFiles[ii] = dd;
+				}
+			}
+
+			// Check if this is a XadES signature
+			for (int i = 0; i < 10; i++)
+			{
+				char ii[100] = { 0 };
+				if (i == 0)
+					sprintf_s(ii, 100, "META-INF/signatures.xml");
+				else
+					sprintf_s(ii, 100, "META-INF/signatures%u.xml", i);
+
+				if (strcmp(ff.m_filename, ii) == 0)
+				{
+					dd.clear();
+					z.Extract(ii, dd);
+					XadESSignatues[ii] = dd;
+				}
+			}
+			// Check if this is a CAdES signature
+			for (int i = 0; i < 10; i++)
+			{
+				char ii[100] = { 0 };
+				if (i == 0)
+					sprintf_s(ii, 100, "META-INF/signature.p7s");
+				else
+					sprintf_s(ii, 100, "META-INF/signature%u.p7s", i);
+
+				if (strcmp(ff.m_filename, ii) == 0)
+				{
+					dd.clear();
+					z.Extract(ii, dd);
+					CadESSignatues[ii] = dd;
+				}
+			}
+		}
+	}
+
+
+	if (!ManifestFiles.empty())
+	{
+		// Check if these are properly signed
+		for (int i = 0; i < 10; i++)
+		{
+			char mm[100] = { 0 };
+			char xx[100] = { 0 };
+			char ii[100] = { 0 };
+			if (i == 0)
+			{
+				sprintf_s(mm, 100, "META-INF/ASiCManifest.xml");
+				sprintf_s(ii, 100, "META-INF/signature.p7s");
+				sprintf_s(xx, 100, "META-INF/signature.xml");
+			}
+			else
+			{
+				sprintf_s(mm, 100, "META-INF/ASiCManifest%u.xml",i);
+				sprintf_s(ii, 100, "META-INF/signature%u.p7s", i);
+				sprintf_s(xx, 100, "META-INF/signature%u.xml",i);
+			}
+
+			if (ManifestFiles[mm].empty())
+				break;
+
+			if (!CadESSignatues[ii].empty())
+			{
+				// Verify with CAdES
+				LEVEL lev;
+				hr = Verify(CadESSignatues[ii].data(), CadESSignatues[ii].size(), lev, ManifestFiles[mm].data(), ManifestFiles[mm].size(),0,&av.Certs,&av.vr);
+				if (FAILED(hr))
+					return hr;
+
+				av.atyp = ATYPE::CADES;
+				av.lev = lev;
+			}
+
+			if (!XadESSignatues[xx].empty())
+			{
+				return E_NOTIMPL;
+			}
+		}
+	}
+
+
+
+	for (auto& ff : fi)
+	{
+		if (strcmp(ff.m_filename, "mimetype") == 0)
+			continue;
+
+
+		if (strstr(ff.m_filename, "META-INF/") == 0)
+		{
+			// This is a normal file
+			dd.clear();
+			z.Extract(ff.m_filename, dd);
+
+			std::vector<BYTE> dhash;
+			if (!ManifestFiles.empty())
+			{
+				HASH hash(BCRYPT_SHA256_ALGORITHM); // Currently only this
+				hash.hash((BYTE*)dd.data(), dd.size());
+				hash.get(dhash);
+			}
+
+			bool FoundOK = false;
+
+			// Try in all manifests
+			for (auto& m : ManifestFiles)
+			{
+				XML3::XML x(m.second.data(), m.second.size());
+				for (auto& xx : x.GetRootElement())
+				{
+					if (xx.GetElementName() != "DataObjectReference")
+						continue;
+
+					if (xx.vv("URI").GetValue() != string(ff.m_filename))
+						continue;
+
+					auto sha = xx["ns2:DigestValue"].GetContent();
+					XML3::BXML dhash2;
+					XML3::Base64ToChar(sha.c_str(),sha.length(), dhash2);
+
+					if (dhash2.size() == dhash.size() && memcmp(dhash2.p(), dhash.data(), dhash.size()) == 0)
+					{
+						// Found
+						FoundOK = true;
+						break;
+					}
+				}
+			}
+
+			if (ManifestFiles.empty())
+			{
+				// Try ASiC-S 
+				if (XadESSignatues.size() == 1)
+					return E_NOTIMPL;
+				
+				if (CadESSignatues.size() == 1)
+				{
+					// Verify with CAdES
+					LEVEL lev;
+					hr = Verify(CadESSignatues[0].data(), CadESSignatues[0].size(), lev,dd.data(),dd.size(), 0, &av.Certs, &av.vr);
+					if (FAILED(hr))
+						return hr;
+
+					av.atyp = ATYPE::CADES;
+					av.lev = lev;
+				}
+			}
+
+			wstring wf = XML3::XMLU(ff.m_filename);
+			std::tuple<std::wstring, HRESULT> tu = make_tuple<std::wstring>(forward<wstring>(wf), FoundOK ? S_OK : E_FAIL);
+			av.items.push_back(tu);
+		}
+	}
+
+	av.Full = true;
+	for (auto& fi : av.items)
+	{
+		if (get<HRESULT>(fi) != S_OK)
+			av.Full = false;
+	}
+
+	return hr;
+}
+
+
 HRESULT AdES::ASiC(ALEVEL alev, ATYPE typ,LEVEL lev, std::vector<FILEREF>& data, std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata)
 {
 	using namespace std;
