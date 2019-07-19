@@ -40,6 +40,7 @@ private:
 	}
 
 	HRESULT GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx,CRYPT_ALGORITHM_IDENTIFIER hash, std::vector<char> &rs);
+//	HRESULT VerifyEncryptedHash(const char* d, DWORD sz, const char* org, DWORD orgsz);
 
 public:
 
@@ -200,7 +201,7 @@ public:
 	HRESULT VerifyT(const char* data, DWORD sz, PCCERT_CONTEXT* pX = 0, bool Attached = true, int TSServerSignIndex = 0, FILETIME* ft = 0, PCRYPT_TIMESTAMP_CONTEXT* ptc = 0);
 	HRESULT VerifyU(const char* data, DWORD sz, bool Attached = true, int TSServerSignIndex = 0);
 	HRESULT XMLSign(LEVEL lev, std::vector<FILEREF>& data,const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
-	HRESULT XMLVerify(const char* xmldata, LEVEL& lev, ATTACHTYPE& att,const char* omsg = 0, DWORD len = 0, std::vector<PCCERT_CONTEXT> * Certs = 0, VERIFYRESULTS * vr = 0);
+	HRESULT XMLVerify(const char* xmldata, LEVEL& lev, ATTACHTYPE& att,const char* omsg = 0, DWORD len = 0, bool WasDetachedCanonicalized = false,std::vector<PCCERT_CONTEXT> * Certs = 0, VERIFYRESULTS * vr = 0);
 
 	HRESULTERROR PDFCreateDSSObject(const std::vector<CERT>& Certificates, long long objnum,std::vector<std::vector<char>>& r);
 

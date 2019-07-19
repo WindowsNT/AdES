@@ -17,6 +17,8 @@
 #include <asn_application.h>
 #include <asn_internal.h>
 
+#pragma warning(disable: 4189)
+#pragma warning(disable: 4100)
 #include "AdES.hpp"
 
 #include "TestTest.h"
@@ -529,7 +531,7 @@ HRESULT AdES::VerifyB(const char* data, DWORD sz, int sidx, bool Attached, PCCER
 								HASH hash(BCRYPT_SHA256_ALGORITHM);
 								hash.hash(c->pbCertEncoded, c->cbCertEncoded);
 								hash.get(dhash);
-								if (v->certs.list.count == 1 && v->certs.list.array[0]->certHash.size == dhash.size())
+								if (v->certs.list.count == 1 && v->certs.list.array[0]->certHash.size == (int)dhash.size())
 								{
 									if (memcmp(v->certs.list.array[0]->certHash.buf, dhash.data(), dhash.size()) == 0)
 										CHFound = true;
@@ -830,6 +832,7 @@ HRESULT AdES::Verify(const char* data, DWORD sz, LEVEL& lev, const char* omsg, D
 }
 
 
+
 HRESULT AdES::GetEncryptedHash(const char*d, DWORD sz, PCCERT_CONTEXT ctx, CRYPT_ALGORITHM_IDENTIFIER hash, std::vector<char>& rs)
 {
 	using namespace std;
@@ -1112,25 +1115,258 @@ void XMLAddXL(XML3::XMLElement& xusp, const std::vector<AdES::CERT>& Certificate
 	auto xdd2 = xusp.InsertElement((size_t)-1, std::forward<XML3::XMLElement>(dd2));
 }
 
-HRESULT AdES::XMLVerify(const char* xmldata, LEVEL& lev, ATTACHTYPE& att, const char* omsg, DWORD len, std::vector<PCCERT_CONTEXT> * Certs, VERIFYRESULTS * vr)
+/*HRESULT AdES::VerifyEncryptedHash(const char* d, DWORD sz,const char* org,DWORD orgsz)
 {
+
+	HRESULT hr = E_FAIL;
+	CRYPT_HASH_MESSAGE_PARA p = { 0 };
+	p.cbSize = sizeof(p);
+	p.dwMsgEncodingType = PKCS_7_ASN_ENCODING;
+	p.HashAlgorithm.pszObjId = szOID_NIST_sha256;
+	const BYTE* b[1] = { 0 };
+	b[0] = (BYTE*)org;
+	DWORD dd[1];
+	dd[0] = orgsz;
+	if (CryptVerifyDetachedMessageHash(&p, (BYTE*)d, sz, 1,b, dd, 0, 0))
+	{
+		return S_OK;
+	}
+
+
+
+	auto hMsg = CryptMsgOpenToDecode(
+		MY_ENCODING_TYPE,        // encoding type
+		CMSG_DETACHED_FLAG,
+		CMSG_HASHED,             // message type
+		0,0,0);
+	if (hMsg)
+	{
+		if (CryptMsgUpdate(hMsg,(BYTE*) d, sz, true))
+		{
+			if (CryptMsgControl(hMsg, 0, CMSG_CTRL_VERIFY_HASH, 0))
+			{
+				hr = S_OK;
+			}
+		}
+		CryptMsgClose(hMsg);
+	}
+
+	return hr;
+}
+*/
+
+HRESULT AdES::XMLVerify(const char* xmldata, LEVEL& lev, ATTACHTYPE& att, const char* omsg, DWORD len, bool WasDetachedCanonicalized,std::vector<PCCERT_CONTEXT> * Certs, VERIFYRESULTS * vr)
+{
+	XML3::XMLSerialization ser;
+	ser.Canonical = true;
+
+	auto VerifyInSignature = [&Certs](XML3::XMLElement& sigel) -> HRESULT
+	{
+		using namespace std;
+		HRESULT hr = E_FAIL;
+
+		XML3::XMLSerialization ser;
+		ser.Canonical = true;
+		XML3::BXML sig;
+		string bs = sigel["ds:SignatureValue"].GetContent();
+		XML3::Base64ToChar(bs.c_str(), bs.length(), sig);
+
+		// Add the xmlns:ds
+		sigel["ds:SignedInfo"].vv("xmlns:ds") = "http://www.w3.org/2000/09/xmldsig#";
+		string bt = sigel["ds:SignedInfo"].Serialize(&ser);
+
+		string certb = sigel["ds:KeyInfo"]["ds:X509Data"]["ds:X509Certificate"].GetContent();
+		XML3::BXML cert;
+		XML3::Base64ToChar(certb.c_str(), 0, cert);
+
+		// Import the certificate
+		auto certx = CertCreateCertificateContext(MY_ENCODING_TYPE, (BYTE*)cert.p(), cert.size());
+		if (certx)
+		{
+			BCRYPT_KEY_HANDLE bh = 0;
+			CryptImportPublicKeyInfoEx2(X509_ASN_ENCODING, &certx->pCertInfo->SubjectPublicKeyInfo, 0, 0, &bh);
+			if (bh)
+			{
+
+				// Create the hash 
+				std::vector<BYTE> dhash;
+				HASH hash(BCRYPT_SHA256_ALGORITHM);
+				hash.hash((BYTE*)bt.data(), bt.size());
+				hash.get(dhash);
+
+
+				BCRYPT_PKCS1_PADDING_INFO pi = { 0 };
+				pi.pszAlgId = BCRYPT_SHA256_ALGORITHM;
+				STATUS_INVALID_HANDLE;
+				auto fx = BCryptVerifySignature(bh, (void*)& pi, dhash.data(), dhash.size(), (BYTE*)sig.p(), sig.size(), BCRYPT_PAD_PKCS1);
+				if (fx == 0)
+					hr = S_OK;
+				BCryptDestroyKey(bh);
+				bh = 0;
+			}
+			if (Certs)
+				Certs->push_back(certx);
+			else
+				CertFreeCertificateContext(certx);
+		}
+
+		return hr;
+	};
+
 	using namespace std;
 	HRESULT hr = E_FAIL;
+	lev = LEVEL::XMLDSIG;
 	if (!xmldata)
 		return hr;
+
 	if (omsg && len)
 	{
-		// Detached
-		att = ATTACHTYPE::DETACHED;
+		// First, ensure the signature is valid within the XML
+		//auto& sigel = x.GetRootElement()["ds:Signature"];
 		XML3::XML x(xmldata, strlen(xmldata));
+		auto& sigel = x.GetRootElement();
+		hr = VerifyInSignature(sigel);
+		if (SUCCEEDED(hr))
+		{
+			// Detached
+			att = ATTACHTYPE::DETACHED;
+			hr = E_FAIL;
 
-		// Find 	<ds:SignedInfo> <dS:Reference> to data0
+			// Hash the omsg 
+			std::vector<BYTE> dhash;
+			HASH hash(BCRYPT_SHA256_ALGORITHM);
 
+			if (WasDetachedCanonicalized)
+			{
+				vector<char> xrx(len + 1);
+				memcpy(xrx.data(), omsg, len);
+				XML3::XML xx(xrx.data(), xrx.size());
+				string bb = xx.GetRootElement().Serialize(&ser);
+				HASH hash3(BCRYPT_SHA256_ALGORITHM);
+				hash3.hash((BYTE*)bb.data(), bb.size());
+				dhash.clear();
+				hash3.get(dhash);
+
+			}
+			else
+			{
+				hash.hash((BYTE*)omsg, len);
+				hash.get(dhash);
+			}
+
+			// Find in sigel/ds:SignedInfo that matches. URI must be empty
+			auto si = (sigel)["ds:SignedInfo"];
+
+			for (auto& el : si)
+			{
+			
+				if (el.GetElementName() != string("ds:Reference"))
+					continue;
+				string uri = el.vv("URI").GetValue();
+				if (strstr(uri.c_str(),"#xmldsig"))
+					continue;
+
+				string dvb = el["ds:DigestValue"].GetContent();
+				XML3::BXML dv;
+				XML3::Base64ToChar(dvb.c_str(), 0, dv);
+
+				if (memcmp(dv.p(), dhash.data(), dv.size()) == 0)
+					hr = S_OK;
+				break;
+			}
+
+		}
+	}
+	else
+	{
+		XML3::XML x(xmldata, strlen(xmldata));
+		auto& root = x.GetRootElement();
+		auto sigel = root.FindElementZ("ds:Signature");
+		att = ATTACHTYPE::ENVELOPED;
+		if (!sigel)
+		{
+			att = ATTACHTYPE::ENVELOPING;
+			hr = VerifyInSignature(root);
+			if (FAILED(hr))
+				return hr;
+			// Find the ds:Object 
+			for (auto& elx : root)
+			{
+				hr = E_FAIL;
+				if (elx.GetElementName() != string("ds:Object"))
+					continue;
+				if (elx.vv("Id").GetValue() == string(""))
+					continue;
+
+				// Serialize  and hash it
+				string bt = elx.Serialize(&ser);
+				std::vector<BYTE> dhash;
+				HASH hash(BCRYPT_SHA256_ALGORITHM);
+				hash.hash((BYTE*)bt.data(), bt.size());
+				hash.get(dhash);
+
+
+				auto si = root["ds:SignedInfo"];
+				string compuri = "#";
+				compuri += elx.vv("Id").GetValue();
+				for (auto& el : si)
+				{
+					if (el.GetElementName() != string("ds:Reference"))
+						continue;
+					if (el.vv("URI").GetValue() != compuri)
+						continue;
+
+					string dvb = el["ds:DigestValue"].GetContent();
+					XML3::BXML dv;
+					XML3::Base64ToChar(dvb.c_str(), 0, dv);
+
+					if (memcmp(dv.p(), dhash.data(), dv.size()) == 0)
+						hr = S_OK;
+					break;
+				}
+				if (FAILED(hr))
+					return hr;
+			}
+		}
+		else
+		{
+			hr = VerifyInSignature(*sigel);
+			if (FAILED(hr))
+				return hr;
+
+			hr = E_FAIL;
+			// Enveloped
+			root.RemoveElement(sigel.get());
+
+			// Serialize the rest and hash it
+			string bt = root.Serialize(&ser);
+			std::vector<BYTE> dhash;
+			HASH hash(BCRYPT_SHA256_ALGORITHM);
+			hash.hash((BYTE*)bt.data(), bt.size());
+			hash.get(dhash);
+
+			// Find in sigel/ds:SignedInfo that matches. URI must be empty
+			auto si = (*sigel)["ds:SignedInfo"];
+			for (auto& el : si)
+			{
+				if (el.GetElementName() != string("ds:Reference"))
+					continue;
+				if (el.vv("URI").GetValue() != string(""))
+					continue;
+
+				string dvb = el["ds:DigestValue"].GetContent();
+				XML3::BXML dv;
+				XML3::Base64ToChar(dvb.c_str(), 0, dv);
+
+				if (memcmp(dv.p(), dhash.data(), dv.size()) == 0)
+					hr = S_OK;
+				break;
+			}
+		}
 
 
 	}
 
-	hr = E_NOTIMPL;
 	return hr;
 }
 
@@ -2831,7 +3067,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 											SigStartsAt = cc2.pp + 10 + obj2->p; // To add /Contents stuff
 											for (unsigned long long i = 1; i < cc2.Value.length() - 1; i += 2)
 											{
-												std::string byteString = cc2.Value.substr(i, 2);
+												std::string byteString = cc2.Value.substr((size_t)i, 2);
 												char byte = (char)strtol(byteString.c_str(), NULL, 16);
 												sig.push_back(byte);
 											}
@@ -2844,11 +3080,11 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 											if (co->Type != PDF::INXTYPE::TYPE_ARRAY)
 												break;
 
-											std::stringstream stream(co->Value);
+											std::stringstream stream4(co->Value);
 											while (1) {
 												long long n = 0;
-												stream >> n;
-												if (!stream)
+												stream4 >> n;
+												if (!stream4)
 													break;
 												br.push_back(n);
 											}
@@ -3958,7 +4194,11 @@ HRESULT AdES::VerifyASiC(const char* data, size_t sz, ASICVERIFY& av)
 
 			if (!XadESSignatues[xx].empty())
 			{
-				return E_NOTIMPL;
+				LEVEL lev;
+				ATTACHTYPE att;
+				hr = XMLVerify(XadESSignatues[xx].data(), lev, att, ManifestFiles[mm].data(), ManifestFiles[mm].size(), true, &av.Certs, &av.vr);
+				if (FAILED(hr))
+					return hr;
 			}
 		}
 	}
@@ -4016,7 +4256,13 @@ HRESULT AdES::VerifyASiC(const char* data, size_t sz, ASICVERIFY& av)
 			{
 				// Try ASiC-S 
 				if (XadESSignatues.size() == 1)
-					return E_NOTIMPL;
+				{
+					// Verify with XAdES
+					LEVEL lev;
+					ATTACHTYPE att;
+					hr = XMLVerify(XadESSignatues[0].data(), lev, att, dd.data(), dd.size(), false, &av.Certs, &av.vr);
+
+				}
 				
 				if (CadESSignatues.size() == 1)
 				{

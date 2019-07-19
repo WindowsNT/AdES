@@ -38,6 +38,9 @@ struct FILEREF
 	std::string mime = "application/octet-stream";
 };
 HRESULT XMLSign(LEVEL lev, std::vector<FILEREF>& data,const std::vector<CERT>& Certificates,SIGNPARAMETERS& Params, std::vector<char>& Signature);
+
+// Currently XMLDSIG only
+HRESULT XMLVerify(const char* xmldata, LEVEL& lev, ATTACHTYPE& att, const char* omsg, DWORD len, bool WasDetachedCanonicalized,std::vector<PCCERT_CONTEXT> * Certs, VERIFYRESULTS * vr);
 ```
 
 ## PAdES

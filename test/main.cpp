@@ -14,7 +14,6 @@
 
 #pragma comment(lib,"Cryptui.lib")
 #pragma comment(lib,"ws2_32.lib")
-
 #pragma comment(lib,"..\\AdES.lib")
 #include "..\\AdES.hpp"
 
@@ -175,9 +174,9 @@ vector<PCCERT_CONTEXT> GetChain(PCCERT_CONTEXT cert)
 }
 
 
+
 int main()
 {
-
 	// Test
 
 	vector<char> hellox;
@@ -199,18 +198,23 @@ int main()
 	a.VerifyASiC(asic2.data(), asic2.size(), av);
 	*/
 	// test
-	if (true)
+/*	if (true)
 	{
 		vector<char> x1;
 		vector<char> x2;
+		vector<char> x3;
 		LoadFile(L"..\\hello.xml", x1);
-		LoadFile(L"..\\hello3.xml", x2);
+		LoadFile(L"..\\hello2.xml", x2);
+		LoadFile(L"..\\hello3.xml", x3);
 		AdES::LEVEL lev;
 		AdES::ATTACHTYPE att;
 		x2.resize(x2.size() + 1);
-		a.XMLVerify(x2.data(),lev,att,x1.data(), x1.size(),0);
-	}
+		x3.resize(x3.size() + 1);
 
+		a.XMLVerify(x2.data(), lev, att);
+//		a.XMLVerify(x3.data(), lev, att, x1.data(), x1.size(),true, 0);
+	}
+	*/
 
 	std::vector<AdES::CERT> Certs;
 	AdES::SIGNPARAMETERS Params;
@@ -235,7 +239,7 @@ int main()
 	};
 
 	
-//#define PICKBYSUBJECT
+#define PICKBYSUBJECT
 #ifndef PICKBYSUBJECT
 	// Picker by store
 	for(;;)
@@ -267,7 +271,7 @@ int main()
 
 	// Picker by subject
 #else
-	auto cert = HrGetSigner(L"m.chourdakis@lol.gr"); 
+	auto cert = HrGetSigner(L"m.chourdakis@music.uoa.gr"); 
 	if (!cert)
 		return 0;
 	putin(cert);
@@ -344,7 +348,6 @@ int main()
 		AdES::FILEREF a2(helloxz.data(), 0, "blahblah2");
 		vector<AdES::FILEREF> ax = { a1,a2 };
 		auto hr2 = a.XMLSign(AdES::LEVEL::T, ax, Certs, Params, Sig);
-
 	}
 	else
 	{
@@ -377,6 +380,9 @@ int main()
 	//auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::CADES, AdES::LEVEL::XL,tx2, Certs, Params, Sig);
 	auto hr5 = a.ASiC(AdES::ALEVEL::E, AdES::ATYPE::XADES, AdES::LEVEL::T,tx2, Certs, Params, Sig);
 	PutFile(L"..\\hello2.asice", Sig);
+
+
+
 
 	// Free Certificates in Production Code...
 }
