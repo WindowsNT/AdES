@@ -208,6 +208,9 @@ public:
 	HRESULTERROR PDFSign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& Signature,std::vector<PDFVERIFY>* = 0);
 	HRESULTERROR PDFVerify(const char* d, DWORD sz, std::vector<PDFVERIFY>& VerifyX);
 
+	HRESULTERROR PESign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res);
+
+
 	HRESULT ASiC(ALEVEL alev,ATYPE typ, LEVEL lev,std::vector<FILEREF>& data,std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& fndata);
 	struct ASICVERIFY
 	{
