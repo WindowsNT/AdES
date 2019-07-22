@@ -1,9 +1,8 @@
 # AdES
 A C++ library for Windows to create CAdES (B,T,C,X,XL), XAdES (B-T,C,X,XL) and PAdES (B-B,B-T,B-XL) messages. Also supports ASiC-S and ASiC-E with both CAdES and XAdES. 100% ETSI Compliant.
+Article at CodeProject: https://www.codeproject.com/Articles/1256991/AdES-An-implementation-of-CAdES-for-Windows-in-Cpl
 
 ## CAdES
-Article at CodeProject: https://www.codeproject.com/script/Articles/ArticleVersion.aspx?waid=267644&aid=1256991
-
 Quick guide:
 
 ```C++
@@ -25,8 +24,6 @@ In Verify()
 
 
 ## XAdES
-Article at CodeProject: https://www.codeproject.com/script/Articles/ArticleVersion.aspx?waid=268671&aid=1259460
-
 Quick guide:
 
 ```C++
@@ -44,8 +41,6 @@ HRESULT XMLVerify(const char* xmldata, LEVEL& lev, ATTACHTYPE& att, const char* 
 ```
 
 ## PAdES
-Article at CodeProject: https://www.codeproject.com/Articles/1262275/The-AdES-Tetralogy-Part-3-PAdES-for-Windows-in-Cpl
-
 Quick guide:
 
 ```C++
@@ -53,8 +48,6 @@ HRESULT PDFSign(LEVEL lev,const char* data,DWORD sz,const std::vector<CERT>& Cer
 ```
 
 ## ASiC
-Article at CodeProject: https://www.codeproject.com/Articles/1260769/The-AdES-Trilogy-Part-3-ASiC-containers
-
 Quick guide:
 
 ```C++
