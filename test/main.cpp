@@ -191,6 +191,12 @@ int main()
 	size_t b = hello.size();
 	AdES a;
 
+
+	// PE
+	vector<char> pe;
+	LoadFile(L".\\test.exe", pe);
+
+
 	// test
 /*	AdES::ASICVERIFY av;
 	vector<char> asic2;
@@ -271,13 +277,21 @@ int main()
 
 	// Picker by subject
 #else
-	auto cert = HrGetSigner(L"tralala@lol.gr"); 
+	auto cert = HrGetSigner(L"m.chourdakis@lol.gr"); 
 	if (!cert)
 		return 0;
 	putin(cert);
 #endif
 
 	// ----------------
+
+/*	std::vector<char> Sig;
+	Sig.clear();
+	auto hr77 = a.PESign(AdES::LEVEL::CMS, pe.data(), (DWORD)pe.size(), Certs, Params, Sig);
+	PutFile(L".\\test_signed.exe", Sig);
+	Sig.clear();
+	ExitProcess(0);
+	*/
 
 
 	if (Certs.empty())
@@ -311,7 +325,6 @@ int main()
 	cattr.rgValue = &b0;
 	Params.cextras.push_back(cattr);
 
-	std::vector<char> Sig;
 	Params.Attached = AdES::ATTACHTYPE::ATTACHED;
 	Params.Policy = "1.3.6.1.5.5.7.48.1";
 	Params.commitmentTypeOid = "1.2.840.113549.1.9.16.6.1";
@@ -337,6 +350,13 @@ int main()
 	auto hr6 = a.PDFSign(AdES::LEVEL::T, hellopdf.data(), (DWORD)hellopdf.size(), Certs, Params, Sig);
 	PutFile(L"..\\hello2.pdf", Sig);
 	ShellExecute(0, L"open", L"..\\hello2.pdf", 0, 0, 0);
+	Sig.clear();
+
+
+	// EXE try
+	Sig.clear();
+	auto hr7 = a.PESign(AdES::LEVEL::T, pe.data(), (DWORD)pe.size(), Certs, Params, Sig);
+	PutFile(L".\\test_signed.exe", Sig);
 	Sig.clear();
 
 	// XML Try

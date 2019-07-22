@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <shlobj.h>
 #include <wincrypt.h>
+#include <wintrust.h>
 #include <bcrypt.h>
 #include <vector>
 #include <variant>
@@ -611,6 +612,19 @@ namespace PE
 		data_directory DataDirectory[NUM_DIR_ENTRIES];
 	};
 
+	struct nt_header_32
+	{
+		std::uint32_t Signature;
+		file_header FileHeader;
+		optional_header_32 OptionalHeader;
+	};
+	struct nt_header_64
+	{
+		std::uint32_t Signature;
+		file_header FileHeader;
+		optional_header_64 OptionalHeader;
+	};
+
 	struct nt_header {
 		std::uint32_t Signature;
 		file_header FileHeader;
@@ -768,6 +782,9 @@ namespace PE
 		BPTR dos2;
 
 		nt_header nt;
+		nt_header_32* pnt32 = 0;
+		nt_header_64* pnt64 = 0;
+		char* pnt = 0;
 		std::vector<section> sections;
 
 		// Directories
@@ -775,10 +792,11 @@ namespace PE
 
 	public:
 
-		void Load(const char* pp, size_t sz)
+		bool Load(const char* pp, size_t sz)
 		{
 			if (!pp || !sz)
-				return;
+				return false;
+			full.reserve(sz * 4);
 			full.resize(sz);
 			memcpy(full.data(), pp, sz);
 			char* p = full.data();
@@ -789,7 +807,7 @@ namespace PE
 			// DOS header
 			dos = (dos_header*)p;
 			if (dos->e_magic != MZ_MAGIC)
-				return;
+				return false;
 
 			// Remaining DOS-related stuff
 			dos2.sz = dos->e_lfanew - sizeof(dos_header);
@@ -799,13 +817,16 @@ namespace PE
 			sz -= dos->e_lfanew;
 
 			// NT header
+			pnt = p;
+			pnt32 = (nt_header_32*)p;
+			pnt64 = (nt_header_64*)p;
 			memcpy(&nt.Signature, p, 4);
 			if (nt.Signature != NT_MAGIC)
-				return;
+				return false;
 			p += 4;
 			memcpy(&nt.FileHeader, p, sizeof(nt.FileHeader));
 			p += sizeof(nt.FileHeader);
-			if (nt.FileHeader.Characteristics & IMAGE_FILE_MACHINE_AMD64)
+			if (nt.FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64)
 			{
 				optional_header_64 h;
 				memcpy(&h, p, sizeof(h));
@@ -841,12 +862,125 @@ namespace PE
 				s.sectionData.p = orgp + s.sec->PointerToRawData;
 				sections.push_back(s);
 			}
+			return true;
 		}
 
-		void Save(std::vector<char>& d)
+		bool AddSignature(std::vector<char>& dd)
+		{
+			std::vector<char> d;
+			WIN_CERTIFICATE wc = { 0 };
+			wc.dwLength = dd.size() + 8;
+			wc.wRevision = WIN_CERT_REVISION_1_0;
+			wc.wCertificateType = WIN_CERT_TYPE_PKCS_SIGNED_DATA;
+			d.resize(dd.size() + 8);
+			memcpy(d.data(), &wc, 8);
+			memcpy(d.data() + 8, dd.data(), dd.size());
+
+			size_t fs = full.size();
+			full.insert(full.end(), d.begin(), d.end());
+			if(nt.Is32())
+			{
+				pnt32->OptionalHeader.DataDirectory[DIR_SECURITY].Size = d.size();
+				pnt32->OptionalHeader.DataDirectory[DIR_SECURITY].VirtualAddress = fs;
+			}
+			else
+			{
+				pnt64->OptionalHeader.DataDirectory[DIR_SECURITY].Size = d.size();
+				pnt64->OptionalHeader.DataDirectory[DIR_SECURITY].VirtualAddress = fs;
+			}
+			return true;
+		}
+
+		bool Save(std::vector<char>& d)
 		{
 			d = full;
+			return true;
 		}
+
+		void GetDataToSign(std::vector<char>& d)
+		{
+			if (sections.empty())
+				return;// duh
+
+			/*
+1.  Load the image header into memory.
+2.	Initialize a hash algorithm context.
+3.	Hash the image header from its base to immediately before the start of the checksum address, as specified in Optional Header Windows-Specific Fields.
+4.	Skip over the checksum, which is a 4-byte field.
+5.	Hash everything from the end of the checksum field to immediately before the start of the Certificate Table entry, as specified in Optional Header Data Directories.
+6.	Get the Attribute Certificate Table address and size from the Certificate Table entry. For details, see section 5.7 of the PE/COFF specification.
+7.	Exclude the Certificate Table entry from the calculation and hash everything from the end of the Certificate Table entry to the end of image header, including Section Table (headers).The Certificate Table entry is 8 bytes long, as specified in Optional Header Data Directories.
+8.	Create a counter called SUM_OF_BYTES_HASHED, which is not part of the signature. Set this counter to the SizeOfHeaders field, as specified in Optional Header Windows-Specific Field.
+9.	Build a temporary table of pointers to all of the section headers in the image. The NumberOfSections field of COFF File Header indicates how big the table should be. Do not include any section headers in the table whose SizeOfRawData field is zero.
+10.	Using the PointerToRawData field (offset 20) in the referenced SectionHeader structure as a key, arrange the table's elements in ascending order. In other words, sort the section headers in ascending order according to the disk-file offset of the sections.
+11.	Walk through the sorted table, load the corresponding section into memory, and hash the entire section. Use the SizeOfRawData field in the SectionHeader structure to determine the amount of data to hash.
+12.	Add the section’s SizeOfRawData value to SUM_OF_BYTES_HASHED.
+13.	Repeat steps 11 and 12 for all of the sections in the sorted table.
+14.	Create a value called FILE_SIZE, which is not part of the signature. Set this value to the image’s file size, acquired from the underlying file system. If FILE_SIZE is greater than SUM_OF_BYTES_HASHED, the file contains extra data that must be added to the hash. This data begins at the SUM_OF_BYTES_HASHED file offset, and its length is:
+	(File Size) – ((Size of AttributeCertificateTable) + SUM_OF_BYTES_HASHED) Note: The size of Attribute Certificate Table is specified in the second ULONG value in the Certificate Table entry (32 bit: offset 132, 64 bit: offset 148) in Optional Header Data Directories.
+15.	Finalize the hash algorithm context. Note: This procedure uses offset values from the PE/COFF specification, version 8.1 . For authoritative offset values, refer to the most recent version of the PE/COFF specification.
+			*/
+			
+			size_t s = 0;
+
+			// Up to where?
+			size_t BytesUpToLastSection = ((char*)(sections[sections.size() - 1].sec) - full.data()) + sizeof(image_section_header);
+			d.resize(BytesUpToLastSection);
+			memcpy(d.data(), full.data(), BytesUpToLastSection);
+
+			// We remove the certificate table entry (8 bytes)
+			size_t offset = 0;
+			data_directory expd;
+			if (nt.Is32())
+			{
+				offset = offsetof(optional_header_32, DataDirectory[DIR_SECURITY]);
+				expd = std::get<optional_header_32>(nt.OptionalHeader).DataDirectory[DIR_SECURITY];
+			}
+			else
+			{
+				offset = offsetof(optional_header_64, DataDirectory[DIR_SECURITY]);
+				expd = std::get<optional_header_64>(nt.OptionalHeader).DataDirectory[DIR_SECURITY];
+			}
+			offset += pnt - full.data();
+			d.erase(d.begin() + offset, d.begin() + offset + 8);
+
+			// We remove the checksum (4 bytes)
+			if (nt.Is32())
+				offset = offsetof(optional_header_32,CheckSum);
+			else
+				offset = offsetof(optional_header_64,CheckSum);
+			offset += pnt - full.data();
+			d.erase(d.begin() + offset, d.begin() + offset + 4);
+
+			// Counter
+			size_t SUM_OF_BYTES_HASHED = 0;
+			if (nt.Is32())
+				SUM_OF_BYTES_HASHED = std::get<optional_header_32>(nt.OptionalHeader).SizeOfHeaders;
+			else
+				SUM_OF_BYTES_HASHED = std::get<optional_header_64>(nt.OptionalHeader).SizeOfHeaders;
+
+			// Sort Sections
+			std::sort(sections.begin(), sections.end(), [](const section& s1,const section& s2) -> bool
+				{
+					if (s1.sec->PointerToRawData < s2.sec->PointerToRawData)
+						return true;
+					return false;
+				});
+			for (auto& ss : sections)
+			{
+				if (ss.sectionData.sz == 0)
+					continue;
+				s = d.size();
+				d.resize(d.size() + ss.sectionData.sz);
+				memcpy(d.data() + s, ss.sectionData.p, ss.sectionData.sz);
+				SUM_OF_BYTES_HASHED += ss.sec->SizeOfRawData;
+			}
+			size_t FILE_SIZE = full.size();
+			if (FILE_SIZE > SUM_OF_BYTES_HASHED)
+			{
+			}
+		}
+
 	};
 }
 
@@ -3126,7 +3260,26 @@ HRESULT AdES::GreekVerifyCertificate(PCCERT_CONTEXT a, const char* sig, DWORD si
 HRESULTERROR AdES::PESign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res)
 {
 	HRESULT hr = E_FAIL;
+	PE::PE p;
+	if (!p.Load(d, sz))
+		return hr;
 
+	std::vector<char> ToSign;
+	p.GetDataToSign(ToSign);
+	std::vector<char> res2;
+	Params.Attached = ATTACHTYPE::DETACHED;
+	hr = Sign(levx, ToSign.data(), ToSign.size(), Certificates, Params, res2);
+	if (FAILED(hr))
+		return hr;
+
+	// Append the signature
+	if (p.AddSignature(res2))
+	{
+		if (p.Save(res))
+		{
+			hr = S_OK;
+		}
+	}
 	return hr;
 }
 
