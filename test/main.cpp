@@ -284,9 +284,9 @@ int main()
 #endif
 
 	// ----------------
+	std::vector<char> Sig;
 
-/*	std::vector<char> Sig;
-	Sig.clear();
+/*	Sig.clear();
 	auto hr77 = a.PESign(AdES::LEVEL::CMS, pe.data(), (DWORD)pe.size(), Certs, Params, Sig);
 	PutFile(L".\\test_signed.exe", Sig);
 	Sig.clear();
