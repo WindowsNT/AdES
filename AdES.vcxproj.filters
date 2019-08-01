@@ -359,6 +359,21 @@
     <ClCompile Include="TestTest.c">
       <Filter>ASNC</Filter>
     </ClCompile>
+    <ClCompile Include="SpcIndirectDataContent.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="DigestInfo.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SpcAttributeTypeAndOptionalValue.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SpcIndirectDataContentV2.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="AlgorithmIdentifier2.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="cades.asn1" />

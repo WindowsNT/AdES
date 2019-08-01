@@ -440,5 +440,55 @@ ResponderID ::= CHOICE {
 
 -- XL
 
+-- PE
+
+
+ AlgorithmIdentifier2 ::= SEQUENCE {
+     algorithm          OBJECT IDENTIFIER,
+     parameters         [0] EXPLICIT ANY OPTIONAL
+ }
+
+  SpcAttributeTypeAndOptionalValue ::= SEQUENCE {
+     type                OBJECT IDENTIFIER,
+     value               [0] EXPLICIT ANY OPTIONAL
+ }
+
+  
+ DigestInfo ::= SEQUENCE {
+     digestAlgorithm    AlgorithmIdentifier2,
+     digest             OCTET STRING
+ }
+ 
+ SpcIndirectDataContent ::= SEQUENCE {
+     data               SpcAttributeTypeAndOptionalValue,
+     messageDigest      DigestInfo
+ }
+  
+  SigDataV1Serialized ::= SEQUENCE {
+     algorithmIdSize    INTEGER,
+     compiledHashSize   INTEGER,
+     sourceHashSize     INTEGER,
+     algorithmIdOffset  INTEGER,
+     compiledHashOffset INTEGER,
+     sourceHashOffset   INTEGER,
+     algorithmId        OBJECT IDENTIFIER,
+     compiledHash		OCTET STRING,
+     sourceHash         OCTET STRING
+ }
+ 
+
+ SpcIndirectDataContentV2 ::= SEQUENCE {
+     data               SpcAttributeTypeAndOptionalValue,
+     messageDigest      DigestInfo
+ }
+  
+  
+ SigFormatDescriptorV1 ::= SEQUENCE {
+     size               INTEGER,
+     version            INTEGER,
+     format             INTEGER
+ }
+  
+ 
 
 END

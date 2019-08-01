@@ -68,7 +68,14 @@ ASN_MODULE_SOURCES=	\
 	OtherRevRefs.c	\
 	OtherRevRefType.c	\
 	ResponderID.c	\
-	KeyHash.c
+	KeyHash.c	\
+	AlgorithmIdentifier2.c	\
+	SpcAttributeTypeAndOptionalValue.c	\
+	DigestInfo.c	\
+	SpcIndirectDataContent.c	\
+	SigDataV1Serialized.c	\
+	SpcIndirectDataContentV2.c	\
+	SigFormatDescriptorV1.c
 
 ASN_MODULE_HEADERS=	\
 	TestTest.h	\
@@ -140,7 +147,14 @@ ASN_MODULE_HEADERS=	\
 	OtherRevRefs.h	\
 	OtherRevRefType.h	\
 	ResponderID.h	\
-	KeyHash.h
+	KeyHash.h	\
+	AlgorithmIdentifier2.h	\
+	SpcAttributeTypeAndOptionalValue.h	\
+	DigestInfo.h	\
+	SpcIndirectDataContent.h	\
+	SigDataV1Serialized.h	\
+	SpcIndirectDataContentV2.h	\
+	SigFormatDescriptorV1.h
 
 ASN_MODULE_HEADERS+=ANY.h
 ASN_MODULE_SOURCES+=ANY.c

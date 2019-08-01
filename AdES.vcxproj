@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="AdministrationDomainName.c" />
     <ClCompile Include="AlgorithmIdentifier.c" />
+    <ClCompile Include="AlgorithmIdentifier2.c" />
     <ClCompile Include="AttributeType.c" />
     <ClCompile Include="AttributeTypeAndValue.c" />
     <ClCompile Include="AttributeValue.c" />
@@ -39,6 +40,7 @@
     <ClCompile Include="CRLListID.c" />
     <ClCompile Include="CrlOcspRef.c" />
     <ClCompile Include="CrlValidatedID.c" />
+    <ClCompile Include="DigestInfo.c" />
     <ClCompile Include="DirectoryString.c" />
     <ClCompile Include="EDIPartyName.c" />
     <ClCompile Include="ESSCertIDv2.c" />
@@ -136,6 +138,9 @@
     <ClCompile Include="SigPolicyId.c" />
     <ClCompile Include="SigPolicyQualifierId.c" />
     <ClCompile Include="SigPolicyQualifierInfo.c" />
+    <ClCompile Include="SpcAttributeTypeAndOptionalValue.c" />
+    <ClCompile Include="SpcIndirectDataContent.c" />
+    <ClCompile Include="SpcIndirectDataContentV2.c" />
     <ClCompile Include="TerminalIdentifier.c" />
     <ClCompile Include="TestTest.c" />
     <ClCompile Include="X121Address.c" />

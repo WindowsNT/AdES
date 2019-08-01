@@ -30,6 +30,10 @@
 #include "CommitmentTypeIndication.h"
 #include "CompleteCertificateRefs.h"
 #include "CompleteRevocationRefs.h"
+#include "SpcIndirectDataContent.h"
+#include "SpcIndirectDataContentV2.h"
+#include "DigestInfo.h"
+#include "SpcAttributeTypeAndOptionalValue.h"
 
 //using namespace std;
 
@@ -481,284 +485,7 @@ namespace PE
 {
 	const std::uint16_t MZ_MAGIC = 0x5A4D;
 	const std::uint32_t NT_MAGIC = 0x00004550;
-	const std::uint16_t NUM_DIR_ENTRIES = 16;
-	const std::uint16_t NT_OPTIONAL_32_MAGIC = 0x10B;
-	const std::uint16_t NT_OPTIONAL_64_MAGIC = 0x20B;
-	const std::uint16_t NT_SHORT_NAME_LEN = 8;
-	const std::uint16_t SYMTAB_RECORD_LEN = 18;
-	const std::uint16_t DIR_EXPORT = 0;
-	const std::uint16_t DIR_IMPORT = 1;
-	const std::uint16_t DIR_RESOURCE = 2;
-	const std::uint16_t DIR_EXCEPTION = 3;
 	const std::uint16_t DIR_SECURITY = 4;
-	const std::uint16_t DIR_BASERELOC = 5;
-	const std::uint16_t DIR_DEBUG = 6;
-	const std::uint16_t DIR_ARCHITECTURE = 7;
-	const std::uint16_t DIR_GLOBALPTR = 8;
-	const std::uint16_t DIR_TLS = 9;
-	const std::uint16_t DIR_LOAD_CONFIG = 10;
-	const std::uint16_t DIR_BOUND_IMPORT = 11;
-	const std::uint16_t DIR_IAT = 12;
-	const std::uint16_t DIR_DELAY_IMPORT = 13;
-	const std::uint16_t DIR_COM_DESCRIPTOR = 14;
-
-	// clang-format on
-
-	struct dos_header {
-		std::uint16_t e_magic;
-		std::uint16_t e_cblp;
-		std::uint16_t e_cp;
-		std::uint16_t e_crlc;
-		std::uint16_t e_cparhdr;
-		std::uint16_t e_minalloc;
-		std::uint16_t e_maxalloc;
-		std::uint16_t e_ss;
-		std::uint16_t e_sp;
-		std::uint16_t e_csum;
-		std::uint16_t e_ip;
-		std::uint16_t e_cs;
-		std::uint16_t e_lfarlc;
-		std::uint16_t e_ovno;
-		std::uint16_t e_res[4];
-		std::uint16_t e_oemid;
-		std::uint16_t e_oeminfo;
-		std::uint16_t e_res2[10];
-		std::uint32_t e_lfanew;
-	};
-
-	struct file_header {
-		std::uint16_t Machine;
-		std::uint16_t NumberOfSections;
-		std::uint32_t TimeDateStamp;
-		std::uint32_t PointerToSymbolTable;
-		std::uint32_t NumberOfSymbols;
-		std::uint16_t SizeOfOptionalHeader;
-		std::uint16_t Characteristics;
-	};
-
-	struct data_directory {
-		std::uint32_t VirtualAddress;
-		std::uint32_t Size;
-	};
-
-	struct optional_header_32 {
-		std::uint16_t Magic;
-		std::uint8_t MajorLinkerVersion;
-		std::uint8_t MinorLinkerVersion;
-		std::uint32_t SizeOfCode;
-		std::uint32_t SizeOfInitializedData;
-		std::uint32_t SizeOfUninitializedData;
-		std::uint32_t AddressOfEntryPoint;
-		std::uint32_t BaseOfCode;
-		std::uint32_t BaseOfData;
-		std::uint32_t ImageBase;
-		std::uint32_t SectionAlignment;
-		std::uint32_t FileAlignment;
-		std::uint16_t MajorOperatingSystemVersion;
-		std::uint16_t MinorOperatingSystemVersion;
-		std::uint16_t MajorImageVersion;
-		std::uint16_t MinorImageVersion;
-		std::uint16_t MajorSubsystemVersion;
-		std::uint16_t MinorSubsystemVersion;
-		std::uint32_t Win32VersionValue;
-		std::uint32_t SizeOfImage;
-		std::uint32_t SizeOfHeaders;
-		std::uint32_t CheckSum;
-		std::uint16_t Subsystem;
-		std::uint16_t DllCharacteristics;
-		std::uint32_t SizeOfStackReserve;
-		std::uint32_t SizeOfStackCommit;
-		std::uint32_t SizeOfHeapReserve;
-		std::uint32_t SizeOfHeapCommit;
-		std::uint32_t LoaderFlags;
-		std::uint32_t NumberOfRvaAndSizes;
-		data_directory DataDirectory[NUM_DIR_ENTRIES];
-	};
-
-	/*
-	 * This is used for PE32+ binaries. It is similar to optional_header_32
-	 * except some fields don't exist here (BaseOfData), and others are bigger.
-	 */
-	struct optional_header_64 {
-		std::uint16_t Magic;
-		std::uint8_t MajorLinkerVersion;
-		std::uint8_t MinorLinkerVersion;
-		std::uint32_t SizeOfCode;
-		std::uint32_t SizeOfInitializedData;
-		std::uint32_t SizeOfUninitializedData;
-		std::uint32_t AddressOfEntryPoint;
-		std::uint32_t BaseOfCode;
-		std::uint64_t ImageBase;
-		std::uint32_t SectionAlignment;
-		std::uint32_t FileAlignment;
-		std::uint16_t MajorOperatingSystemVersion;
-		std::uint16_t MinorOperatingSystemVersion;
-		std::uint16_t MajorImageVersion;
-		std::uint16_t MinorImageVersion;
-		std::uint16_t MajorSubsystemVersion;
-		std::uint16_t MinorSubsystemVersion;
-		std::uint32_t Win32VersionValue;
-		std::uint32_t SizeOfImage;
-		std::uint32_t SizeOfHeaders;
-		std::uint32_t CheckSum;
-		std::uint16_t Subsystem;
-		std::uint16_t DllCharacteristics;
-		std::uint64_t SizeOfStackReserve;
-		std::uint64_t SizeOfStackCommit;
-		std::uint64_t SizeOfHeapReserve;
-		std::uint64_t SizeOfHeapCommit;
-		std::uint32_t LoaderFlags;
-		std::uint32_t NumberOfRvaAndSizes;
-		data_directory DataDirectory[NUM_DIR_ENTRIES];
-	};
-
-	struct nt_header_32
-	{
-		std::uint32_t Signature;
-		file_header FileHeader;
-		optional_header_32 OptionalHeader;
-	};
-	struct nt_header_64
-	{
-		std::uint32_t Signature;
-		file_header FileHeader;
-		optional_header_64 OptionalHeader;
-	};
-
-	struct nt_header {
-		std::uint32_t Signature;
-		file_header FileHeader;
-		std::variant<optional_header_32, optional_header_64> OptionalHeader;
-
-		bool Is32()
-		{
-			if (std::holds_alternative<optional_header_32>(OptionalHeader))
-				return true;
-			return false;
-		}
-		bool Is64()
-		{
-			if (std::holds_alternative<optional_header_64>(OptionalHeader))
-				return true;
-			return false;
-		}
-
-		size_t size()
-		{
-			if (Is32())
-				return sizeof(Signature) + sizeof(FileHeader) + sizeof(optional_header_32);
-			else
-				return sizeof(Signature) + sizeof(FileHeader) + sizeof(optional_header_64);
-		}
-
-		std::vector<char> ser()
-		{
-			std::vector<char> x(size());
-			memcpy(x.data(), &Signature, 4);
-			memcpy(x.data() + 4, &FileHeader, sizeof(FileHeader));
-			if (Is32())
-				memcpy(x.data() + 4 + sizeof(FileHeader), &std::get<optional_header_32>(OptionalHeader), sizeof(optional_header_32));
-			else
-				memcpy(x.data() + 4 + sizeof(FileHeader), &std::get<optional_header_64>(OptionalHeader), sizeof(optional_header_64));
-			return x;
-		}
-	};
-
-	/*
-	 * This structure is only used to know how far to move the offset
-	 * when parsing resources. The data is stored in a resource_dir_entry
-	 * struct but that also has extra information used in the parsing which
-	 * causes the size to be inaccurate.
-	 */
-	struct resource_dir_entry_sz {
-		std::uint32_t ID;
-		std::uint32_t RVA;
-	};
-
-	struct resource_dir_entry {
-		inline resource_dir_entry(void) : ID(0), RVA(0), type(0), name(0), lang(0) {
-		}
-
-		std::uint32_t ID;
-		std::uint32_t RVA;
-		std::uint32_t type;
-		std::uint32_t name;
-		std::uint32_t lang;
-		std::string type_str;
-		std::string name_str;
-		std::string lang_str;
-	};
-
-	struct resource_dir_table {
-		std::uint32_t Characteristics;
-		std::uint32_t TimeDateStamp;
-		std::uint16_t MajorVersion;
-		std::uint16_t MinorVersion;
-		std::uint16_t NameEntries;
-		std::uint16_t IDEntries;
-	};
-
-	struct resource_dat_entry {
-		std::uint32_t RVA;
-		std::uint32_t size;
-		std::uint32_t codepage;
-		std::uint32_t reserved;
-	};
-
-	struct image_section_header {
-		std::uint8_t Name[NT_SHORT_NAME_LEN];
-		union {
-			std::uint32_t PhysicalAddress;
-			std::uint32_t VirtualSize;
-		} Misc;
-		std::uint32_t VirtualAddress;
-		std::uint32_t SizeOfRawData;
-		std::uint32_t PointerToRawData;
-		std::uint32_t PointerToRelocations;
-		std::uint32_t PointerToLinenumbers;
-		std::uint16_t NumberOfRelocations;
-		std::uint16_t NumberOfLinenumbers;
-		std::uint32_t Characteristics;
-	};
-
-	struct import_dir_entry {
-		std::uint32_t LookupTableRVA;
-		std::uint32_t TimeStamp;
-		std::uint32_t ForwarderChain;
-		std::uint32_t NameRVA;
-		std::uint32_t AddressRVA;
-	};
-
-	struct export_dir_table {
-		std::uint32_t ExportFlags;
-		std::uint32_t TimeDateStamp;
-		std::uint16_t MajorVersion;
-		std::uint16_t MinorVersion;
-		std::uint32_t NameRVA;
-		std::uint32_t OrdinalBase;
-		std::uint32_t AddressTableEntries;
-		std::uint32_t NumberOfNamePointers;
-		std::uint32_t ExportAddressTableRVA;
-		std::uint32_t NamePointerRVA;
-		std::uint32_t OrdinalTableRVA;
-	};
-
-	enum reloc_type {
-		XABSOLUTE = 0,
-		HIGH = 1,
-		LOW = 2,
-		HIGHLOW = 3,
-		HIGHADJ = 4,
-		MIPS_JMPADDR = 5,
-		MIPS_JMPADDR16 = 9,
-		IA64_IMM64 = 9,
-		DIR64 = 10
-	};
-
-	struct reloc_block {
-		std::uint32_t PageRVA;
-		std::uint32_t BlockSize;
-	};
 
 
 	struct BPTR
@@ -768,22 +495,26 @@ namespace PE
 	};
 
 	struct section {
-		image_section_header* sec = 0;
+		IMAGE_SECTION_HEADER* sec = 0;
 		std::uint64_t sectionBase;
 		BPTR sectionData;
 	};
 
+#include <ImageHlp.h>
+#pragma comment(lib,"imagehlp.lib")
 	class PE
 	{
 	private:
 
 		std::vector<char> full;
-		dos_header* dos = 0;
+		_IMAGE_DOS_HEADER* dos = 0;
 		BPTR dos2;
 
-		nt_header nt;
-		nt_header_32* pnt32 = 0;
-		nt_header_64* pnt64 = 0;
+		IMAGE_NT_HEADERS32* pnt32 = 0;
+		IMAGE_NT_HEADERS64* pnt64 = 0;
+		IMAGE_FILE_HEADER* pfh = 0;
+		bool Is32 = false;
+		bool Is64 = false;
 		char* pnt = 0;
 		std::vector<section> sections;
 
@@ -805,58 +536,56 @@ namespace PE
 			[[maybe_unused]] auto orgsz = sz;
 
 			// DOS header
-			dos = (dos_header*)p;
+			dos = (_IMAGE_DOS_HEADER*)p;
 			if (dos->e_magic != MZ_MAGIC)
 				return false;
 
 			// Remaining DOS-related stuff
-			dos2.sz = dos->e_lfanew - sizeof(dos_header);
-			dos2.p = p + sizeof(dos_header);
+			dos2.sz = dos->e_lfanew - sizeof(_IMAGE_DOS_HEADER);
+			dos2.p = p + sizeof(_IMAGE_DOS_HEADER);
 
 			p += dos->e_lfanew;
 			sz -= dos->e_lfanew;
 
 			// NT header
 			pnt = p;
-			pnt32 = (nt_header_32*)p;
-			pnt64 = (nt_header_64*)p;
-			memcpy(&nt.Signature, p, 4);
-			if (nt.Signature != NT_MAGIC)
+			pnt32 = (IMAGE_NT_HEADERS32*)p;
+			pnt64 = (IMAGE_NT_HEADERS64*)p;
+			if (pnt32->Signature != NT_MAGIC)
 				return false;
 			p += 4;
-			memcpy(&nt.FileHeader, p, sizeof(nt.FileHeader));
-			p += sizeof(nt.FileHeader);
-			if (nt.FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64)
+			sz -= 4;
+			pfh = (IMAGE_FILE_HEADER*)p;
+			p += sizeof(IMAGE_FILE_HEADER);
+			sz -= sizeof(IMAGE_FILE_HEADER);
+			if (pfh->Machine == IMAGE_FILE_MACHINE_AMD64)
 			{
-				optional_header_64 h;
-				memcpy(&h, p, sizeof(h));
-				p += sizeof(h);
-				nt.OptionalHeader = h;
+				Is64 = true;
+				Is32 = false;
+				p += sizeof(IMAGE_OPTIONAL_HEADER64);
+				sz -= sizeof(IMAGE_OPTIONAL_HEADER64);;
 			}
 			else
 			{
-				optional_header_32 h;
-				memcpy(&h, p, sizeof(h));
-				p += sizeof(h);
-				nt.OptionalHeader = h;
+				Is64 = false;
+				Is32 = true;
+				p += sizeof(IMAGE_OPTIONAL_HEADER);
+				sz -= sizeof(IMAGE_OPTIONAL_HEADER);
 			}
-			sz -= nt.size();
 
 			// Sections
-			for (std::uint32_t i = 0; i < nt.FileHeader.NumberOfSections; i++)
+			for (std::uint32_t i = 0; i < pfh->NumberOfSections; i++)
 			{
 				section s;
 
 				// item
-				s.sec = (image_section_header*)p;
-				p += sizeof(image_section_header); sz -= sizeof(image_section_header);
+				s.sec = (IMAGE_SECTION_HEADER*)p;
+				p += sizeof(IMAGE_SECTION_HEADER); sz -= sizeof(IMAGE_SECTION_HEADER);
 
-				if (nt.Is32())
-					s.sectionBase =
-					((uint64_t)std::get<optional_header_32>(nt.OptionalHeader).ImageBase) + s.sec->VirtualAddress;
+				if (Is32)
+					s.sectionBase = pnt32->OptionalHeader.ImageBase + s.sec->VirtualAddress;
 				else
-					s.sectionBase =
-					std::get<optional_header_64>(nt.OptionalHeader).ImageBase + s.sec->VirtualAddress;
+					s.sectionBase = pnt64->OptionalHeader.ImageBase + s.sec->VirtualAddress;
 
 				s.sectionData.sz = s.sec->SizeOfRawData;
 				s.sectionData.p = orgp + s.sec->PointerToRawData;
@@ -865,20 +594,52 @@ namespace PE
 			return true;
 		}
 
+		bool GetSignature(std::vector<char>& dd)
+		{
+			IMAGE_DATA_DIRECTORY expd;
+			if (Is32)
+			{
+				expd = pnt32->OptionalHeader.DataDirectory[DIR_SECURITY];
+			}
+			else
+			{
+				expd = pnt64->OptionalHeader.DataDirectory[DIR_SECURITY];
+			}
+			if (expd.Size == 0)
+				return false;
+
+			dd.resize(expd.Size - 8);
+			memcpy(dd.data(), full.data() + expd.VirtualAddress + 8, expd.Size - 8);
+			return true;
+		}
+
 		bool AddSignature(std::vector<char>& dd)
 		{
 			std::vector<char> d;
 			WIN_CERTIFICATE wc = { 0 };
 			wc.dwLength = dd.size() + 8;
-			wc.wRevision = WIN_CERT_REVISION_1_0;
+			wc.wRevision = WIN_CERT_REVISION_2_0;
 			wc.wCertificateType = WIN_CERT_TYPE_PKCS_SIGNED_DATA;
 			d.resize(dd.size() + 8);
 			memcpy(d.data(), &wc, 8);
 			memcpy(d.data() + 8, dd.data(), dd.size());
 
+
+			std::wstring TempFile(wchar_t* x, const wchar_t* prf);
+			wchar_t x[1000] = { 0 };
+			auto exe = TempFile(x, L"exe");
+			DeleteFile(x);
+			PutFile(x, full);
+			HANDLE hX = CreateFile(x, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
+			DWORD ddw = 0;
+			WIN_CERTIFICATE* ws = (WIN_CERTIFICATE*)d.data();
+			ImageAddCertificate(hX, ws, &ddw);
+			CloseHandle(hX);
+			LoadFile(x, full);
+			DeleteFile(x);
+			/*
 			size_t fs = full.size();
-			full.insert(full.end(), d.begin(), d.end());
-			if(nt.Is32())
+			if (Is32)
 			{
 				pnt32->OptionalHeader.DataDirectory[DIR_SECURITY].Size = d.size();
 				pnt32->OptionalHeader.DataDirectory[DIR_SECURITY].VirtualAddress = fs;
@@ -888,7 +649,8 @@ namespace PE
 				pnt64->OptionalHeader.DataDirectory[DIR_SECURITY].Size = d.size();
 				pnt64->OptionalHeader.DataDirectory[DIR_SECURITY].VirtualAddress = fs;
 			}
-			return true;
+			full.insert(full.end(), d.begin(), d.end());
+	*/		return true;
 		}
 
 		bool Save(std::vector<char>& d)
@@ -902,6 +664,39 @@ namespace PE
 			if (sections.empty())
 				return;// duh
 
+			//char* a1 = (char*)LoadLibraryEx(L"r:\\test1.exe",0, LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+
+			//LOADED_IMAGE* li = ImageLoad("r:\\test1.exe", "");
+			//ImageUnload(li);
+
+			/*HANDLE hY = CreateFile(L"r:\\test1.exe", GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
+			ImageGetDigestStream(hY,
+
+				CERT_SECTION_TYPE_ANY
+
+				, [](DIGEST_HANDLE refdata,
+				PBYTE pData,
+				DWORD dwLength) -> BOOL
+				{
+					std::vector<char>* a1 = (std::vector<char>*)refdata;
+					auto s1 = a1->size();
+					a1->resize(s1 + dwLength);
+					memcpy(a1->data() + s1, pData, dwLength);
+					return true;
+				}, (DIGEST_HANDLE)& d);
+			*/	
+
+			
+/*			d = full;
+			d.erase(d.begin() + 296, d.begin() + 296 + 8);
+			d.erase(d.begin() + 216, d.begin() + 216 + 4);
+		
+			HASH h;
+			std::vector<BYTE> hh;
+			h.hash((BYTE*)d.data(), d.size());
+			h.get(hh);
+			return;
+	*/		
 			/*
 1.  Load the image header into memory.
 2.	Initialize a hash algorithm context.
@@ -923,49 +718,52 @@ namespace PE
 			
 			size_t s = 0;
 
-			// Up to where?
-			size_t BytesUpToLastSection = ((char*)(sections[sections.size() - 1].sec) - full.data()) + sizeof(image_section_header);
-			d.resize(BytesUpToLastSection);
-			memcpy(d.data(), full.data(), BytesUpToLastSection);
-
-			// We remove the certificate table entry (8 bytes)
-			size_t offset = 0;
-			data_directory expd;
-			if (nt.Is32())
-			{
-				offset = offsetof(optional_header_32, DataDirectory[DIR_SECURITY]);
-				expd = std::get<optional_header_32>(nt.OptionalHeader).DataDirectory[DIR_SECURITY];
-			}
-			else
-			{
-				offset = offsetof(optional_header_64, DataDirectory[DIR_SECURITY]);
-				expd = std::get<optional_header_64>(nt.OptionalHeader).DataDirectory[DIR_SECURITY];
-			}
-			offset += pnt - full.data();
-			d.erase(d.begin() + offset, d.begin() + offset + 8);
-
-			// We remove the checksum (4 bytes)
-			if (nt.Is32())
-				offset = offsetof(optional_header_32,CheckSum);
-			else
-				offset = offsetof(optional_header_64,CheckSum);
-			offset += pnt - full.data();
-			d.erase(d.begin() + offset, d.begin() + offset + 4);
-
-			// Counter
-			size_t SUM_OF_BYTES_HASHED = 0;
-			if (nt.Is32())
-				SUM_OF_BYTES_HASHED = std::get<optional_header_32>(nt.OptionalHeader).SizeOfHeaders;
-			else
-				SUM_OF_BYTES_HASHED = std::get<optional_header_64>(nt.OptionalHeader).SizeOfHeaders;
-
 			// Sort Sections
-			std::sort(sections.begin(), sections.end(), [](const section& s1,const section& s2) -> bool
+			std::sort(sections.begin(), sections.end(), [](const section& s1, const section& s2) -> bool
 				{
 					if (s1.sec->PointerToRawData < s2.sec->PointerToRawData)
 						return true;
 					return false;
 				});
+
+			// Up to where?
+			size_t BytesUpToLastSection = ((char*)(sections[sections.size() - 1].sec) - full.data()) + sizeof(IMAGE_SECTION_HEADER);
+			d.resize(BytesUpToLastSection);
+			memcpy(d.data(), full.data(), BytesUpToLastSection);
+
+			// We remove the certificate table entry (8 bytes)
+			size_t offset = 0;
+			IMAGE_DATA_DIRECTORY expd;
+			if (Is32)
+			{
+				offset = offsetof(_IMAGE_OPTIONAL_HEADER, DataDirectory[DIR_SECURITY]);
+				expd = pnt32->OptionalHeader.DataDirectory[DIR_SECURITY];
+			}
+			else
+			{
+				offset = offsetof(_IMAGE_OPTIONAL_HEADER64, DataDirectory[DIR_SECURITY]);
+				expd = pnt64->OptionalHeader.DataDirectory[DIR_SECURITY];
+			}
+			offset += sizeof(IMAGE_FILE_HEADER) + 4;
+			offset += pnt - full.data();
+			d.erase(d.begin() + offset, d.begin() + offset + 8);
+			
+			// We remove the checksum (4 bytes)
+			if (Is32)
+				offset = offsetof(_IMAGE_OPTIONAL_HEADER,CheckSum);
+			else
+				offset = offsetof(_IMAGE_OPTIONAL_HEADER64,CheckSum);
+			offset += sizeof(IMAGE_FILE_HEADER) + 4;
+			offset += pnt - full.data();
+			d.erase(d.begin() + offset, d.begin() + offset + 4);
+
+			// Counter
+			size_t SUM_OF_BYTES_HASHED = 0;
+			if (Is32)
+				SUM_OF_BYTES_HASHED = pnt32->OptionalHeader.SizeOfHeaders;
+			else
+				SUM_OF_BYTES_HASHED = pnt64->OptionalHeader.SizeOfHeaders;
+
 			for (auto& ss : sections)
 			{
 				if (ss.sectionData.sz == 0)
@@ -3256,7 +3054,6 @@ HRESULT AdES::GreekVerifyCertificate(PCCERT_CONTEXT a, const char* sig, DWORD si
 	return rx;
 }
 
-
 HRESULTERROR AdES::PESign(LEVEL levx, const char* d, DWORD sz, const std::vector<CERT>& Certificates, SIGNPARAMETERS& Params, std::vector<char>& res)
 {
 	HRESULT hr = E_FAIL;
@@ -3267,10 +3064,18 @@ HRESULTERROR AdES::PESign(LEVEL levx, const char* d, DWORD sz, const std::vector
 	std::vector<char> ToSign;
 	p.GetDataToSign(ToSign);
 	std::vector<char> res2;
+	Params.PE = true;
 	Params.Attached = ATTACHTYPE::DETACHED;
 	hr = Sign(levx, ToSign.data(), ToSign.size(), Certificates, Params, res2);
 	if (FAILED(hr))
 		return hr;
+
+/*	std::string s = XML3::Char2Base64(res2.data(), res2.size());
+	FILE* fw1 = 0;
+	_wfopen_s(&fw1, L"r:\\1.txt",L"wb");
+	fprintf(fw1, s.c_str());
+	fclose(fw1);
+*/
 
 	// Append the signature
 	if (p.AddSignature(res2))
@@ -3278,6 +3083,18 @@ HRESULTERROR AdES::PESign(LEVEL levx, const char* d, DWORD sz, const std::vector
 		if (p.Save(res))
 		{
 			hr = S_OK;
+/*
+			// Verifcation
+			PE::PE p2;
+			res.clear();
+			LoadFile(L"r:\\test3.exe", res);
+			p2.Load(res.data(), res.size());
+			std::vector<char> ssig;
+			p2.GetSignature(ssig);
+			p2.GetDataToSign(ToSign);
+			auto hrx = Verify(ssig.data(), ssig.size(), levx, ToSign.data(), ToSign.size());
+			MessageBox(0, 0, 0, 0);
+*/
 		}
 	}
 	return hr;
@@ -4335,6 +4152,36 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 				SignerEncodeInfo.cAuthAttr++;
 			}
 
+			if (Params.PE)
+			{
+				//  Change the Content-Type to SpcIndirectDataContent
+				SpcIndirectDataContent* v = AddMem<SpcIndirectDataContent>(mem, sizeof(SpcIndirectDataContent));
+				
+
+				std::vector<char> ooo;
+				auto ec = der_encode(&asn_DEF_SpcIndirectDataContent,
+					v, [](const void* buffer, size_t size, void* app_key) ->int
+					{
+						std::vector<char>* x = (std::vector<char>*)app_key;
+						auto es = x->size();
+						x->resize(x->size() + size);
+						memcpy(x->data() + es, buffer, size);
+						return 0;
+					}, (void*)& ooo);
+				char* ooob = AddMem<char>(mem, ooo.size());
+				memcpy(ooob, ooo.data(), ooo.size());
+				::CRYPT_ATTR_BLOB b1 = { 0 };
+				b1.cbData = (DWORD)ooo.size();
+				b1.pbData = (BYTE*)ooob;
+				ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.2.840.113549.1.9.3";
+				ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
+				ca[SignerEncodeInfo.cAuthAttr].rgValue = &b1;
+
+				SignerEncodeInfo.cAuthAttr++;
+
+
+
+			}
 			// Hash of the cert
 			if (Params.Debug) printf("Adding certificate...\r\n");
 			std::vector<BYTE> dhash;

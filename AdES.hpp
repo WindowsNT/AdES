@@ -122,6 +122,7 @@ public:
 		bool ASiC = false; // True if this is for ASiC
 		bool Debug = false;
 		bool PAdES = false; // True if PAdES, to eliminate self timestamp
+		bool PE = false; // True if PE
 		PDFSIGNPARAMETERS pdfparams;
 		bool XMLComments = false;
 		
