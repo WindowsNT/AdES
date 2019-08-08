@@ -4351,27 +4351,27 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 					SignerEncodeInfo.cAuthAttr++;
 				}
 			}
-			// Hash of the cert
-			if (Params.Debug) printf("Adding certificate...\r\n");
-			std::vector<BYTE> dhash;
-			HASH hash(BCRYPT_SHA256_ALGORITHM);
-			hash.hash(c.cert.cert->pbCertEncoded, c.cert.cert->cbCertEncoded);
-			hash.get(dhash);
-			BYTE* hashbytes = AddMem<BYTE>(mem, dhash.size());
-			memcpy(hashbytes, dhash.data(), dhash.size());
-
-			SigningCertificateV2* v = AddMem<SigningCertificateV2>(mem, sizeof(SigningCertificateV2));
-			v->certs.list.size = 1;
-			v->certs.list.count = 1;
-			v->certs.list.array = AddMem<ESSCertIDv2*>(mem);
-			v->certs.list.array[0] = AddMem<ESSCertIDv2>(mem);
-			v->certs.list.array[0]->certHash.buf = hashbytes;
-			v->certs.list.array[0]->certHash.size = (DWORD)dhash.size();
-			// SHA-256 is the default
-
-			// Encode it as DER
 			if (Params.PE.empty())
 			{
+					// Hash of the cert
+				if (Params.Debug) printf("Adding certificate...\r\n");
+				std::vector<BYTE> dhash;
+				HASH hash(BCRYPT_SHA256_ALGORITHM);
+				hash.hash(c.cert.cert->pbCertEncoded, c.cert.cert->cbCertEncoded);
+				hash.get(dhash);
+				BYTE* hashbytes = AddMem<BYTE>(mem, dhash.size());
+				memcpy(hashbytes, dhash.data(), dhash.size());
+
+				SigningCertificateV2* v = AddMem<SigningCertificateV2>(mem, sizeof(SigningCertificateV2));
+				v->certs.list.size = 1;
+				v->certs.list.count = 1;
+				v->certs.list.array = AddMem<ESSCertIDv2*>(mem);
+				v->certs.list.array[0] = AddMem<ESSCertIDv2>(mem);
+				v->certs.list.array[0]->certHash.buf = hashbytes;
+				v->certs.list.array[0]->certHash.size = (DWORD)dhash.size();
+				// SHA-256 is the default
+
+				// Encode it as DER
 				std::vector<char> buff3;
 				auto ec2 = der_encode(&asn_DEF_SigningCertificateV2,
 					v, [](const void* buffer, size_t size, void* app_key) ->int
