@@ -4529,6 +4529,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 		(DWORD)sz);
 	if (cbEncodedBlob)
 	{
+		cbEncodedBlob *= 2;
 		auto hMsg = CryptMsgOpenToEncode(
 			MY_ENCODING_TYPE,        // encoding type
 			dflg | AuthAttr,
