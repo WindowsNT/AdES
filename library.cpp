@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <map>
 #include <sstream>
+#include <charconv>
 #include <windows.h>
 #include <shlobj.h>
 #include <wincrypt.h>
@@ -33,7 +34,11 @@
 #include "SpcIndirectDataContent.h"
 #include "SpcIndirectDataContentV2.h"
 #include "DigestInfo.h"
+#include "SpcPeImageFlags.h"
 #include "SpcAttributeTypeAndOptionalValue.h"
+#include "SpcPeImageData.h"
+#include "SpcSpOpusInfo.h"
+#include "SpcPeImageData.h"
 
 //using namespace std;
 
@@ -2342,6 +2347,7 @@ HRESULT AdES::AddCT(std::vector<char>& Signature, const std::vector<CERT>& Certi
 	DWORD dflg = 0;
 	if (Params.Attached == ATTACHTYPE::DETACHED)
 		dflg = CMSG_DETACHED_FLAG;
+
 	DWORD cbEncodedBlob = 0;
 
 	std::vector<char> EH;
@@ -3064,18 +3070,14 @@ HRESULTERROR AdES::PESign(LEVEL levx, const char* d, DWORD sz, const std::vector
 	std::vector<char> ToSign;
 	p.GetDataToSign(ToSign);
 	std::vector<char> res2;
-	Params.PE = true;
-	Params.Attached = ATTACHTYPE::DETACHED;
+	Params.PE = ToSign;
+	Params.Attached = ATTACHTYPE::ATTACHED;
 	hr = Sign(levx, ToSign.data(), ToSign.size(), Certificates, Params, res2);
 	if (FAILED(hr))
 		return hr;
 
-/*	std::string s = XML3::Char2Base64(res2.data(), res2.size());
-	FILE* fw1 = 0;
-	_wfopen_s(&fw1, L"r:\\1.txt",L"wb");
-	fprintf(fw1, s.c_str());
-	fclose(fw1);
-*/
+//	DeleteFile(L"g:\\progs\\osslsigncode\\test2.sig");
+	//PutFile(L"g:\\progs\\osslsigncode\\test2.sig", res2);
 
 	// Append the signature
 	if (p.AddSignature(res2))
@@ -4097,10 +4099,11 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 	std::vector<CERT_BLOB> CertsIncluded;
 	std::vector<CMSG_SIGNER_ENCODE_INFO> Signers;
 	int AuthAttr = CMSG_AUTHENTICATED_ATTRIBUTES_FLAG;
-	if (lev == LEVEL::CMS)
+	if (lev == LEVEL::CMS && Params.PE.empty())
 		AuthAttr = 0;
 
 	vector <shared_ptr<std::vector<char>>> mem;
+	vector<char> pebenc;
 	for (auto& c : Certificates)
 	{
 		if (Params.Debug) printf("Using new certificate...\r\n");
@@ -4130,7 +4133,7 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 				SignerEncodeInfo.cAuthAttr++;
 			}
 			// Add the timestamp
-			if (!Params.PAdES)
+			if (!Params.PAdES) 
 			{
 				if (Params.Debug) printf("Adding local time...\r\n");
 				FILETIME ft = { 0 };
@@ -4152,15 +4155,95 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 				SignerEncodeInfo.cAuthAttr++;
 			}
 
-			if (Params.PE)
+			if (!Params.PE.empty())
 			{
-				//  Change the Content-Type to SpcIndirectDataContent
-				SpcIndirectDataContent* v = AddMem<SpcIndirectDataContent>(mem, sizeof(SpcIndirectDataContent));
-				
+				SpcIndirectDataContent* pe = AddMem<SpcIndirectDataContent>(mem, sizeof(SpcIndirectDataContent));
+				wchar_t* us = L"<<<Obsolete>>>";
+
+/*				
+				char d = 0;
+				// Add the spcPEImageData
+				SpcPeImageData* pei = AddMem<SpcPeImageData>(mem, sizeof(SpcPeImageData));
+				std::vector<char> ooo3;
+				pei->flags = AddMem<SpcPeImageFlags_t>(mem);
+
+				pei->flags->size = 1;
+				pei->flags->buf = (uint8_t*)&d;
+				pei->file.present = SpcLink_PR_file;
+				pei->file.choice.file.present = SpcString_PR_unicode;
+				pei->file.choice.file.choice.unicode.buf = (BYTE*)us;
+				pei->file.choice.file.choice.unicode.size = wcslen(us)*2;
+				auto ec3 = der_encode(&asn_DEF_SpcPeImageData,
+					pei, [](const void* buffer, size_t size, void* app_key) ->int
+					{
+						std::vector<char>* x = (std::vector<char>*)app_key;
+						auto es = x->size();
+						x->resize(x->size() + size);
+						memcpy(x->data() + es, buffer, size);
+						return 0;
+					}, (void*)& ooo3);
+*/
+//				PutFile(L"r:\\x.asn", ooo3);
+
+				OID oid;
+				vector<char> of1(100);
+				strcpy_s(of1.data(), 100, "1.3.6.1.4.1.311.2.1.15");
+				std::vector<unsigned char> cttbin = oid.enc(of1.data());
+				pe->data.type.buf = (uint8_t*)cttbin.data();
+				pe->data.type.size = (DWORD)cttbin.size();
+
+
+				// Create the SpcImageData
+//				SpcPeImageData* pei = AddMem<SpcPeImageData>(mem);
+				SpcPeImageData* pei = &pe->data.value;
+
+				// Flags, default 0
+				char d = SpcPeImageFlags_includeResources;
+				pei->flags = AddMem<SpcPeImageFlags_t>(mem);
+				pei->flags->size = 0;
+				pei->flags->buf = 0;// (uint8_t*)& d;
+
+				// URL or Obsolete filename
+				pei->file.present = SpcLink_PR_url;
+				pei->file.choice.url.buf = 0;
+				pei->file.choice.url.size = 0;
+/*				pei->file.present = SpcLink_PR_file;
+				pei->file.choice.file.present = SpcString_PR_unicode;
+				pei->file.choice.file.choice.unicode.buf = (BYTE*)us;
+				pei->file.choice.file.choice.unicode.size = wcslen(us) * 2;
+*/
+
+/*
+				// Set pe->data to pei
+				pe->data.value = AddMem<ANY_t>(mem);
+				pe->data.value->buf = (uint8_t*)pei;
+				pe->data.value->size = sizeof(SpcPeImageData);
+*/
+
+				OID hoid;
+				vector<char> o1(100);
+				strcpy_s(o1.data(), 100, "2.16.840.1.101.3.4.2.1");
+				std::vector<unsigned char> hcttbin = hoid.enc(o1.data());
+				// Add the hash
+				pe->messageDigest.digestAlgorithm.algorithm.buf = (uint8_t*)hcttbin.data();
+				pe->messageDigest.digestAlgorithm.algorithm.size = (DWORD)hcttbin.size();
+
+
+				std::vector<BYTE> dhash;
+				HASH hash(BCRYPT_SHA256_ALGORITHM);
+				hash.hash((BYTE*)Params.PE.data(), Params.PE.size());
+				hash.get(dhash);
+				pe->messageDigest.digest.buf = (uint8_t*)dhash.data();
+				pe->messageDigest.digest.size = (DWORD)dhash.size();
+
+				pe->messageDigest.digestAlgorithm.parameters = AddMem<ANY_t>(mem);
+				pe->messageDigest.digestAlgorithm.parameters->buf = 0;
+				pe->messageDigest.digestAlgorithm.parameters->size = 0;
+
 
 				std::vector<char> ooo;
 				auto ec = der_encode(&asn_DEF_SpcIndirectDataContent,
-					v, [](const void* buffer, size_t size, void* app_key) ->int
+					pe, [](const void* buffer, size_t size, void* app_key) ->int
 					{
 						std::vector<char>* x = (std::vector<char>*)app_key;
 						auto es = x->size();
@@ -4168,19 +4251,105 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 						memcpy(x->data() + es, buffer, size);
 						return 0;
 					}, (void*)& ooo);
-				char* ooob = AddMem<char>(mem, ooo.size());
-				memcpy(ooob, ooo.data(), ooo.size());
-				::CRYPT_ATTR_BLOB b1 = { 0 };
-				b1.cbData = (DWORD)ooo.size();
-				b1.pbData = (BYTE*)ooob;
-				ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.2.840.113549.1.9.3";
-				ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
-				ca[SignerEncodeInfo.cAuthAttr].rgValue = &b1;
-
-				SignerEncodeInfo.cAuthAttr++;
 
 
+/*				// Encode 
+				DWORD buffsize = 0;
+				CRYPT_SEQUENCE_OF_ANY an;
+				an.cValue = 1;
+				CRYPT_DER_BLOB bl;
+				bl.pbData = (BYTE*)ooo.data();
+				bl.cbData = (DWORD)ooo.size();
+				an.rgValue = &bl;
+				CryptEncodeObjectEx(PKCS_7_ASN_ENCODING, X509_SEQUENCE_OF_ANY, (void*)& an, 0, 0, 0, &buffsize);
+				pebenc.resize(buffsize);
+				CryptEncodeObjectEx(PKCS_7_ASN_ENCODING, X509_SEQUENCE_OF_ANY, (void*)& an, 0, 0, (BYTE*)pebenc.data(), &buffsize);
+				pebenc.resize(buffsize);
+*/
+				pebenc = ooo;
 
+
+				// Test
+
+/*
+				auto vx = [](const std::string& str, unsigned char chars_per_num = 2)->std::vector<char>
+				{
+					std::vector<char> out(str.size() / chars_per_num, 0);
+
+					char value;
+					for (int i = 0; i < str.size() / chars_per_num; i++) {
+						std::from_chars(
+							str.data() + (i * chars_per_num),
+							str.data() + (i * chars_per_num) + chars_per_num,
+							value,
+							16
+							);
+						out[i] = value;
+					}
+
+					return out;
+				};
+*/
+				char* ah = "30 4C 30 17 06 0A 2B 06 01 04 01 82 37 02 01 0F 30 09 03 01 00 A0 04 A2 02 80 00 30 31 30 0D 06 09 60 86 48 01 65 03 04 02 01 05 00 04 20 ";
+				pebenc.clear();
+				for (;;)
+				{
+					unsigned long V = 0;
+					sscanf(ah, "%02X", &V);
+					pebenc.push_back((unsigned char)V);
+					ah += 3;
+					if (strlen(ah) < 3)
+						break;
+				}
+				// Last 32, hash
+				for (auto& d : dhash)
+					pebenc.push_back(d);
+
+
+				
+
+
+				// And the authenticated SpcSpOpusInfo
+				vector<char> oa4;
+				SpcSpOpusInfo* oi = AddMem<SpcSpOpusInfo>(mem, sizeof(SpcSpOpusInfo));
+				ec = der_encode(&asn_DEF_SpcSpOpusInfo,
+					oi, [](const void* buffer, size_t size, void* app_key) ->int
+					{
+						std::vector<char>* x = (std::vector<char>*)app_key;
+						auto es = x->size();
+						x->resize(x->size() + size);
+						memcpy(x->data() + es, buffer, size);
+						return 0;
+					}, (void*)& oa4);
+				char* ooo4 = AddMem<char>(mem, oa4.size());
+				memcpy(ooo4, oa4.data(), oa4.size());
+				if (true)
+				{
+					::CRYPT_ATTR_BLOB b1 = { 0 };
+					b1.cbData = (DWORD)oa4.size();
+					b1.pbData = (BYTE*)ooo4;
+					ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.3.6.1.4.1.311.2.1.12";
+					ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
+					ca[SignerEncodeInfo.cAuthAttr].rgValue = &b1;
+					SignerEncodeInfo.cAuthAttr++;
+				}
+
+				// And the weird SPC_STATEMENT_TYPE_OBJID
+				if (true)
+				{
+					const int nc = 14;
+					unsigned char x1[nc] = { 0x30, 0xC, 0x6, 0xA, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x02, 0x01, 0x15 };
+					char* ooo5 = AddMem<char>(mem,nc);
+					memcpy(ooo5, x1, nc);
+
+					::CRYPT_ATTR_BLOB b1 = { 0 };
+					b1.cbData = (DWORD)nc;
+					b1.pbData = (BYTE*)ooo5;
+					ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.3.6.1.4.1.311.2.1.11";
+					ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
+					ca[SignerEncodeInfo.cAuthAttr].rgValue = &b1;
+					SignerEncodeInfo.cAuthAttr++;
+				}
 			}
 			// Hash of the cert
 			if (Params.Debug) printf("Adding certificate...\r\n");
@@ -4201,27 +4370,32 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 			// SHA-256 is the default
 
 			// Encode it as DER
-			std::vector<char> buff3;
-			auto ec2 = der_encode(&asn_DEF_SigningCertificateV2,
-				v, [](const void *buffer, size_t size, void *app_key) ->int
+			if (Params.PE.empty())
 			{
-				std::vector<char>* x = (std::vector<char>*)app_key;
-				auto es = x->size();
-				x->resize(x->size() + size);
-				memcpy(x->data() + es, buffer, size);
-				return 0;
-			}, (void*)&buff3);
-			char* ooodb = AddMem<char>(mem, buff3.size());
-			memcpy(ooodb, buff3.data(), buff3.size());
-			::CRYPT_ATTR_BLOB bd1 = { 0 };
-			bd1.cbData = (DWORD)buff3.size();
-			bd1.pbData = (BYTE*)ooodb;
-			ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.2.840.113549.1.9.16.2.47";
-			ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
-			ca[SignerEncodeInfo.cAuthAttr].rgValue = &bd1;
+				std::vector<char> buff3;
+				auto ec2 = der_encode(&asn_DEF_SigningCertificateV2,
+					v, [](const void* buffer, size_t size, void* app_key) ->int
+					{
+						std::vector<char>* x = (std::vector<char>*)app_key;
+						auto es = x->size();
+						x->resize(x->size() + size);
+						memcpy(x->data() + es, buffer, size);
+						return 0;
+					}, (void*)& buff3);
+				char* ooodb = AddMem<char>(mem, buff3.size());
+				memcpy(ooodb, buff3.data(), buff3.size());
+				::CRYPT_ATTR_BLOB bd1 = { 0 };
+				bd1.cbData = (DWORD)buff3.size();
+				bd1.pbData = (BYTE*)ooodb;
+				ca[SignerEncodeInfo.cAuthAttr].pszObjId = "1.2.840.113549.1.9.16.2.47";
+				ca[SignerEncodeInfo.cAuthAttr].cValue = 1;
+				ca[SignerEncodeInfo.cAuthAttr].rgValue = &bd1;
 
-			SignerEncodeInfo.cAuthAttr++;
-			SignerEncodeInfo.rgAuthAttr = ca;
+				SignerEncodeInfo.cAuthAttr++;
+				SignerEncodeInfo.rgAuthAttr = ca;
+			}
+			else
+				SignerEncodeInfo.rgAuthAttr = ca;
 
 			if (Params.commitmentTypeOid.length())
 			{
@@ -4337,12 +4511,21 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 	if (Params.Attached == ATTACHTYPE::DETACHED)
 		dflg = CMSG_DETACHED_FLAG;
 
+	char* inner = 0;
+	if (!Params.PE.empty())
+	{
+		inner = "1.3.6.1.4.1.311.2.1.4";
+		data = pebenc.data();
+		sz = pebenc.size();
+		dflg = 0;
+	}
+
 	auto cbEncodedBlob = CryptMsgCalculateEncodedLength(
 		MY_ENCODING_TYPE,     // Message encoding type
 		dflg,
 		CMSG_SIGNED,          // Message type
 		&SignedMsgEncodeInfo, // Pointer to structure
-		NULL,                 // Inner content OID
+		inner,                 // Inner content OID
 		(DWORD)sz);
 	if (cbEncodedBlob)
 	{
@@ -4351,14 +4534,15 @@ HRESULT AdES::Sign(LEVEL lev, const char* data, DWORD sz, const std::vector<CERT
 			dflg | AuthAttr,
 			CMSG_SIGNED,             // message type
 			&SignedMsgEncodeInfo,    // pointer to structure
-			NULL,                    // inner content OID
+			inner,                    // inner content OID
 			NULL);
 		if (hMsg)
 		{
 			// Add the signature
 			if (Params.Debug) printf("Signing...\r\n");
 			Signature.resize(cbEncodedBlob);
-			if (CryptMsgUpdate(hMsg, (BYTE*)data, (DWORD)sz, true))
+			bool CU = CryptMsgUpdate(hMsg, (BYTE*)data, (DWORD)sz, true);
+			if (CU)
 			{
 				if (CryptMsgGetParam(
 					hMsg,               // Handle to the message

@@ -122,7 +122,7 @@ public:
 		bool ASiC = false; // True if this is for ASiC
 		bool Debug = false;
 		bool PAdES = false; // True if PAdES, to eliminate self timestamp
-		bool PE = false; // True if PE
+		std::vector<char> PE; // If PE, put the data to hash there
 		PDFSIGNPARAMETERS pdfparams;
 		bool XMLComments = false;
 		

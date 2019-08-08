@@ -443,15 +443,46 @@ ResponderID ::= CHOICE {
 -- PE
 
 
+SpcPeImageFlags ::= BIT STRING {
+    includeResources            (0),
+    includeDebugInfo            (1),
+    includeImportAddressTable   (2)
+}
+
+SpcString ::= CHOICE {
+    unicode                 [0] IMPLICIT BMPString,
+    ascii                   [1] IMPLICIT IA5String
+}
+
+SpcUuid ::= OCTET STRING
+
+SpcSerializedObject ::= SEQUENCE {
+    classId             SpcUuid,
+    serializedData      OCTET STRING
+}
+
+
+
+SpcLink ::= CHOICE {
+    url                     [0] IMPLICIT IA5String,
+    moniker                 [1] IMPLICIT SpcSerializedObject,
+    file                    [2] EXPLICIT SpcString
+} --#public--
+
+
+SpcPeImageData ::= SEQUENCE {
+   flags                   SpcPeImageFlags DEFAULT { includeResources },
+   file                    SpcLink
+} --#public--
+
+
  AlgorithmIdentifier2 ::= SEQUENCE {
      algorithm          OBJECT IDENTIFIER,
      parameters         [0] EXPLICIT ANY OPTIONAL
  }
 
-  SpcAttributeTypeAndOptionalValue ::= SEQUENCE {
-     type                OBJECT IDENTIFIER,
-     value               [0] EXPLICIT ANY OPTIONAL
- }
+   -- SpcAttributeTypeAndOptionalValue ::= SEQUENCE {     type                OBJECT IDENTIFIER,     value               [0] EXPLICIT ANY OPTIONAL }
+   SpcAttributeTypeAndOptionalValue ::= SEQUENCE {     type                OBJECT IDENTIFIER,     value               SpcPeImageData }
 
   
  DigestInfo ::= SEQUENCE {
@@ -463,7 +494,16 @@ ResponderID ::= CHOICE {
      data               SpcAttributeTypeAndOptionalValue,
      messageDigest      DigestInfo
  }
-  
+
+   SpcSpOpusInfo ::= SEQUENCE {
+        programName             [0] EXPLICIT SpcString OPTIONAL,
+        moreInfo                [1] EXPLICIT SpcLink OPTIONAL
+    } --#public--
+
+ 
+
+
+
   SigDataV1Serialized ::= SEQUENCE {
      algorithmIdSize    INTEGER,
      compiledHashSize   INTEGER,
@@ -488,7 +528,7 @@ ResponderID ::= CHOICE {
      version            INTEGER,
      format             INTEGER
  }
-  
+
  
 
 END

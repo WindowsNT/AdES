@@ -69,10 +69,17 @@ ASN_MODULE_SOURCES=	\
 	OtherRevRefType.c	\
 	ResponderID.c	\
 	KeyHash.c	\
+	SpcPeImageFlags.c	\
+	SpcString.c	\
+	SpcUuid.c	\
+	SpcSerializedObject.c	\
+	SpcLink.c	\
+	SpcPeImageData.c	\
 	AlgorithmIdentifier2.c	\
 	SpcAttributeTypeAndOptionalValue.c	\
 	DigestInfo.c	\
 	SpcIndirectDataContent.c	\
+	SpcSpOpusInfo.c	\
 	SigDataV1Serialized.c	\
 	SpcIndirectDataContentV2.c	\
 	SigFormatDescriptorV1.c
@@ -148,10 +155,17 @@ ASN_MODULE_HEADERS=	\
 	OtherRevRefType.h	\
 	ResponderID.h	\
 	KeyHash.h	\
+	SpcPeImageFlags.h	\
+	SpcString.h	\
+	SpcUuid.h	\
+	SpcSerializedObject.h	\
+	SpcLink.h	\
+	SpcPeImageData.h	\
 	AlgorithmIdentifier2.h	\
 	SpcAttributeTypeAndOptionalValue.h	\
 	DigestInfo.h	\
 	SpcIndirectDataContent.h	\
+	SpcSpOpusInfo.h	\
 	SigDataV1Serialized.h	\
 	SpcIndirectDataContentV2.h	\
 	SigFormatDescriptorV1.h

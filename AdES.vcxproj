@@ -141,6 +141,13 @@
     <ClCompile Include="SpcAttributeTypeAndOptionalValue.c" />
     <ClCompile Include="SpcIndirectDataContent.c" />
     <ClCompile Include="SpcIndirectDataContentV2.c" />
+    <ClCompile Include="SpcLink.c" />
+    <ClCompile Include="SpcPeImageData.c" />
+    <ClCompile Include="SpcPeImageFlags.c" />
+    <ClCompile Include="SpcSerializedObject.c" />
+    <ClCompile Include="SpcSpOpusInfo.c" />
+    <ClCompile Include="SpcString.c" />
+    <ClCompile Include="SpcUuid.c" />
     <ClCompile Include="TerminalIdentifier.c" />
     <ClCompile Include="TestTest.c" />
     <ClCompile Include="X121Address.c" />

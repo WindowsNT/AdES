@@ -374,6 +374,27 @@
     <ClCompile Include="AlgorithmIdentifier2.c">
       <Filter>ASNC</Filter>
     </ClCompile>
+    <ClCompile Include="SpcPeImageData.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SpcLink.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SpcPeImageFlags.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SpcSerializedObject.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SpcString.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SpcUuid.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
+    <ClCompile Include="SpcSpOpusInfo.c">
+      <Filter>ASNC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="cades.asn1" />
