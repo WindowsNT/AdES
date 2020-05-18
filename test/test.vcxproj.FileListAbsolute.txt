@@ -1,0 +1,2 @@
+F:\TOOLS\AdES\test\test.exe
+F:\TOOLS\AdES\test\test.pdb

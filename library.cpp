@@ -3547,6 +3547,37 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	RefObject->content.Serialize(strref);
 	strref.resize(strref.size() + 1);
 
+	// Find media box for visible signature
+	float MediaBoxWidth = 0, MediaBoxHeight = 0;
+	for (auto& co : RefObject->content.Contents)
+	{
+		if (co.Name == "MediaBox")
+		{
+			if (!co.Contents.empty())
+			{
+				if (co.Contents.begin()->Type == PDF::INXTYPE::TYPE_ARRAY)
+				{
+					auto spl = split(co.Contents.begin()->Value, ' ');
+					if (spl.size() >= 4)
+					{
+						for (auto& e : spl)
+						{
+							if (MediaBoxWidth == 0)
+							{
+								MediaBoxWidth = atof(e.c_str());
+								if (MediaBoxWidth > 0)
+									continue;
+							}
+							if (MediaBoxHeight == 0)
+								MediaBoxHeight  = atof(e.c_str());
+						}
+
+					}
+				}
+			}
+		}
+	}
+
 	// A Test
 /*	char* a55 = "<</Type/Page/Parent 2 0 R/Resources<</Font<</F1 4 0 R/FAdESFont 14 0 R>>>>/Contents [15 0 R 5 0 R]/Annots[8 0 R]>>";
 	strref.resize(strlen(a55) + 1);
@@ -3559,10 +3590,18 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 	PDF::AddCh(res, "\n");
 	PDF::astring vSignatureDescriptor;
 
+	int sLeft = MediaBoxWidth * (Params.pdfparams.Visible.leftp / 100.0f);
+	int sTop = MediaBoxHeight * ((100 - Params.pdfparams.Visible.topp) / 100.0f);
+	int sWi = MediaBoxWidth * (Params.pdfparams.Visible.wip / 100.0f);
+	int sHe = MediaBoxHeight * ((100 - Params.pdfparams.Visible.botp) / 100.0f);
 
 	if (!Params.pdfparams.Visible.t.empty())
 	{
-		vSignatureDescriptor.Format("%llu 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[%i %i %i %i]/FT/Sig/DR<<>>/T(Signature%llu)/V %llu 0 R/P %llu 0 R/AP<</N %llu 0 R>>>>\nendobj\n", iDescribeSignature, (int)Params.pdfparams.Visible.left, (int)Params.pdfparams.Visible.top - 2, (int)Params.pdfparams.Visible.left + (int)Params.pdfparams.Visible.wi, (int)Params.pdfparams.Visible.top + (int)Params.pdfparams.Visible.fs + 2, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
+		vSignatureDescriptor.Format("%llu 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[%i %i %i %i]/FT/Sig/DR<<>>/T(Signature%llu)/V %llu 0 R/P %llu 0 R/AP<</N %llu 0 R>>>>\nendobj\n", 
+			iDescribeSignature, sLeft,
+			sTop,
+			sWi,
+			sHe, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
 	}
 	else
 		vSignatureDescriptor.Format("%llu 0 obj\n<</F 132/Type/Annot/Subtype/Widget/Rect[0 0 0 0]/FT/Sig/DR<<>>/T(Signature%llu)/V %llu 0 R/P %llu 0 R/AP<</N %llu 0 R>>>>\nendobj\n", iDescribeSignature, CountExistingSignatures + 1, iSignature, iPage, iXOBject);
@@ -3679,22 +3718,42 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		// Auto
 		if (Params.pdfparams.Visible.t == "auto" && Certificates.size() > 0)
 		{
-			std::vector<char> di(1000);
-			CertGetNameStringA(
+			std::vector<wchar_t> di(1000);
+			CertGetNameString(
+				Certificates[0].cert.cert,
+				CERT_NAME_EMAIL_TYPE,
+				0,
+				NULL,
+				di.data(),
+				1000);
+			std::wstring e1 = di.data();
+			CertGetNameString(
 				Certificates[0].cert.cert,
 				CERT_NAME_SIMPLE_DISPLAY_TYPE,
 				0,
 				NULL,
 				di.data(),
 				1000);
-			if (!strlen(di.data()))
-				Params.pdfparams.Visible.t = "PAdES Signature";
-			else
-			{
-				Params.pdfparams.Visible.t = "PAdES Signature: "; 
-				Params.pdfparams.Visible.t  += di.data();
-			}
+			std::wstring e2 = di.data();
 
+			std::wstring tt;
+			if (levx == AdES::LEVEL::CMS)
+				tt = L"Digital Signature: RSA/";
+			if (levx >= AdES::LEVEL::B)
+				tt = L"Digital Signature: PAdES-B/";
+			if (levx >= AdES::LEVEL::T)
+				tt = L"Digital Signature: PAdES-B-T/";
+			if (levx > AdES::LEVEL::XL)
+				tt = L"Digital Signature: PAdES-B-LT/";
+
+			tt += e1;
+			tt += L" ";
+			tt += e2;
+
+			std::vector<char> xd(10000);
+			WideCharToMultiByte(CP_UTF8, 0, tt.c_str(), tt.length(), xd.data(), 10000, 0, 0);
+
+			Params.pdfparams.Visible.t = xd.data();
 			// Find Width
 		}
 
@@ -3713,7 +3772,13 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		vafter += vVisA3;
 
 		PDF::astring vv1;
-		vv1.Format("BT\n%i %i TD\n/F1 %i Tf\n(%s) Tj\nET\n", Params.pdfparams.Visible.left, Params.pdfparams.Visible.top, Params.pdfparams.Visible.fs,Params.pdfparams.Visible.t.c_str());
+
+		float SigFS = 5;
+		if (MediaBoxWidth > 0 && MediaBoxHeight > 0)
+			SigFS *= (MediaBoxHeight / MediaBoxWidth);
+
+		float hmid = fabs(sTop - sHe)/2.0f;
+		vv1.Format("BT\n%i %i TD\n/FAdESFont %i Tf\n(%s) Tj\nET\n", sLeft,(int)(sTop - hmid),(int) SigFS,Params.pdfparams.Visible.t.c_str());
 		long long lele = vv1.length();
 		vVis1.Format("%llu 0 obj\n<</Length %llu>>stream\n%s\nendstream\nendobj\n", iVis1, lele,vv1.c_str());
 		xrefs[iVis1] = vafter.size() + res.size() + 1;

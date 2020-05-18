@@ -81,10 +81,10 @@ public:
 	struct PDFSIGNVISIBLE
 	{
 		std::string t;
-		int left = 1;
-		int top = 15;
-		int fs = 5;
-		int wi = 70;
+		int leftp = 1;
+		int topp = 1;
+		int wip = 50;
+		int botp = 5;
 	};
 
 	struct PDFSIGNPARAMETERS
