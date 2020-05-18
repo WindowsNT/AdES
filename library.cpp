@@ -3713,7 +3713,7 @@ HRESULTERROR AdES::PDFSign(LEVEL levx, const char* d, DWORD sz, const std::vecto
 		vafter += vVisA3;
 
 		PDF::astring vv1;
-		vv1.Format("BT\n%i %i TD\n/F1 %i Tf\n(%s) Tj\nET\n", Params.pdfparams.Visible.left, Params.pdfparams.Visible.top, Params.pdfparams.Visible.fs,Params.pdfparams.Visible.t.c_str());
+		vv1.Format("BT\n%i %i TD\n/FAdESFont %i Tf\n(%s) Tj\nET\n", Params.pdfparams.Visible.left, Params.pdfparams.Visible.top, Params.pdfparams.Visible.fs,Params.pdfparams.Visible.t.c_str());
 		long long lele = vv1.length();
 		vVis1.Format("%llu 0 obj\n<</Length %llu>>stream\n%s\nendstream\nendobj\n", iVis1, lele,vv1.c_str());
 		xrefs[iVis1] = vafter.size() + res.size() + 1;
